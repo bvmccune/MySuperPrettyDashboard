@@ -17,8 +17,15 @@ export default function App(): React.JSX.Element {
   const [route, updateRoute] = useState<Route>(getRoute());
   const [config, updateConfig] = useState<DashboardConfig | null>(null);
   const [nonce, updateNonce] = useState(0);
+  const [entry, updateEntry] = useState(0);
   useEffect(() => {
-    const sub = DeviceEventEmitter.addListener('dashboard_route', (r: Route) => updateRoute(r));
+    const sub = DeviceEventEmitter.addListener('dashboard_route', (r: Route) => {
+      updateRoute(r);
+      // The dashboard often stays mounted while another native app is open.
+      // A repeated 'dashboard' event must reload its data, even when the
+      // route value did not change.
+      if (r === 'dashboard') updateEntry(v => v + 1);
+    });
     return () => sub.remove();
   }, []);
   useEffect(() => {
@@ -39,7 +46,7 @@ export default function App(): React.JSX.Element {
       }
     })().catch(() => {});
     return () => { active = false; };
-  }, [route]);
+  }, [route, entry]);
   return route === 'dashboard'
     ? <PrettyHome config={config} nonce={nonce} onSettings={() => setRoute('config')}/>
     : <SettingsScreen/>;
