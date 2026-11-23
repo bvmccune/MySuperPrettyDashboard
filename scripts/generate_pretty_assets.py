@@ -18,6 +18,7 @@ icons = {
     "quick": '<path d="M14 8l4-4c4-4 10 2 7 6l-6 7M18 24l-4 4c-4 4-11-1-8-6l6-8M12 19l8-8M26 19v10M21 24h10"/>',
     "new-note": '<path d="M8 3h18v21H8zM5 3v21M5 7h5M5 14h5M5 21h5M14 10h7M14 16h7M25 29v-9M20.5 24.5h9"/>',
     "last-note": '<path d="M16 26c-4-3-8-4-13-3V7c5-1 9 0 13 4 4-4 8-5 13-4v16c-5-1-9 0-13 3zM16 11v15M8 4v6M12 5v8M20 8h5M20 13h5"/>',
+    "notebook": '<path d="M10 3h17v25H10zM6 3v25M6 8h6M6 14h6M6 20h6M16 12h7M16 17h7M16 22h5"/>',
     "charging": '<path d="M18 2 8 18h8l-2 12 11-17h-8z"/>',
     "file": '<path d="M8 3h11l6 6v20H8zM19 3v7h6M12 15h9M12 20h9M12 25h6"/>',
     "files": '<path d="M3 10h10l3 3h13v14H3zM3 10V6h10l3 3h10"/>',
