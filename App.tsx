@@ -13,6 +13,7 @@ import {tscale, ZoneView} from './src/zones';
 import {setCornerRadius, ThemedButton, ui} from './src/ui';
 import {SettingsScreen} from './src/settings';
 import {PrettyWeekStrip} from './src/PrettyWeekStrip';
+import {PrettyQuickLaunch} from './src/PrettyQuickLaunch';
 import {autoRefreshTitles} from './src/notetoc';
 import {markOpen, ready, timed} from './src/perf';
 
@@ -172,7 +173,7 @@ function DashboardScreen(): React.JSX.Element {
   // keeps its list position.
   const spanOf = (z: DashboardConfig['zones'][number]) => (columns > 1 ? z.span : undefined);
   const band = (where: 'top' | 'bottom') => {
-    const list = (cfg?.zones ?? []).map((z, i) => ({z, i})).filter(({z}) => spanOf(z) === where);
+    const list = (cfg?.zones ?? []).map((z, i) => ({z, i})).filter(({z}) => z.type !== 'shortcuts' && spanOf(z) === where);
     return list.length ? <View style={{paddingHorizontal: 4}}>{list.map(({z, i}) => renderZone(z, i, 1))}</View> : null;
   };
 
@@ -207,6 +208,7 @@ function DashboardScreen(): React.JSX.Element {
       )}
       {cfg && (
         <ScrollView style={{flex: 1}}>
+          <PrettyQuickLaunch items={cfg.zones.filter(z => z.type === 'shortcuts').flatMap(z => z.type === 'shortcuts' ? z.items : [])} />
           {band('top')}
           {/* Each column is its own independent vertical stack (heights differ freely). */}
           <View style={ui.zoneGrid}>
@@ -214,7 +216,7 @@ function DashboardScreen(): React.JSX.Element {
               <View key={ci} style={ui.zoneCol}>
                 {cfg.zones
                   .map((z, i) => ({z, i}))
-                  .filter(({z}) => !spanOf(z) && colOf(z) === ci)
+                  .filter(({z}) => z.type !== 'shortcuts' && !spanOf(z) && colOf(z) === ci)
                   .map(({z, i}) => renderZone(z, i))}
               </View>
             ))}
