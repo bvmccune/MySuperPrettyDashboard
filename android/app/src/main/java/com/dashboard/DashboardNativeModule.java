@@ -276,6 +276,19 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
                     m.putString("path", c.getAbsolutePath());
                     m.putBoolean("isDir", c.isDirectory());
                     m.putDouble("mtime", (double) c.lastModified());
+                // Creation timestamp for the weekly NOTE activity dots. Avoid
+                // confusing modification time with notebook creation time.
+                try {
+                    java.nio.file.attribute.BasicFileAttributes attrs =
+                        java.nio.file.Files.readAttributes(c.toPath(),
+                            java.nio.file.attribute.BasicFileAttributes.class);
+                    long birth = attrs.creationTime().toMillis();
+                    if (birth > 0 && birth <= System.currentTimeMillis() + 86400000L) {
+                        m.putDouble("createdAt", (double) birth);
+                    }
+                } catch (Throwable ignored) {
+                    // Older firmware / external storage may not expose birth time.
+                }
                     out.pushMap(m);
                 }
             }

@@ -246,7 +246,7 @@ export const DEFAULT_CONFIG: DashboardConfig = {
     {
       type: 'shortcuts',
       title: 'Shortcuts',
-      items: [{kind: 'folder', label: 'Notes', path: '/storage/emulated/0/Note'}],
+      items: [],
     },
     {type: 'recent', title: 'Recent', count: 8, display: 'list'},
     {type: 'stars', title: 'Stars', folders: ['/storage/emulated/0/Note']},
