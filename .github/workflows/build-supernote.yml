@@ -65,6 +65,16 @@ jobs:
           /tmp/pretty-icons-venv/bin/python scripts/generate_pretty_assets.py
           test -s assets/pretty/lizard.png
           test -s android/app/src/main/assets/fonts/GoogleSansFlex.ttf
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          source = Path("src/PrettyHome.tsx").read_text()
+          used = set(re.findall(r"assets/pretty/([\w-]+)\.png", source))
+          missing = sorted(icon for icon in used if not (Path("assets/pretty") / (icon + ".png")).is_file())
+          if missing:
+              raise SystemExit("Missing PrettyHome icons: " + ", ".join(missing))
+          print("Icon references verified:", len(used))
+          PY
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
