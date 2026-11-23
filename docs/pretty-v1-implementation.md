@@ -51,3 +51,10 @@ font registration under the plugin host, creation-time availability, native
 To-do feed availability, New Note action from note and document contexts,
 Favorites navigation, and recognition star scans. Do not treat build success
 as proof of these runtime integrations.
+
+## Documentation validation (build 17)
+- Removed the speculative `openCalendarDay` intent extras: no published date-navigation contract exists for the native Calendar. The verified launcher action opens Calendar, but does not promise a particular selected date. This request is still open.
+- Shortcuts no longer offer Keywords, which was excluded by the owner and previously merely opened Settings.
+- Settings now has a complete Favorites pin manager (add/open/reorder/remove), and a Test open action for Quick access. These are independent of Supernote's native Quick Access and starred file list.
+- Settings saves are serialized; Done reads back persisted values to detect failures rather than silently closing with unsaved choices.
+- Icons are drawings guided by official Supernote public manual and the owner's original device photos, **not native icon resources**. Symbols for Favorites, notebooks, and new notes distinguish app actions; no undocumented asset extraction is claimed.

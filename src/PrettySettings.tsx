@@ -2,7 +2,7 @@
  * Settings for MySuperPrettyDashboard, not the inherited widget-grid wizard.
  * Native Supernote To-do remains authoritative; this screen only connects it.
  */
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {NativeModules, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {DashboardConfig, loadConfig, saveConfig, ShortcutItem} from './config';
 import {ACTIONS, DEFAULT_PRETTY, loadPrettyPrefs, PrettyAction, PrettyPrefs, savePrettyPrefs} from './prettyPrefs';
@@ -50,13 +50,17 @@ export function PrettySettings(): React.JSX.Element {
   const [dir,setDir] = useState(ROOTS[0]);
   const [entries,setEntries] = useState<FileEntry[]>([]);
   const [editingShortcut,setEditingShortcut] = useState<number|null>(null);
+  // Serialize writes: rapid edits must never allow an older save to replace
+  // newer settings. Done waits for disk persistence and verifies the read-back.
+  const saveQueue = useRef<Promise<boolean>>(Promise.resolve(true));
+  const latestPrefs = useRef<PrettyPrefs|null>(null);
 
   useEffect(() => {
     let live=true;
     (async()=>{
       const cfg=await loadConfig();
       const next=await loadPrettyPrefs(cfg);
-      if(live){setLegacy(cfg);setPrefs(next);}
+      if(live){setLegacy(cfg);setPrefs(next);latestPrefs.current=next;}
       const ok=await hasSupernoteLogin().catch(()=>false);
       if(live)setConnected(ok);
     })().catch(e=>{if(live)setStatus(String(e?.message??e));});
@@ -72,8 +76,26 @@ export function PrettySettings(): React.JSX.Element {
   },[dir,picker]);
 
   const save = (next:PrettyPrefs) => {
+    latestPrefs.current=next;
     setPrefs(next);
-    savePrettyPrefs(next).then(ok=>{if(!ok)setStatus('Could not save settings. Check file permissions.');}).catch(()=>setStatus('Could not save settings.'));
+    saveQueue.current=saveQueue.current.catch(()=>false).then(async()=>{
+      const ok=await savePrettyPrefs(next);
+      if(!ok)setStatus('Could not save settings. Check file permissions.');
+      return ok;
+    });
+  };
+  const saveAndExit = async () => {
+    if(busy)return;
+    setBusy(true);setStatus('');
+    try{
+      const ok=await saveQueue.current;
+      if(!ok)throw new Error('Saving failed. Settings have not been confirmed on disk.');
+      const check=await loadPrettyPrefs(legacy);
+      if(JSON.stringify(check)!==JSON.stringify(latestPrefs.current))
+        throw new Error('Saved settings differ from your selections. Please try again.');
+      setRoute('dashboard');
+    }catch(e:any){setStatus(String(e?.message??e));}
+    finally{setBusy(false);}
   };
   const pin = (path:string,isDir:boolean) => {
     if(!prefs || !picker)return;
@@ -163,7 +185,7 @@ export function PrettySettings(): React.JSX.Element {
       <View style={styles.top}>
         <TextLine big>MySuperPrettyDashboard settings</TextLine>
         <View style={{flex:1}}/>
-        <Action filled onPress={()=>setRoute('dashboard')}>Done · Back to dashboard</Action>
+        <Action filled disabled={busy} onPress={saveAndExit}>Done · Save and return</Action>
       </View>
       <ScrollView style={{flex:1}}>
         <Group title="Supernote To-do · your existing list">
@@ -196,7 +218,7 @@ export function PrettySettings(): React.JSX.Element {
           {prefs.quick.map((item,i)=>(
             <View style={styles.entry} key={item.path}>
               <View style={{flex:1}}><TextLine>{item.label}</TextLine><TextLine faint>{item.path}</TextLine></View>
-              <Action small onPress={()=>openPin(item)}>Open</Action>
+              <Action small onPress={()=>openPin(item)}>Test open</Action>
               <Action small onPress={()=>movePin('quick',i,-1)}>↑</Action>
               <Action small onPress={()=>movePin('quick',i,1)}>↓</Action>
               <Action small onPress={()=>removePin('quick',i)}>Remove</Action>
@@ -205,7 +227,7 @@ export function PrettySettings(): React.JSX.Element {
           <Action filled onPress={()=>{setDir(ROOTS[0]);setPicker('quick');}}>+ Pin a notebook, document, or folder</Action>
         </Group>
         <Group title="Favorites · your dashboard links">
-          <TextLine faint>These favorites are separate from Supernote's built-in starred Files. Add the notebooks, PDFs, or folders you want to find quickly; tap Favorites on Home to open this list. Changes save automatically.</TextLine>
+          <TextLine faint>These favorites are separate from Supernote's built-in starred Files. Add the notebooks, PDFs, or folders you want to find quickly; tap Favorites on Home to open this list. Changes save automatically; Done verifies the save.</TextLine>
           {prefs.favorites.length===0&&<TextLine faint>No favorites yet. Add one below to populate the Favorites screen.</TextLine>}
           {prefs.favorites.map((item,i)=>(
             <View style={styles.entry} key={item.path}>

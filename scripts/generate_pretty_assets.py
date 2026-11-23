@@ -13,7 +13,9 @@ OUT = ROOT / "assets" / "pretty"
 OUT.mkdir(parents=True, exist_ok=True)
 
 icons = {
-    "quick": '<rect x="7" y="5" width="19" height="23" rx="1.7"/><path d="M11 3v5M11 12h11M11 17h11M11 22h7"/>',
+    # Official Supernote Toolbar's Quick Access icon is a linked chain +, not a notebook.
+    # Reference: https://support.supernote.com/en_US/introduction-to-the-toolbar
+    "quick": '<path d="M14 8l4-4c4-4 10 2 7 6l-6 7M18 24l-4 4c-4 4-11-1-8-6l6-8M12 19l8-8M26 19v10M21 24h10"/>',
     "new-note": '<path d="M8 3h18v21H8zM5 3v21M5 7h5M5 14h5M5 21h5M14 10h7M14 16h7M25 29v-9M20.5 24.5h9"/>',
     "last-note": '<path d="M16 26c-4-3-8-4-13-3V7c5-1 9 0 13 4 4-4 8-5 13-4v16c-5-1-9 0-13 3zM16 11v15M8 4v6M12 5v8M20 8h5M20 13h5"/>',
     "charging": '<path d="M18 2 8 18h8l-2 12 11-17h-8z"/>',

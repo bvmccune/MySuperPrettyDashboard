@@ -31,7 +31,7 @@ const FONT = 'GoogleSansFlex';
 // using small monochrome line paths based on the native Supernote UI reference.
 type IconName =
   | 'quick' | 'new-note' | 'file' | 'files' | 'calendar' | 'todo' | 'list' | 'recent'
-  | 'search' | 'favorites' | 'star' | 'book' | 'home' | 'settings' | 'grid' | 'last-note' | 'charging'
+  | 'search' | 'favorites' | 'star' | 'book' | 'home' | 'settings' | 'grid' | 'last-note' | 'charging' | 'notebook'
   | 'edit' | 'plus' | 'refresh' | 'back'
   | 'lizard' | 'stars' | 'dice' | 'ramen' | 'controller' | 'jellyfish'
   | 'plants' | 'octopus' | 'rocks' | 'coffee';
@@ -50,6 +50,7 @@ const images: Record<IconName, ImageSourcePropType> = {
   star: require('../assets/pretty/star.png'),
   book: require('../assets/pretty/book.png'),
   'last-note': require('../assets/pretty/last-note.png'),
+  notebook: require('../assets/pretty/notebook.png'),
   charging: require('../assets/pretty/charging.png'),
   home: require('../assets/pretty/home.png'),
   settings: require('../assets/pretty/settings.png'),
@@ -109,7 +110,7 @@ function shortDate(time?: number): string {
   return String(d.getMonth() + 1) + '/' + String(d.getDate());
 }
 function kindIcon(path: string): IconName {
-  return /\.note$/i.test(path) ? 'book' : 'file';
+  return /\.note$/i.test(path) ? 'notebook' : 'file';
 }
 function validDay(time: number): string | null {
   return Number.isFinite(time) && time > 0 ? dayKey(new Date(time)) : null;
@@ -297,10 +298,11 @@ export function PrettyHome({
     else openFile(it.path, it.kind === 'note-page' ? it.page : 0);
   };
   const openTask = (_t: DashboardTask) => {launchApp(APPS.todo);};
-  const openCalendar = (date: Date) => {
-    // Fire explicit dated intent; returns to native Supernote Calendar.
-    const iso = dayKey(date);
-    DashboardNative.openCalendarDay(iso).then(() => leavePlugin()).catch(() => launchApp(APPS.calendar));
+  const openCalendar = (_date: Date) => {
+    // Native Calendar launching is tested through the community's Android
+    // Activity integration. No documented intent extra navigates to a chosen
+    // day, so do not send guessed extras or claim day navigation works.
+    launchApp(APPS.calendar);
   };
   const openLastNote = () => {
     const last = recent.find(path => /\.note$/i.test(path));
@@ -353,7 +355,6 @@ export function PrettyHome({
     'last-note': openLastNote,
     todo: () => launchApp(APPS.todo),
     'new-note': newNote,
-    keywords: () => onSettings(),
     'quick-access': () => setOverlay('quick'),
   };
 
@@ -412,7 +413,7 @@ export function PrettyHome({
     <View style={[styles.root, {paddingHorizontal: 17 * s, paddingTop: 8 * s, paddingBottom: 8 * s}]}>
       <View style={{height: headerHeight, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
         <TouchableOpacity onPress={() => openCalendar(now)} accessibilityRole="button"
-          accessibilityLabel="Open calendar to today" style={{flex: 1, justifyContent: 'center'}}>
+          accessibilityLabel="Open Supernote Calendar" style={{flex: 1, justifyContent: 'center'}}>
           <Label size={22 * s} style={{marginBottom: 3 * s}}>{dateLabel(now)}</Label>
           <Label size={52 * s} style={{lineHeight: 57 * s, fontWeight: '500'}}>{timeLabel(now)}</Label>
         </TouchableOpacity>
@@ -437,7 +438,7 @@ export function PrettyHome({
       <View style={{height: weekHeight, flexDirection: 'row', borderBottomWidth: 1, borderColor: '#a8a8a8'}}>
         {days.map(({label, date, today, hasNotes}) => (
           <TouchableOpacity onPress={() => openCalendar(date)} key={label} accessibilityRole="button"
-            accessibilityLabel={'Open calendar for '+date.toDateString()}
+            accessibilityLabel={'Open Supernote Calendar; date '+date.toDateString()}
             style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}> 
             <Label size={19 * s} style={{marginBottom: 5 * s}}>{label}</Label>
             <View style={{width: 40 * s, height: 40 * s, borderRadius: 25 * s,

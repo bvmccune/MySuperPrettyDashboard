@@ -825,35 +825,6 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
         }
     }
 
-    /**
-     * Start Calendar at a requested local day. Supernote does not publish the
-     * receiving Activity's intent extras: these are best-effort, not a promise
-     * that the calendar will honor the requested date. Clearing the old task
-     * at least prevents a stale day in its already-running activity.
-     */
-    @ReactMethod
-    public void openCalendarDay(String localDay, Promise promise) {
-        try {
-            java.text.SimpleDateFormat dateOnly = new java.text.SimpleDateFormat(
-                "yyyy-MM-dd", java.util.Locale.US);
-            dateOnly.setLenient(false);
-            java.util.Date date = dateOnly.parse(localDay);
-            if (date == null) throw new IllegalArgumentException("Invalid date");
-            Intent intent = new Intent(Intent.ACTION_MAIN);
-            intent.addCategory(Intent.CATEGORY_LAUNCHER);
-            intent.setComponent(new ComponentName("com.ratta.supernote.calendar",
-                    "com.ratta.supernote.calendar.MainActivity"));
-            intent.putExtra("selectedDate", date.getTime());
-            intent.putExtra("date", date.getTime());
-            intent.putExtra("selected_date", localDay);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            getReactApplicationContext().startActivity(intent);
-            promise.resolve(true);
-        } catch (Exception e) {
-            promise.reject("CALENDAR_DATE_FAILED", "Cannot open requested calendar day", e);
-        }
-    }
-
     @ReactMethod
     public void secureSaveTodoToken(String token, Promise promise) {
         try {
