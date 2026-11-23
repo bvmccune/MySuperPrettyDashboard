@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
 
     steps:
       - name: Checkout repository
@@ -25,34 +25,90 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Install Android components
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0 ndk;27.1.12297006'
+          log-accepted-android-sdk-licenses: 'false'
+
+      - name: Verify build environment
+        shell: bash
         run: |
-          sdkmanager --install \
-            "platforms;android-35" \
-            "build-tools;35.0.0" \
-            "ndk;27.1.12297006"
+          set -euo pipefail
+          node --version
+          npm --version
+          java -version
+          sdkmanager --version
+          test -n "${ANDROID_HOME:-}"
+          test -d "$ANDROID_HOME/platforms/android-35"
+          test -d "$ANDROID_HOME/build-tools/35.0.0"
+          test -d "$ANDROID_HOME/ndk/27.1.12297006"
+          test -f android/gradlew
+          test -f package-lock.json
+          test -f PluginConfig.json
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
-      - name: Build plugin
+      - name: Build Supernote plugin
+        shell: bash
         run: |
+          set -euo pipefail
           chmod +x buildPlugin.sh
           ./buildPlugin.sh
 
       - name: Verify plugin package
+        shell: bash
         run: |
-          test -s build/outputs/SuperDashboard.snplg
-          unzip -t build/outputs/SuperDashboard.snplg
-          unzip -l build/outputs/SuperDashboard.snplg
-          unzip -p build/outputs/SuperDashboard.snplg PluginConfig.json > /tmp/plugin-config.json
-          python3 -c 'import json; c=json.load(open("/tmp/plugin-config.json")); assert c.get("nativeCodePackage") == "/app.npk", "Missing native package"'
-          unzip -l build/outputs/SuperDashboard.snplg | grep 'app.npk'
+          set -euo pipefail
 
-      - name: Upload plugin
+          PACKAGE="build/outputs/SuperDashboard.snplg"
+
+          test -s "$PACKAGE"
+          unzip -t "$PACKAGE"
+
+          unzip -p "$PACKAGE" PluginConfig.json \
+            > /tmp/plugin-config.json
+
+          python3 - <<'PY'
+          import json
+          from zipfile import ZipFile
+
+          path = "build/outputs/SuperDashboard.snplg"
+
+          with open("/tmp/plugin-config.json") as f:
+              config = json.load(f)
+
+          with ZipFile(path) as package:
+              files = set(package.namelist())
+
+              assert config.get("pluginID"), \
+                  "Missing plugin ID"
+
+              assert config.get("jsMainPath"), \
+                  "Missing JS entry point"
+
+              assert config.get("nativeCodePackage") == "/app.npk", \
+                  "Missing native package reference"
+
+              assert "app.npk" in files, \
+                  "Native package absent"
+
+              assert package.getinfo("app.npk").file_size > 0, \
+                  "Native package is empty"
+
+              assert any(
+                  name.endswith(".bundle")
+                  for name in files
+              ), "JavaScript bundle missing"
+
+          print("Package structure verified")
+          PY
+
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MySuperPrettyDashboard
+          name: MySuperPrettyDashboard-baseline
           path: build/outputs/SuperDashboard.snplg
           if-no-files-found: error
-
+          retention-days: 14
