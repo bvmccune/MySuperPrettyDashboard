@@ -4,7 +4,7 @@ import {DeviceEventEmitter, NativeModules} from 'react-native';
 import {DashboardConfig, loadConfig} from './src/config';
 import {PrettyHome} from './src/PrettyHome';
 import {getRoute, Route, setRoute} from './src/route';
-import {SettingsScreen} from './src/settings';
+import {PrettySettings} from './src/PrettySettings';
 import {markOpen, ready} from './src/perf';
 
 const {DashboardNative} = NativeModules;
@@ -49,5 +49,5 @@ export default function App(): React.JSX.Element {
   }, [route, entry]);
   return route === 'dashboard'
     ? <PrettyHome config={config} nonce={nonce} onSettings={() => setRoute('config')}/>
-    : <SettingsScreen/>;
+    : <PrettySettings/>;
 }

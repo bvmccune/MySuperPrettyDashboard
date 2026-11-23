@@ -12,26 +12,26 @@ import {
   DeviceEventEmitter, Image, ImageSourcePropType, Modal, NativeModules,
   ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View,
 } from 'react-native';
-import {PluginFileAPI, NativeUIUtils} from 'sn-plugin-lib';
+import {PluginFileAPI, PluginCommAPI, NativeUIUtils} from 'sn-plugin-lib';
 
 import {DashboardConfig, ShortcutItem} from './config';
 import {leavePlugin} from './bubble';
 import {launchApp, openFile, openFolder} from './open';
 import {readRecent} from './recent';
-import {listClips, Clip} from './clips';
-import {dayKey, dueBucket, dueLabel, loadRelay, RelayTask} from './relay';
+import {dayKey, dueBucket, dueLabel} from './relay';
+import {loadPrettyPrefs, PrettyPrefs, ACTIONS, PrettyAction} from './prettyPrefs';
+import {readNativeSupernoteTasks} from './prettyCloud';
 import {scanStars, StarNote} from './scanner';
 
 const {DashboardNative} = NativeModules;
 const NOTE_ROOT = '/storage/emulated/0/Note';
-const BASE = '/storage/emulated/0';
 const FONT = 'GoogleSansFlex';
 
 // Source art is generated deterministically by scripts/generate_pretty_assets.py,
 // using small monochrome line paths based on the native Supernote UI reference.
 type IconName =
   | 'quick' | 'new-note' | 'file' | 'files' | 'calendar' | 'todo' | 'list' | 'recent'
-  | 'search' | 'favorites' | 'star' | 'book' | 'home' | 'settings' | 'grid'
+  | 'search' | 'favorites' | 'star' | 'book' | 'home' | 'settings' | 'grid' | 'last-note' | 'charging'
   | 'edit' | 'plus' | 'refresh' | 'back'
   | 'lizard' | 'stars' | 'dice' | 'ramen' | 'controller' | 'jellyfish'
   | 'plants' | 'octopus' | 'rocks' | 'coffee';
@@ -49,6 +49,8 @@ const images: Record<IconName, ImageSourcePropType> = {
   favorites: require('../assets/pretty/favorites.png'),
   star: require('../assets/pretty/star.png'),
   book: require('../assets/pretty/book.png'),
+  'last-note': require('../assets/pretty/last-note.png'),
+  charging: require('../assets/pretty/charging.png'),
   home: require('../assets/pretty/home.png'),
   settings: require('../assets/pretty/settings.png'),
   grid: require('../assets/pretty/grid.png'),
@@ -82,9 +84,9 @@ const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const FOOTER: IconName[] = ['lizard', 'stars', 'dice', 'ramen', 'controller', 'jellyfish', 'plants', 'octopus', 'rocks', 'coffee'];
 const FILE_RE = /\.(note|pdf|epub|cbz|xps|fb2)$/i;
 
-type TasksSource = 'relay' | 'clips' | 'none';
-type DashboardTask = {id: string; title: string; due: string | null; note: string | null; page: number; source: TasksSource};
-type Overlay = 'quick' | 'recent' | 'stars' | null;
+type TasksSource = 'native' | 'none';
+type DashboardTask = {id: string; title: string; due: string | null; source: 'native'};
+type Overlay = 'quick' | 'recent' | 'favorites' | 'stars' | null;
 type FileInfo = {mtime?: number; createdAt?: number};
 
 function mondayOf(now: Date): Date {
@@ -111,15 +113,6 @@ function kindIcon(path: string): IconName {
 }
 function validDay(time: number): string | null {
   return Number.isFinite(time) && time > 0 ? dayKey(new Date(time)) : null;
-}
-function relayTask(t: RelayTask): DashboardTask {
-  return {id: t.id, title: t.title, due: t.due, note: t.note?.path ?? null, page: t.note?.page ?? 0, source: 'relay'};
-}
-function clipTask(c: Clip): DashboardTask {
-  return {
-    id: c.id, title: (c.text || c.labels.join(', ') || fileLabel(c.sourcePath)).trim().replace(/\s+/g, ' '),
-    due: null, note: c.sourcePath, page: 0, source: 'clips',
-  };
 }
 function sortTasks(tasks: DashboardTask[], now: Date): DashboardTask[] {
   const rank: Record<string, number> = {overdue: 0, today: 1, tomorrow: 2, week: 3, later: 4, none: 5};
@@ -181,15 +174,19 @@ export function PrettyHome({
   // All sizes are Android dp. Proportional to the usable plugin window, rather
   // than blindly treating the Manta's physical 1920x2560 pixels as dp.
   const s = Math.max(0.78, Math.min(width / 760, height / 950, 1.28));
-  const body = 18 * s;
-  const heading = 20 * s;
-  const secondary = 13 * s;
+  const [prefs, setPrefs] = useState<PrettyPrefs | null>(null);
+  const sizeBoost = prefs?.size === 'extra' ? 1.17 : prefs?.size === 'normal' ? 0.94 : 1.06;
+  const body = 19 * s * sizeBoost;
+  const heading = 21 * s * sizeBoost;
+  const secondary = 14 * s * sizeBoost;
   const thin = '#b7b7b7';
   const [now, setNow] = useState(() => new Date());
   const [battery, setBattery] = useState<{level: number; charging: boolean} | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
   const [tasks, setTasks] = useState<DashboardTask[]>([]);
   const [taskSource, setTaskSource] = useState<TasksSource>('none');
+  const [taskError, setTaskError] = useState('');
+  const [taskLoading, setTaskLoading] = useState(true);
   const [info, setInfo] = useState<Record<string, FileInfo>>({});
   const [createdDays, setCreatedDays] = useState<Set<string>>(new Set());
   const [overlay, setOverlay] = useState<Overlay>(null);
@@ -197,35 +194,28 @@ export function PrettyHome({
   const [starNotes, setStarNotes] = useState<StarNote[]>([]);
   const [starLoading, setStarLoading] = useState(false);
 
-  const pinned = useMemo(
-    () => config?.zones.filter(z => z.type === 'shortcuts').flatMap(z => z.type === 'shortcuts' ? z.items : []) ?? [],
-    [config],
-  );
+  const pinned = useMemo(() => prefs?.quick ?? [], [prefs]);
+  const favPinned = useMemo(() => prefs?.favorites ?? [], [prefs]);
+  useEffect(() => {
+    let live = true;
+    loadPrettyPrefs(config).then(next => {if (live) setPrefs(next);}).catch(() => {});
+    return () => {live = false;};
+  }, [config, nonce]);
 
   const refresh = useCallback(() => {
     setNow(new Date());
     DashboardNative?.getBattery?.().then(setBattery).catch(() => {});
     readRecent().then(paths => setRecent(paths.filter(p => FILE_RE.test(p)))).catch(() => {});
-    // Native To-do's private database is not readable by current PluginHost
-    // permissions. Relay's local export (if present) is the explicit bridge.
-    loadRelay().then(st => {
-      if (st.feed) {
-        setTasks(st.feed.tasks.filter(t => !t.done).map(relayTask));
-        setTaskSource('relay');
-      } else {
-        listClips().then(clips => {
-          const open = clips.filter(c => c.kind === 'todo' && !c.done);
-          setTasks(open.map(clipTask));
-          setTaskSource(open.length ? 'clips' : 'none');
-        }).catch(() => {setTasks([]); setTaskSource('none');});
-      }
-    }).catch(() => {
-      listClips().then(clips => {
-        const open = clips.filter(c => c.kind === 'todo' && !c.done);
-        setTasks(open.map(clipTask));
-        setTaskSource(open.length ? 'clips' : 'none');
-      }).catch(() => {setTasks([]); setTaskSource('none');});
-    });
+    // Only the real Supernote To-do data. No local/duplicate task fallback.
+    setTaskLoading(true);
+    readNativeSupernoteTasks().then(result => {
+      setTasks(result.tasks.map(t => ({id:t.id,title:t.title,due:t.due,source:'native'})));
+      setTaskSource('native');
+      setTaskError(result.truncated ? 'Supernote returned an incomplete task list.' : '');
+    }).catch(e => {
+      setTasks([]);setTaskSource('none');
+      setTaskError(String(e?.message ?? 'Could not read Supernote To-do.'));
+    }).finally(() => setTaskLoading(false));
   }, []);
 
   useEffect(() => {
@@ -288,12 +278,12 @@ export function PrettyHome({
     if (overlay !== 'stars') return;
     let alive = true;
     setStarLoading(true);
-    scanStars([NOTE_ROOT], 'off', false)
+    scanStars([NOTE_ROOT], prefs?.starPreview ?? 'image', false)
       .then(data => { if (alive) setStarNotes(data.notes); })
       .catch(() => { if (alive) setStarNotes([]); })
       .finally(() => { if (alive) setStarLoading(false); });
     return () => { alive = false; };
-  }, [overlay, nonce]);
+  }, [overlay, nonce, prefs?.starPreview]);
 
   const activeTasks = useMemo(() => sortTasks(tasks, now).slice(0, 5), [tasks, now]);
   const weekStart = mondayOf(now);
@@ -306,9 +296,11 @@ export function PrettyHome({
     if (it.kind === 'folder') openFolder(it.path);
     else openFile(it.path, it.kind === 'note-page' ? it.page : 0);
   };
-  const openTask = (t: DashboardTask) => {
-    if (t.note) openFile(t.note, t.page);
-    else launchApp(APPS.todo);
+  const openTask = (_t: DashboardTask) => {launchApp(APPS.todo);};
+  const openCalendar = (date: Date) => {
+    // Fire explicit dated intent; returns to native Supernote Calendar.
+    const iso = dayKey(date);
+    DashboardNative.openCalendarDay(iso).then(() => leavePlugin()).catch(() => launchApp(APPS.calendar));
   };
   const openLastNote = () => {
     const last = recent.find(path => /\.note$/i.test(path));
@@ -324,26 +316,55 @@ export function PrettyHome({
       const path = NOTE_ROOT + '/' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) +
         '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()) + '.note';
       const api = PluginFileAPI as any;
-      if (typeof api.createNote !== 'function') throw new Error('not supported');
-      const result = await api.createNote({notePath: path, template: '', mode: 1, isPortrait: true});
-      if (result === false || result?.success === false) throw new Error('createNote failed');
-      openFile(path);
-    } catch {
-      await NativeUIUtils.showRattaDialog('Could not create a new notebook from this plugin. Opening Files instead.', '', 'OK', false).catch(() => {});
-      launchApp(APPS.files);
+      if (typeof api.createNote !== 'function') throw new Error('Supernote createNote is not available.');
+      // Empty string fails SDK input validation. Its real system templates
+      // expose a human name and vUri. Try the first portrait template names.
+      const templates: any[] = await PluginCommAPI.getNoteSystemTemplates() as any[] ?? [];
+      const blank = templates.find(t => /blank|plain|empty|white/i.test(t.name ?? '')) ?? templates[0];
+      const candidates = [blank?.name, blank?.vUri, ...templates.slice(0, 2).map(t => t.name)]
+        .filter((v, i, arr): v is string => typeof v === 'string' && !!v && arr.indexOf(v) === i);
+      if (!candidates.length) throw new Error('No blank note template is available on this firmware.');
+      let lastError = 'The device refused to create a note.';
+      let created = false;
+      for (const template of candidates) {
+        try {
+          const response: any = await api.createNote({
+            notePath: path, template, mode: prefs?.noteMode ?? 1, isPortrait: true,
+          });
+          if (response?.success === true && response?.result !== false) {
+            created = true; break;
+          }
+          lastError = String(response?.error?.message ?? 'Supernote rejected template ' + template);
+        } catch (e: any) {lastError = String(e?.message ?? e);}
+      }
+      if (!created) throw new Error(lastError);
+      await openFile(path);
+    } catch (error: any) {
+      NativeUIUtils.showRattaDialog('New note could not be created: ' +
+        String(error?.message ?? error), '', 'OK', false).catch(() => {});
     } finally {setBusy(false);}
   };
+  const shortcutActions: Record<PrettyAction, () => void> = {
+    calendar: () => openCalendar(new Date()),
+    files: () => launchApp(APPS.files),
+    favorites: () => setOverlay('favorites'),
+    search: () => launchApp(APPS.search),
+    stars: () => setOverlay('stars'),
+    'last-note': openLastNote,
+    todo: () => launchApp(APPS.todo),
+    'new-note': newNote,
+    keywords: () => onSettings(),
+    'quick-access': () => setOverlay('quick'),
+  };
 
-  const shortcutItems: Array<{label: string; icon: IconName; action: () => void}> = [
-    {label: 'Calendar', icon: 'calendar', action: () => launchApp(APPS.calendar)},
-    {label: 'Files', icon: 'files', action: () => launchApp(APPS.files)},
-    {label: 'Favorites', icon: 'favorites', action: () => launchApp(APPS.files)},
-    {label: 'Search', icon: 'search', action: () => launchApp(APPS.search)},
-    {label: 'Stars', icon: 'star', action: () => setOverlay('stars')},
-    {label: 'Last opened note', icon: 'book', action: openLastNote},
-  ];
+  const shortcutItems = (prefs?.shortcuts ?? ['calendar','files','favorites','search','stars','last-note'])
+    .map(key => {
+      const action = ACTIONS.find(a => a.key === key)!;
+      return {label: action?.name ?? key, icon: (action?.icon ?? 'grid') as IconName,
+        action: shortcutActions[key as PrettyAction]};
+    });
 
-  const listRowH = 43 * s;
+  const listRowH = 67 * s;
   const fileRow = (path: string, i: number, date?: number) => (
     <TouchableOpacity key={path + i} onPress={() => openFile(path)} style={[styles.fileRow, {height: listRowH}]}>
       <Icon name={kindIcon(path)} size={21 * s}/>
@@ -377,11 +398,11 @@ export function PrettyHome({
   };
 
   const noTasks = () => (
-    <View style={{paddingTop: 16 * s, paddingHorizontal: 7}}>
+    <TouchableOpacity onPress={taskSource === 'none' ? onSettings : () => launchApp(APPS.todo)} style={{paddingTop: 16 * s, paddingHorizontal: 7}}>
       <Label size={Math.max(13, body - 2)} muted lines={3}>
-        {taskSource === 'none' ? 'No task feed available. Tap View all to open Supernote To-do.' : 'No incomplete tasks.'}
+        {taskLoading ? 'Loading Supernote To-do…' : taskError || (taskSource === 'native' ? 'No incomplete Supernote tasks.' : 'Connect Supernote To-do in dashboard Settings.')}
       </Label>
-    </View>
+    </TouchableOpacity>
   );
 
   const headerHeight = 117 * s;
@@ -389,29 +410,35 @@ export function PrettyHome({
   const footerHeight = 56 * s;
   return (
     <View style={[styles.root, {paddingHorizontal: 17 * s, paddingTop: 8 * s, paddingBottom: 8 * s}]}>
-      <View style={{height: headerHeight, flexDirection: 'row', justifyContent: 'space-between'}}>
-        <View style={{justifyContent: 'center', flex: 1}}>
+      <View style={{height: headerHeight, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+        <TouchableOpacity onPress={() => openCalendar(now)} accessibilityRole="button"
+          accessibilityLabel="Open calendar to today" style={{flex: 1, justifyContent: 'center'}}>
           <Label size={22 * s} style={{marginBottom: 3 * s}}>{dateLabel(now)}</Label>
           <Label size={52 * s} style={{lineHeight: 57 * s, fontWeight: '500'}}>{timeLabel(now)}</Label>
-        </View>
-        <View style={{alignItems: 'flex-end', justifyContent: 'space-between'}}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
-            <View style={{width: 28 * s, height: 13 * s, borderWidth: 1.8, borderColor: '#111', borderRadius: 2,
-              marginRight: 5, padding: 2, justifyContent: 'center'}}>
-              <View style={{width: battery?.level != null && battery.level >= 0 ? (battery.level / 100 * 100) + '%' : '50%',
-                height: '100%', backgroundColor: '#111'}} />
-              <View style={{position: 'absolute', right: -4, width: 2, height: 6, backgroundColor: '#111'}} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={newNote} accessibilityRole="button"
+          accessibilityLabel="Create a new note" style={{width: 80 * s, height: 83 * s, alignItems:'center',justifyContent:'center',marginRight:20*s}}>
+          <Icon name="new-note" size={59*s}/>
+        </TouchableOpacity>
+        <View style={{flexDirection: 'row',alignItems:'center',marginRight:12*s}}>
+          <View style={{flexDirection:'row',alignItems:'center',minWidth:85*s}}>
+            <View style={{width:26*s,height:13*s,borderWidth:1.5,borderColor:'#111',borderRadius:2,padding:2,justifyContent:'center',marginRight:4*s}}>
+              <View style={{width:Math.max(0,Math.min(100,battery?.level??0))*0.18*s,
+                height:6*s,backgroundColor:'#111'}}/>
             </View>
-            <Label size={16 * s} style={{marginRight: 10}}>{battery?.level != null && battery.level >= 0 ? battery.level + '%' : '—'}</Label>
-            <TapIcon name="settings" label="Dashboard settings" size={27 * s} onPress={onSettings}/>
-            <TapIcon name="home" label="Close dashboard" size={26 * s} onPress={() => leavePlugin()}/>
+            <View style={{width:3*s,height:6*s,backgroundColor:'#111',marginRight:5*s}}/>
+            <Label size={17*s}>{battery?.level != null && battery.level >= 0 ? battery.level + '%' : '—'}</Label>
+            {battery?.charging && <View style={{marginLeft:4*s}}><Icon name="charging" size={18*s}/></View>}
           </View>
-          <TapIcon name="new-note" label="Create a new note" size={40 * s} onPress={newNote}/>
+          <TapIcon name="settings" label="Dashboard settings" size={30 * s} onPress={onSettings}/>
+          <TapIcon name="home" label="Close dashboard" size={29 * s} onPress={() => leavePlugin()}/>
         </View>
       </View>
       <View style={{height: weekHeight, flexDirection: 'row', borderBottomWidth: 1, borderColor: '#a8a8a8'}}>
         {days.map(({label, date, today, hasNotes}) => (
-          <View key={label} style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}>
+          <TouchableOpacity onPress={() => openCalendar(date)} key={label} accessibilityRole="button"
+            accessibilityLabel={'Open calendar for '+date.toDateString()}
+            style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}> 
             <Label size={19 * s} style={{marginBottom: 5 * s}}>{label}</Label>
             <View style={{width: 40 * s, height: 40 * s, borderRadius: 25 * s,
               alignItems: 'center', justifyContent: 'center', backgroundColor: today ? '#111111' : 'transparent'}}>
@@ -421,7 +448,7 @@ export function PrettyHome({
             <View style={{height: 8 * s, alignItems: 'center', marginTop: 2 * s}}>
               {hasNotes && <View style={{width: 4.5 * s, height: 4.5 * s, borderRadius: 4 * s, backgroundColor: '#222222'}} />}
             </View>
-          </View>
+          </TouchableOpacity>
         ))}
       </View>
 
@@ -432,11 +459,11 @@ export function PrettyHome({
             <SectionHeading icon="quick" title="Quick access" fontSize={heading} viewAll={() => setOverlay('quick')}/>
             {pinned.length
               ? pinned.slice(0, 5).map(pinRow)
-              : <View style={{padding: 11}}><Label size={body - 1} muted>Pin notebooks or documents in Settings.</Label></View>}
+              : <TouchableOpacity onPress={onSettings} style={{padding: 11}}><Label size={body - 1} muted>Tap here to pin notebooks or documents in Settings.</Label></TouchableOpacity>}
           </View>
           <View style={[styles.splitter, {marginTop: 10 * s, marginBottom: 10 * s, marginHorizontal: 8 * s}]} />
           <View style={[styles.cell, {paddingTop: 11 * s, paddingLeft: 6 * s, borderBottomWidth: 1, borderBottomColor: thin}]}>
-            <SectionHeading icon="list" title="To-do" fontSize={heading} viewAll={() => launchApp(APPS.todo)}/>
+            <SectionHeading icon="todo" title="To-do" fontSize={heading} viewAll={() => launchApp(APPS.todo)}/>
             {activeTasks.length ? activeTasks.map(taskRow) : noTasks()}
           </View>
         </View>
@@ -449,9 +476,9 @@ export function PrettyHome({
                 <TouchableOpacity key={it.label} onPress={it.action} accessibilityRole="button" accessibilityLabel={it.label}
                   style={{width: '50%', paddingRight: i % 2 === 0 ? 5 * s : 0, paddingLeft: i % 2 === 1 ? 5 * s : 0,
                     paddingBottom: 10 * s}}>
-                  <View style={{height: 62 * s, flexDirection: 'row', borderWidth: 1.1, borderColor: '#777777',
+                  <View style={{height: 83 * s, flexDirection: 'row', borderWidth: 1.1, borderColor: '#777777',
                     borderRadius: 8 * s, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 * s}}>
-                    <Icon name={it.icon} size={26 * s}/>
+                    <Icon name={it.icon} size={30 * s}/>
                     <Label size={Math.max(13, 16 * s)} lines={2} style={{marginLeft: 5 * s, flexShrink: 1}}>{it.label}</Label>
                   </View>
                 </TouchableOpacity>
@@ -470,10 +497,10 @@ export function PrettyHome({
       <View style={{height: footerHeight, borderTopWidth: 1, borderColor: thin, marginTop: 1, flexDirection: 'row', alignItems: 'center'}}>
         {FOOTER.map((name, i) => (
           <View key={name} style={{flex: 1, alignItems: 'center', justifyContent: 'center',
-            transform: [{translateY: (i % 2 === 0 ? -5 : 5) * s}]}}>
-            <View style={{height: 35 * s, width: 35 * s, borderRadius: 99,
+            transform: [{translateY: 0}]}}>
+            <View style={{height: 41 * s, width: 41 * s, borderRadius: 99,
               borderWidth: 1, borderColor: '#888888', alignItems: 'center', justifyContent: 'center'}}>
-              <Icon name={name} size={22 * s}/>
+              <Icon name={name} size={26 * s}/>
             </View>
           </View>
         ))}
@@ -486,9 +513,9 @@ export function PrettyHome({
             <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
               <TapIcon name="back" label="Back to dashboard" size={23 * s} onPress={() => setOverlay(null)}/>
               <Label size={25 * s} strong style={{marginLeft: 9, flex: 1}}>
-                {overlay === 'quick' ? 'Quick access' : overlay === 'recent' ? 'Recent notes' : 'Stars'}
+                {overlay === 'quick' ? 'Quick access' : overlay === 'recent' ? 'Recent notes' : overlay === 'favorites' ? 'Favorites' : 'Stars'}
               </Label>
-              {overlay === 'quick' && <TouchableOpacity onPress={() => {setOverlay(null); onSettings();}}>
+              {(overlay === 'quick' || overlay === 'favorites') && <TouchableOpacity onPress={() => {setOverlay(null); onSettings();}}>
                 <Label size={16 * s}>Edit</Label>
               </TouchableOpacity>}
             </View>
@@ -503,6 +530,11 @@ export function PrettyHome({
                       <TouchableOpacity key={page.page} onPress={() => openFile(note.file, page.page)}
                         style={{paddingVertical: 10, paddingLeft: 16, borderBottomColor: '#dddddd', borderBottomWidth: 1}}>
                         <Label size={body}>Page {page.page}  ·  {page.count} star{page.count === 1 ? '' : 's'}</Label>
+                        {page.texts?.map((t,j) => t ? <Label key={'text'+j} size={body - 2} style={{marginTop:7}}>{t}</Label> : null)}
+                        {page.lines?.map((line,j) => line ? <StarStrip key={'line'+j} img={line}/> : null)}
+                        {!page.lines?.some(Boolean) && !page.texts?.some(Boolean) && <Label size={secondary} muted>
+                          No handwriting preview for this mark. Tap to open its page.
+                        </Label>}
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -510,12 +542,14 @@ export function PrettyHome({
               </ScrollView>
             ) : (
               <ScrollView>
-                {(overlay === 'recent' ? recent : pinned.map(p => p.path)).length === 0 && (
+                {(overlay === 'recent' ? recent : overlay === 'favorites' ? favPinned.map(p=>p.path) : pinned.map(p => p.path)).length === 0 && (
                   <Label size={body} muted>No entries available.</Label>
                 )}
-                {overlay === 'recent'
-                  ? recent.map((p, i) => fileRow(p, i, info[p]?.mtime))
-                  : pinned.map(pinRow)}
+                {overlay === 'favorites' && <Label size={secondary} muted>
+                  Pinned dashboard favorites. Native Supernote Favorites are not readable by third-party plugins.
+                </Label>}
+                {overlay === 'recent' ? recent.map((p, i) => fileRow(p, i, info[p]?.mtime))
+                  : (overlay === 'favorites' ? favPinned : pinned).map(pinRow)}
               </ScrollView>
             )}
           </View>
@@ -523,6 +557,17 @@ export function PrettyHome({
       </Modal>
     </View>
   );
+}
+
+
+function StarStrip({img}: {img: {png:string;aspect:number;yFrac:number;hFrac:number}}) {
+  const [w, setW] = useState(0);
+  const full = img.aspect > 0 ? w / img.aspect : w * 1.33;
+  const h = Math.max(20,Math.min(140,img.hFrac * full));
+  return <View onLayout={e=>setW(e.nativeEvent.layout.width)} style={{width:'100%',height:h,overflow:'hidden',backgroundColor:'white',marginTop:5}}>
+    {w>0&&<Image source={{uri:'file://'+img.png}}
+      style={{width:w,height:full,marginTop:-img.yFrac*full}} resizeMode="stretch"/>}
+  </View>;
 }
 
 const styles = StyleSheet.create({

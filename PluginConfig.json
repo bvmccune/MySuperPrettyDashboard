@@ -4,11 +4,12 @@
   "pluginID": "myprettydash2026",
   "jsMainPath": "index",
   "iconPath": "assets/icon.png",
-  "desc": "Personal Supernote Manta dashboard, based on SuperDashboard. Development build; not yet verified for side-by-side installation.",
+  "desc": "Minimalist Supernote Manta home dashboard with shortcuts, files, and optional direct preview of your existing Supernote To-do tasks via Supernote Cloud.",
   "author": "AgP42",
-  "versionName": "0.1.0",
-  "versionCode": "1",
+  "versionName": "0.2.0",
+  "versionCode": "2",
   "uses-permissions": [
+    "plugin.permission.INTERNET",
     "plugin.permission.FILE:READ",
     "plugin.permission.FILE:WRITE"
   ]

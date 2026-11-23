@@ -777,6 +777,150 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
         }
     }
 
+
+    // Native Supernote To-do login session lives in Android Keystore-encrypted
+    // private app storage. Passwords and email verification codes never persist.
+    private static final String TODO_KEY_ALIAS = "MySuperPrettyDashboard.Supernote.ToDo.v1";
+    private static final String TODO_PREFS = "MySuperPrettyDashboard.Private";
+    private static final String TODO_TOKEN = "cloudtodo-token";
+    private static final String BUBBLE_PREFS = "MySuperPrettyDashboard.Bubble";
+    private String preferredBubbleSpot = "middle-right";
+
+    private javax.crypto.SecretKey todoSecretKey() throws Exception {
+        java.security.KeyStore ks = java.security.KeyStore.getInstance("AndroidKeyStore");
+        ks.load(null);
+        java.security.KeyStore.Entry existing = ks.getEntry(TODO_KEY_ALIAS, null);
+        if (existing instanceof java.security.KeyStore.SecretKeyEntry) {
+            return ((java.security.KeyStore.SecretKeyEntry) existing).getSecretKey();
+        }
+        javax.crypto.KeyGenerator gen = javax.crypto.KeyGenerator.getInstance(
+            android.security.keystore.KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+        gen.init(new android.security.keystore.KeyGenParameterSpec.Builder(
+                TODO_KEY_ALIAS,
+                android.security.keystore.KeyProperties.PURPOSE_ENCRYPT |
+                android.security.keystore.KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(android.security.keystore.KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(android.security.keystore.KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setRandomizedEncryptionRequired(true)
+                .build());
+        return gen.generateKey();
+    }
+
+    /** Position of the house bubble outside the plugin view, user-selectable. */
+    @ReactMethod
+    public void setBubblePosition(String place, Promise promise) {
+        try {
+            if (!place.matches("^(top|middle|bottom)-(left|right)$")) {
+                throw new IllegalArgumentException("Invalid placement");
+            }
+            preferredBubbleSpot = place;
+            getReactApplicationContext().getSharedPreferences(BUBBLE_PREFS, Context.MODE_PRIVATE)
+                .edit().putString("spot", place).apply();
+            // Clear the last dragged location so the next show uses the preset.
+            lastX = -1;
+            lastY = -1;
+            promise.resolve(true);
+        } catch (Exception e) {
+            promise.reject("BUBBLE_POSITION", "Unable to change bubble position", e);
+        }
+    }
+
+    /**
+     * Start Calendar at a requested local day. Supernote does not publish the
+     * receiving Activity's intent extras: these are best-effort, not a promise
+     * that the calendar will honor the requested date. Clearing the old task
+     * at least prevents a stale day in its already-running activity.
+     */
+    @ReactMethod
+    public void openCalendarDay(String localDay, Promise promise) {
+        try {
+            java.text.SimpleDateFormat dateOnly = new java.text.SimpleDateFormat(
+                "yyyy-MM-dd", java.util.Locale.US);
+            dateOnly.setLenient(false);
+            java.util.Date date = dateOnly.parse(localDay);
+            if (date == null) throw new IllegalArgumentException("Invalid date");
+            Intent intent = new Intent(Intent.ACTION_MAIN);
+            intent.addCategory(Intent.CATEGORY_LAUNCHER);
+            intent.setComponent(new ComponentName("com.ratta.supernote.calendar",
+                    "com.ratta.supernote.calendar.MainActivity"));
+            intent.putExtra("selectedDate", date.getTime());
+            intent.putExtra("date", date.getTime());
+            intent.putExtra("selected_date", localDay);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            getReactApplicationContext().startActivity(intent);
+            promise.resolve(true);
+        } catch (Exception e) {
+            promise.reject("CALENDAR_DATE_FAILED", "Cannot open requested calendar day", e);
+        }
+    }
+
+    @ReactMethod
+    public void secureSaveTodoToken(String token, Promise promise) {
+        try {
+            if (token == null || token.trim().isEmpty()) throw new IllegalArgumentException("Empty session");
+            javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, todoSecretKey());
+            byte[] encrypted = cipher.doFinal(token.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            byte[] iv = cipher.getIV();
+            String value = android.util.Base64.encodeToString(iv, android.util.Base64.NO_WRAP)
+                    + "." + android.util.Base64.encodeToString(encrypted, android.util.Base64.NO_WRAP);
+            boolean ok = getReactApplicationContext()
+                    .getSharedPreferences(TODO_PREFS, Context.MODE_PRIVATE)
+                    .edit().putString(TODO_TOKEN, value).commit();
+            if (!ok) throw new IllegalStateException("Unable to persist session");
+            promise.resolve(true);
+        } catch (Exception e) {
+            promise.reject("TODO_SESSION_SAVE_FAILED", "Unable to store encrypted Supernote session", e);
+        }
+    }
+
+    @ReactMethod
+    public void secureLoadTodoToken(Promise promise) {
+        try {
+            String value = getReactApplicationContext()
+                    .getSharedPreferences(TODO_PREFS, Context.MODE_PRIVATE)
+                    .getString(TODO_TOKEN, "");
+            if (value == null || value.isEmpty()) {promise.resolve("");return;}
+            String[] pieces = value.split("\\.", 2);
+            if (pieces.length != 2) throw new IllegalStateException("Invalid stored session");
+            javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(javax.crypto.Cipher.DECRYPT_MODE, todoSecretKey(),
+                    new javax.crypto.spec.GCMParameterSpec(128,
+                        android.util.Base64.decode(pieces[0], android.util.Base64.DEFAULT)));
+            byte[] plain = cipher.doFinal(android.util.Base64.decode(pieces[1], android.util.Base64.DEFAULT));
+            promise.resolve(new String(plain, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            promise.reject("TODO_SESSION_READ_FAILED", "Unable to read saved Supernote session; reconnect in Settings", e);
+        }
+    }
+
+    @ReactMethod
+    public void secureClearTodoToken(Promise promise) {
+        try {
+            getReactApplicationContext().getSharedPreferences(TODO_PREFS, Context.MODE_PRIVATE)
+                    .edit().remove(TODO_TOKEN).apply();
+            promise.resolve(true);
+        } catch (Exception e) {
+            promise.reject("TODO_SESSION_CLEAR_FAILED", "Could not clear Supernote session", e);
+        }
+    }
+
+    @ReactMethod
+    public void hashHex(String algorithm, String text, Promise promise) {
+        try {
+            if (!"MD5".equals(algorithm) && !"SHA-256".equals(algorithm)) {
+                throw new IllegalArgumentException("Unsupported hash");
+            }
+            byte[] dig = java.security.MessageDigest.getInstance(algorithm).digest(
+                    text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder out = new StringBuilder(dig.length * 2);
+            for (byte b : dig) out.append(String.format(java.util.Locale.ROOT, "%02x", b & 0xff));
+            promise.resolve(out.toString());
+        } catch (Exception e) {
+            promise.reject("TODO_SIGNIN_HASH_FAILED", "Unable to hash sign-in challenge", e);
+        }
+    }
+
     // ---- Overlay bubble ---------------------------------------------------
 
     /**
@@ -833,6 +977,8 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
                 // Coordinates are top-left origin (matches the drag handler).
                 // First placement (no dragged position yet) → top-right corner;
                 // x needs the laid-out width, so it's set in a post() below.
+                preferredBubbleSpot = ctx.getSharedPreferences(BUBBLE_PREFS, Context.MODE_PRIVATE)
+                    .getString("spot", "middle-right");
                 final boolean firstPlacement = lastX < 0;
                 overlayParams.gravity = Gravity.TOP | Gravity.START;
                 overlayParams.x = lastX >= 0 ? lastX : dp(40); // provisional; fixed on first layout
@@ -876,10 +1022,17 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
                     // Snap to the top-right once the bubble's width is known.
                     panel.post(() -> {
                         try {
-                            int x = Math.max(0, screenW() - panel.getWidth() - dp(12));
+                            boolean left = preferredBubbleSpot.endsWith("-left");
+                            int x = left ? dp(18) : Math.max(0, screenW() - panel.getWidth() - dp(18));
+                            int y;
+                            if (preferredBubbleSpot.startsWith("top")) y = dp(65);
+                            else if (preferredBubbleSpot.startsWith("bottom"))
+                                y = Math.max(0, screenH() - panel.getHeight() - dp(120));
+                            else y = Math.max(0, (screenH() - panel.getHeight()) / 2);
                             overlayParams.x = x;
+                            overlayParams.y = y;
                             lastX = x;
-                            lastY = overlayParams.y;
+                            lastY = y;
                             wm.updateViewLayout(panel, overlayParams);
                         } catch (Exception ignored) {}
                     });

@@ -14,7 +14,9 @@ OUT.mkdir(parents=True, exist_ok=True)
 
 icons = {
     "quick": '<rect x="7" y="5" width="19" height="23" rx="1.7"/><path d="M11 3v5M11 12h11M11 17h11M11 22h7"/>',
-    "new-note": '<rect x="8" y="4" width="17" height="23" rx="1.5"/><path d="M12 2v6M13 13h8M13 18h7M6 7h4M6 13h4M6 19h4M23 27v-7M19.5 23.5h7"/>',
+    "new-note": '<path d="M8 3h18v21H8zM5 3v21M5 7h5M5 14h5M5 21h5M14 10h7M14 16h7M25 29v-9M20.5 24.5h9"/>',
+    "last-note": '<path d="M16 26c-4-3-8-4-13-3V7c5-1 9 0 13 4 4-4 8-5 13-4v16c-5-1-9 0-13 3zM16 11v15M8 4v6M12 5v8M20 8h5M20 13h5"/>',
+    "charging": '<path d="M18 2 8 18h8l-2 12 11-17h-8z"/>',
     "file": '<path d="M8 3h11l6 6v20H8zM19 3v7h6M12 15h9M12 20h9M12 25h6"/>',
     "files": '<path d="M3 10h10l3 3h13v14H3zM3 10V6h10l3 3h10"/>',
     "calendar": '<rect x="4" y="7" width="24" height="21" rx="1.5"/><path d="M4 14h24M10 3v8M22 3v8M10 18h2M16 18h2M22 18h2M10 23h2M16 23h2"/>',
