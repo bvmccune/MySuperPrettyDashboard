@@ -11,6 +11,7 @@ import {
   startSupernoteLogin, verifySupernoteLogin, LoginProgress,
 } from './prettyCloud';
 import {setRoute} from './route';
+import {openFile, openFolder} from './open';
 
 const {DashboardNative} = NativeModules;
 const BASE = '/storage/emulated/0';
@@ -84,6 +85,12 @@ export function PrettySettings(): React.JSX.Element {
     save({...prefs,[key]:[...items,item].slice(0,30)});
     setStatus('Added '+label+'.');
     setPicker(null);
+  };
+  // Uses the SAME tested open functions as the home screen. Opening an item
+  // directly from Settings lets users verify a pin before they rely on it.
+  const openPin = (item: ShortcutItem) => {
+    if (item.kind === 'folder') openFolder(item.path);
+    else openFile(item.path, item.kind === 'note-page' ? item.page : 0);
   };
   const removePin = (key:'quick'|'favorites', index:number) => {
     if(!prefs)return;
@@ -185,10 +192,11 @@ export function PrettySettings(): React.JSX.Element {
           )}
         </Group>
         <Group title="Quick access · pinned notebooks and files">
-          <TextLine faint>These five home-screen entries open your existing notes, PDFs, and folders. They do not duplicate files.</TextLine>
+          <TextLine faint>These are dashboard-managed links, independent of native Supernote Quick Access. The first five appear on Home; View all shows the rest. Links open the existing file or folder without copying it.</TextLine>
           {prefs.quick.map((item,i)=>(
             <View style={styles.entry} key={item.path}>
               <View style={{flex:1}}><TextLine>{item.label}</TextLine><TextLine faint>{item.path}</TextLine></View>
+              <Action small onPress={()=>openPin(item)}>Open</Action>
               <Action small onPress={()=>movePin('quick',i,-1)}>↑</Action>
               <Action small onPress={()=>movePin('quick',i,1)}>↓</Action>
               <Action small onPress={()=>removePin('quick',i)}>Remove</Action>
@@ -196,8 +204,25 @@ export function PrettySettings(): React.JSX.Element {
           ))}
           <Action filled onPress={()=>{setDir(ROOTS[0]);setPicker('quick');}}>+ Pin a notebook, document, or folder</Action>
         </Group>
+        <Group title="Favorites · your dashboard links">
+          <TextLine faint>These favorites are separate from Supernote's built-in starred Files. Add the notebooks, PDFs, or folders you want to find quickly; tap Favorites on Home to open this list. Changes save automatically.</TextLine>
+          {prefs.favorites.length===0&&<TextLine faint>No favorites yet. Add one below to populate the Favorites screen.</TextLine>}
+          {prefs.favorites.map((item,i)=>(
+            <View style={styles.entry} key={item.path}>
+              <View style={{flex:1}}>
+                <TextLine>{item.label}</TextLine>
+                <TextLine faint>{item.path}</TextLine>
+              </View>
+              <Action small onPress={()=>openPin(item)}>Open</Action>
+              <Action small onPress={()=>movePin('favorites',i,-1)}>↑</Action>
+              <Action small onPress={()=>movePin('favorites',i,1)}>↓</Action>
+              <Action small onPress={()=>removePin('favorites',i)}>Remove</Action>
+            </View>
+          ))}
+          <Action filled onPress={()=>{setDir(ROOTS[0]);setPicker('favorites');}}>+ Add a favorite notebook, document, or folder</Action>
+        </Group>
         <Group title="Shortcuts">
-          <TextLine faint>Choose an action for each of the six buttons on your home screen.</TextLine>
+          <TextLine faint>Choose one of the available actions for each of the six buttons on Home. Each choice opens the named feature; no placeholder actions are offered.</TextLine>
           {prefs.shortcuts.map((key,i)=>{
             const item=ACTIONS.find(a=>a.key===key);
             return <View key={i} style={styles.entry}>
@@ -214,7 +239,7 @@ export function PrettySettings(): React.JSX.Element {
           </View>}
         </Group>
         <Group title="Display">
-          <TextLine faint>Text uses Google Sans Flex, matching your Pretty Calendar. The home screen will not scroll.</TextLine>
+          <TextLine faint>Google Sans Flex matches your Pretty Calendar. Standard / Large / Extra large change dashboard text sizes, not panel arrangement. Home never scrolls.</TextLine>
           <View style={{flexDirection:'row',flexWrap:'wrap',marginVertical:6}}>
             {(['normal','large','extra'] as const).map(sz=><Action key={sz} small filled={prefs.size===sz} onPress={()=>save({...prefs,size:sz})}>{sz==='normal'?'Standard':sz==='large'?'Large':'Extra large'}</Action>)}
           </View>
@@ -246,7 +271,7 @@ export function PrettySettings(): React.JSX.Element {
             </Action>
           </View>
         </Group>
-        <TextLine faint>MySuperPrettyDashboard · experimental plugin. Your existing SuperDashboard configuration is preserved separately.</TextLine>
+        <TextLine faint>MySuperPrettyDashboard · Supernote plugin. Native Calendar, Files and To-do launch actions are documented/tested in the community; opening Calendar to an arbitrary selected date is not a supported plugin API. Your original SuperDashboard settings remain separate.</TextLine>
       </ScrollView>
       {!!status&&<View style={styles.status}><TextLine>{status}</TextLine><Action small onPress={()=>setStatus('')}>Close</Action></View>}
     </View>
