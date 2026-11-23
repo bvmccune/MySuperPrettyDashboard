@@ -6,8 +6,8 @@
   "iconPath": "assets/icon.png",
   "desc": "Minimalist Supernote Manta home dashboard with shortcuts, files, and optional direct preview of your existing Supernote To-do tasks via Supernote Cloud.",
   "author": "bvmccune",
-  "versionName": "0.2.1",
-  "versionCode": "3",
+  "versionName": "0.2.2",
+  "versionCode": "4",
   "uses-permissions": [
     "plugin.permission.INTERNET",
     "plugin.permission.FILE:READ",
