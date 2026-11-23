@@ -77,6 +77,136 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
                 .emit(event, payload);
     }
 
+
+    // Calendar interoperability probe (read only). A visible Today button does
+    // NOT prove there is an exported date-navigation contract.
+    // Inspect PackageManager's documented exported surfaces before attempting
+    // any date-specific Intent. Does not read calendar events or credentials.
+    @ReactMethod
+    public void inspectNativeCalendar(Promise promise) {
+        try {
+            final String packageName = "com.ratta.supernote.calendar";
+            PackageManager pm = getReactApplicationContext().getPackageManager();
+            android.content.pm.PackageInfo pkg = pm.getPackageInfo(
+                    packageName, PackageManager.GET_ACTIVITIES);
+            StringBuilder report = new StringBuilder();
+            report.append("Calendar package: ").append(packageName).append('\n');
+            report.append("Version: ").append(pkg.versionName).append('\n');
+            report.append("Android SDK: ").append(android.os.Build.VERSION.SDK_INT).append('\n');
+            report.append("Installed APK: ")
+                    .append(pkg.applicationInfo == null ? "(unknown)" : pkg.applicationInfo.sourceDir)
+                    .append("\n\nExported activities:\n");
+            int count = 0;
+            if (pkg.activities != null) {
+                for (ActivityInfo item : pkg.activities) {
+                    if (!item.exported) continue;
+                    count++;
+                    report.append("  ").append(item.name);
+                    if (item.permission != null) report.append(" [permission: ").append(item.permission).append("]");
+                    report.append('\n');
+                }
+            }
+            report.append("Exported activity count: ").append(count).append('\n');
+
+            // PackageManager will only list handlers that were actually
+            // registered in the Android manifest for each tested URI/action.
+            // An absent match does not rule out private in-app handlers.
+            String[] uris = {
+                null,
+                "content://com.android.calendar/time/" + System.currentTimeMillis(),
+                "content://com.android.calendar/events/1",
+                "content://com.ratta.supernote.calendar.provider/data_info",
+                "supernote://calendar/2026-11-23"
+            };
+            report.append("\nDate-related ACTION_VIEW filter probes:\n");
+            for (String uri : uris) {
+                Intent probe = new Intent(Intent.ACTION_VIEW);
+                if (uri != null) probe.setData(android.net.Uri.parse(uri));
+                probe.setPackage(packageName);
+                java.util.List<ResolveInfo> matches = pm.queryIntentActivities(
+                    probe, PackageManager.MATCH_DEFAULT_ONLY | PackageManager.GET_RESOLVED_FILTER);
+                report.append("  ").append(uri == null ? "(no URI)" : uri)
+                      .append(": ").append(matches.size()).append(" handler(s)\n");
+                for (ResolveInfo match : matches) {
+                    if (match.activityInfo != null) {
+                        report.append("    ").append(match.activityInfo.name).append('\n');
+                    }
+                }
+            }
+            report.append("\nNo navigation action was invoked. This report is informational only.\n");
+            promise.resolve(report.toString());
+        } catch (Exception e) {
+            promise.reject("CALENDAR_INSPECT_FAILED",
+                    "Cannot inspect installed Supernote Calendar: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * User-triggered interoperability research export.
+     * Copies the installed Calendar app binary to a visible EXPORT folder.
+     * This is NOT automatic, and no calendar events, notes or user data are read.
+     * The user chooses whether to share the package for private inspection.
+     */
+    @ReactMethod
+    public void exportNativeCalendarPackage(Promise promise) {
+        new Thread(new Runnable() {
+            @Override public void run() {
+                try {
+                    PackageManager pm = getReactApplicationContext().getPackageManager();
+                    android.content.pm.ApplicationInfo app = pm.getApplicationInfo(
+                        "com.ratta.supernote.calendar", 0);
+                    if (app.sourceDir == null || app.sourceDir.isEmpty()) {
+                        throw new java.io.IOException("PackageManager has no sourceDir");
+                    }
+                    File input = new File(app.sourceDir);
+                    if (!input.isFile() || !input.canRead()) {
+                        throw new java.io.IOException("Installed Calendar APK is not readable");
+                    }
+                    if (input.length() > 200L * 1024L * 1024L) {
+                        throw new java.io.IOException("Unexpectedly large APK; export aborted");
+                    }
+                    File folder = new File("/storage/emulated/0/EXPORT/MySuperPrettyDashboard");
+                    if (!folder.isDirectory() && !folder.mkdirs()) {
+                        throw new java.io.IOException("Could not create EXPORT/MySuperPrettyDashboard");
+                    }
+                    File target = new File(folder, "SupernoteCalendar-for-analysis.apk");
+                    File temporary = new File(folder, "SupernoteCalendar-for-analysis.apk.partial");
+                    long copied = 0;
+                    try (java.io.InputStream from = new java.io.BufferedInputStream(
+                            new java.io.FileInputStream(input));
+                         java.io.OutputStream to = new java.io.BufferedOutputStream(
+                            new java.io.FileOutputStream(temporary))) {
+                        byte[] chunk = new byte[65536];
+                        int n;
+                        while ((n = from.read(chunk)) != -1) {
+                            to.write(chunk, 0, n);
+                            copied += n;
+                        }
+                    } catch (Exception e) {
+                        temporary.delete();
+                        throw e;
+                    }
+                    if (copied != input.length()) {
+                        temporary.delete();
+                        throw new java.io.IOException("Copy length mismatch");
+                    }
+                    if (target.exists() && !target.delete()) {
+                        temporary.delete();
+                        throw new java.io.IOException("Cannot replace old analysis package");
+                    }
+                    if (!temporary.renameTo(target)) {
+                        temporary.delete();
+                        throw new java.io.IOException("Cannot finalize analysis package");
+                    }
+                    promise.resolve(target.getAbsolutePath());
+                } catch (Exception e) {
+                    promise.reject("CALENDAR_EXPORT_FAILED",
+                        "Cannot export Calendar app: " + e.getMessage(), e);
+                }
+            }
+        }, "SupernoteCalendarExport").start();
+    }
+
     // ---- Intents ----------------------------------------------------------
 
     /** Open a .note in the editor at a 1-based page (page<=0 → last-used page). */
