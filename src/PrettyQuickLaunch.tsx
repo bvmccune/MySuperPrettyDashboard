@@ -34,7 +34,7 @@ export function PrettyQuickLaunch({items}: {items: ShortcutItem[]}): React.JSX.E
               onPress={() => item && activate(item)}
               style={[styles.tile, !item && styles.emptyTile]}>
               <Text style={[styles.tileText, !item && styles.emptyText]} numberOfLines={2}>
-                {item ? item.label : '+ Add shortcut'}
+                {item ? item.label : 'Unassigned'}
               </Text>
             </TouchableOpacity>
           );
