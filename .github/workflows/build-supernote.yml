@@ -3,6 +3,9 @@ name: Build Supernote Plugin
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - development/pretty-dashboard
 
 jobs:
   build:
@@ -108,7 +111,7 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MySuperPrettyDashboard-baseline
+          name: MySuperPrettyDashboard-development
           path: build/outputs/SuperDashboard.snplg
           if-no-files-found: error
           retention-days: 14
