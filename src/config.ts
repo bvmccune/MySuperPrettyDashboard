@@ -12,8 +12,8 @@ import {setPerfEnabled} from './perf';
 
 const {DashboardNative} = NativeModules;
 
-const CONFIG_PATH = '/storage/emulated/0/MyStyle/Plugins/Dashboard/config.json';
-const LEGACY_CONFIG_PATH = '/storage/emulated/0/MyStyle/Dashboard/config.json';
+const CONFIG_PATH = '/storage/emulated/0/MyStyle/Plugins/MySuperPrettyDashboard/config.json';
+const LEGACY_CONFIG_PATH = '/storage/emulated/0/MyStyle/Plugins/MySuperPrettyDashboard/legacy-config.json';
 
 /** Max recent files a block can show. We rebuild the recent list ourselves from
  *  file mtime (the device's /Recent is out of scope on current firmware), so the
