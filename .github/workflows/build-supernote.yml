@@ -69,6 +69,25 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Align SDK library NDK with installed Android NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path("node_modules/sn-plugin-lib/android/build.gradle")
+          if not p.exists():
+              raise SystemExit("Cannot find SDK Android build.gradle to apply NDK fix")
+          source = p.read_text()
+          source = re.sub(r"^\s*ndkVersion\s*=?\s*.*$", "", source, flags=re.M)
+          if "android {" not in source:
+              raise SystemExit("No Android DSL block in SDK library")
+          source = source.replace("android {", 'android {\n    ndkVersion rootProject.ext.ndkVersion', 1)
+          p.write_text(source)
+          print("SDK Android NDK aligned to project 27.1.12297006")
+          PY
+
       - name: Build Supernote plugin
         shell: bash
         run: |
