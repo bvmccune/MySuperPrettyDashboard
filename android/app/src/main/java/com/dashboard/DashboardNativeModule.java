@@ -289,6 +289,34 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
                 } catch (Throwable ignored) {
                     // Older firmware / external storage may not expose birth time.
                 }
+                // Supernote's stable FILE_ID in the .note header encodes the
+                // original notebook creation date: FyyyyMMddHHmmss....
+                // Prefer this to Android birth time, which can change when a
+                // notebook is copied or re-synced from another device.
+                if (c.isFile() && c.getName().toLowerCase(java.util.Locale.US).endsWith(".note")) {
+                    try (java.io.RandomAccessFile note = new java.io.RandomAccessFile(c, "r")) {
+                        int count = (int) Math.min(note.length(), 8192L);
+                        if (count >= 32) {
+                            byte[] head = new byte[count];
+                            note.readFully(head);
+                            String metadata = new String(head, java.nio.charset.StandardCharsets.ISO_8859_1);
+                            java.util.regex.Matcher fileId = java.util.regex.Pattern
+                                .compile("<FILE_ID:F([0-9]{14})").matcher(metadata);
+                            if (fileId.find()) {
+                                java.text.SimpleDateFormat format = new java.text.SimpleDateFormat(
+                                    "yyyyMMddHHmmss", java.util.Locale.US);
+                                format.setLenient(false);
+                                java.util.Date made = format.parse(fileId.group(1));
+                                if (made != null && made.getTime() >= 946684800000L &&
+                                    made.getTime() <= System.currentTimeMillis() + 86400000L) {
+                                    m.putDouble("createdAt", (double) made.getTime());
+                                }
+                            }
+                        }
+                    } catch (Throwable ignored) {
+                        // Unrecognized/older note header; retain file birth time.
+                    }
+                }
                     out.pushMap(m);
                 }
             }
