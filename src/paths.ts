@@ -9,7 +9,7 @@
  */
 import {PluginManager} from 'sn-plugin-lib';
 
-export const LEGACY_CACHE_DIR = '/storage/emulated/0/MyStyle/Plugins/Dashboard/';
+export const LEGACY_CACHE_DIR = '/storage/emulated/0/MyStyle/Plugins/MySuperPrettyDashboard/';
 
 let dir: string | null = null;
 
