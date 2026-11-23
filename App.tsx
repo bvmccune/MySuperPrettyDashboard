@@ -12,6 +12,7 @@ import {leavePlugin} from './src/bubble';
 import {tscale, ZoneView} from './src/zones';
 import {setCornerRadius, ThemedButton, ui} from './src/ui';
 import {SettingsScreen} from './src/settings';
+import {PrettyWeekStrip} from './src/PrettyWeekStrip';
 import {autoRefreshTitles} from './src/notetoc';
 import {markOpen, ready, timed} from './src/perf';
 
@@ -189,7 +190,7 @@ function DashboardScreen(): React.JSX.Element {
           <ThemedButton theme={theme} s={ts.s} font={fontFamily} label="⚙ Configuration" onPress={() => setRoute('config')} />
         </View>
         <Text style={[ui.title, {fontSize: 22 * ts.hs, color: hbLine, flex: 1, textAlign: 'center'}, ff]} numberOfLines={1}>
-          SuperDashboard
+          MySuperPrettyDashboard
         </Text>
         <View style={ui.headerBtns}>
           <ThemedButton theme={theme} s={ts.s} font={fontFamily} label="↻ Refresh all" onPress={() => {
@@ -199,6 +200,7 @@ function DashboardScreen(): React.JSX.Element {
           <ThemedButton theme={theme} s={ts.s} font={fontFamily} label="⊖ Fold" onPress={() => leavePlugin()} />
         </View>
       </View>
+      <PrettyWeekStrip nonce={nonce} />
       {!cfg && <Text style={ui.hint}>loading…</Text>}
       {cfg && cfg.zones.length === 0 && (
         <Text style={ui.hint}>No zone. Configure the dashboard via ⚙ Settings.</Text>
