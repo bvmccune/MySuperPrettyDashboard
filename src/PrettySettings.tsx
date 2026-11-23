@@ -244,7 +244,7 @@ export function PrettySettings(): React.JSX.Element {
           <Action filled onPress={()=>{setDir(ROOTS[0]);setPicker('favorites');}}>+ Add a favorite notebook, document, or folder</Action>
         </Group>
         <Group title="Shortcuts">
-          <TextLine faint>Choose one of the available actions for each of the six buttons on Home. Each choice opens the named feature; no placeholder actions are offered.</TextLine>
+          <TextLine faint>Choose one of the available actions for each of the six buttons on Home. Each choice opens the named feature; no placeholder actions are offered. Last opened note uses the native Recent history where accessible; on restrictive firmware it opens the most recently modified note and the button is labeled accordingly.</TextLine>
           {prefs.shortcuts.map((key,i)=>{
             const item=ACTIONS.find(a=>a.key===key);
             return <View key={i} style={styles.entry}>

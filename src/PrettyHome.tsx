@@ -17,7 +17,7 @@ import {PluginFileAPI, PluginCommAPI, NativeUIUtils} from 'sn-plugin-lib';
 import {DashboardConfig, ShortcutItem} from './config';
 import {leavePlugin} from './bubble';
 import {launchApp, openFile, openFolder} from './open';
-import {readRecent} from './recent';
+import {readRecentDetailed, RecentMode} from './recent';
 import {dayKey, dueBucket, dueLabel} from './relay';
 import {loadPrettyPrefs, PrettyPrefs, ACTIONS, PrettyAction} from './prettyPrefs';
 import {readNativeSupernoteTasks} from './prettyCloud';
@@ -184,6 +184,7 @@ export function PrettyHome({
   const [now, setNow] = useState(() => new Date());
   const [battery, setBattery] = useState<{level: number; charging: boolean} | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
+  const [recentMode, setRecentMode] = useState<RecentMode>('modified');
   const [tasks, setTasks] = useState<DashboardTask[]>([]);
   const [taskSource, setTaskSource] = useState<TasksSource>('none');
   const [taskError, setTaskError] = useState('');
@@ -206,7 +207,10 @@ export function PrettyHome({
   const refresh = useCallback(() => {
     setNow(new Date());
     DashboardNative?.getBattery?.().then(setBattery).catch(() => {});
-    readRecent().then(paths => setRecent(paths.filter(p => FILE_RE.test(p)))).catch(() => {});
+    readRecentDetailed().then(result => {
+      setRecent(result.paths.filter(p => FILE_RE.test(p)));
+      setRecentMode(result.mode);
+    }).catch(() => {});
     // Only the real Supernote To-do data. No local/duplicate task fallback.
     setTaskLoading(true);
     readNativeSupernoteTasks().then(result => {
@@ -361,7 +365,9 @@ export function PrettyHome({
   const shortcutItems = (prefs?.shortcuts ?? ['calendar','files','favorites','search','stars','last-note'])
     .map(key => {
       const action = ACTIONS.find(a => a.key === key)!;
-      return {label: action?.name ?? key, icon: (action?.icon ?? 'grid') as IconName,
+      return {label: key === 'last-note' && recentMode === 'modified' ?
+        'Recently modified note' : (action?.name ?? key),
+        icon: (action?.icon ?? 'grid') as IconName,
         action: shortcutActions[key as PrettyAction]};
     });
 

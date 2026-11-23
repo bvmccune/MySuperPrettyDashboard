@@ -19,7 +19,9 @@ function log(m: string): void {
   DashboardNative?.appendLog?.(`[recent] ${m}`).catch(() => {});
 }
 
-export async function readRecent(): Promise<string[]> {
+export type RecentMode = 'opened' | 'modified';
+export interface RecentResult { paths: string[]; mode: RecentMode }
+export async function readRecentDetailed(): Promise<RecentResult> {
   // 1) Direct read of the device's recent list: works on the old firmware and
   //    anywhere /Recent is in FILE:READ scope.
   try {
@@ -29,7 +31,7 @@ export async function readRecent(): Promise<string[]> {
       .map(l => l.trim())
       .filter(l => l.length > 0);
     log(`direct ${paths.length} paths`);
-    return paths;
+    return {paths, mode: 'opened'};
   } catch (e: any) {
     log(`direct blocked (${e && e.message}); using recently-modified fallback`);
   }
@@ -37,9 +39,14 @@ export async function readRecent(): Promise<string[]> {
   try {
     const files = await recentModifiedFiles(RECENT_MAX);
     log(`fallback recently-modified ${files.length}`);
-    return files;
+    return {paths: files, mode: 'modified'};
   } catch (e: any) {
     log(`fallback failed: ${e && e.message}`);
-    return [];
+    return {paths: [], mode: 'modified'};
   }
+}
+
+/** Legacy API retained for old SuperDashboard call sites. */
+export async function readRecent(): Promise<string[]> {
+  return (await readRecentDetailed()).paths;
 }
