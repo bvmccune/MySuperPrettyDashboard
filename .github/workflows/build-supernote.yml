@@ -116,9 +116,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          PACKAGE="build/outputs/SuperDashboard.snplg"
+          PACKAGE_NAME="$(node -p "require('./package.json').name")"
+          PACKAGE="build/outputs/${PACKAGE_NAME}.snplg"
 
           test -s "$PACKAGE"
+          cp "$PACKAGE" build/outputs/MySuperPrettyDashboard.snplg
+          PACKAGE="build/outputs/MySuperPrettyDashboard.snplg"
           unzip -t "$PACKAGE"
 
           unzip -p "$PACKAGE" PluginConfig.json \
@@ -128,7 +131,7 @@ jobs:
           import json
           from zipfile import ZipFile
 
-          path = "build/outputs/SuperDashboard.snplg"
+          path = "build/outputs/MySuperPrettyDashboard.snplg"
 
           with open("/tmp/plugin-config.json") as f:
               config = json.load(f)
@@ -138,6 +141,9 @@ jobs:
 
               assert config.get("pluginID"), \
                   "Missing plugin ID"
+
+              assert config.get("name") == "MySuperPrettyDashboard", \
+                  "Plugin display name must be MySuperPrettyDashboard"
 
               assert config.get("jsMainPath"), \
                   "Missing JS entry point"
@@ -163,7 +169,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MySuperPrettyDashboard-development
-          path: build/outputs/SuperDashboard.snplg
+          path: build/outputs/MySuperPrettyDashboard.snplg
           if-no-files-found: error
           retention-days: 14
 
@@ -174,7 +180,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cp build/outputs/SuperDashboard.snplg build/outputs/MySuperPrettyDashboard.snplg
           gh release create "dev-build-${{ github.run_number }}" \
             build/outputs/MySuperPrettyDashboard.snplg \
             --repo "${{ github.repository }}" \
