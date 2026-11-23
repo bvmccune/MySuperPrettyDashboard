@@ -460,7 +460,7 @@ function normalizeZone(z: any): Zone {
 }
 
 // ---- Named config profiles (save / reload; guards against accidental reset) --
-const PROFILES_PATH = '/storage/emulated/0/MyStyle/Plugins/Dashboard/profiles.json';
+const PROFILES_PATH = '/storage/emulated/0/MyStyle/Plugins/MySuperPrettyDashboard/profiles.json';
 
 async function readProfiles(): Promise<Record<string, DashboardConfig>> {
   try {
