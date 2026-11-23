@@ -16,7 +16,7 @@ It does **not** claim that our artwork is extracted from firmware.
 | Home | Supernote floating Home control: house inside circular surround | Inner house recreated; circular styling is provided by host UI/overlay, not the icon file. |
 | Recent notes | Native sidebar Recent Files: clock | Clock recreated; recent file rows now use native-style notebook icon. |
 | Quick access | Native note toolbar: link/chain icon with plus | Changed from a notebook to a link/plus icon in build 17. Header is visually related to Quick Access; settings manage independent pins. |
-| Favorites | Native Files has a STAR marker at the right of a favorite file | User's original mockup chose a HEART for the Favorites launcher. Retained for distinction from recognized handwriting Stars; NOT a native Supernote Favorites symbol. |
+| Favorites | Native Files uses a five-point STAR marker for a favorite file | Recreated the five-point star inside a folder outline. Composite is custom; the star mark is documented native iconography, distinct from recognized handwritten Star Marks. |
 | Stars | Native note Star Mark: outline five-point star | Uses matching outline star; feature scans recognized star marks rather than file favorites. |
 | Document | Native Files/Document: file/page symbol | Recreated in matching monochrome line weight. |
 | Notebook | Native Files/Note: notebook with spiral binding | Recreated and shown for `.note` files. |
