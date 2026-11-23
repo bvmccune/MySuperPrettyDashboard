@@ -7,6 +7,9 @@ on:
     branches:
       - development/pretty-dashboard
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -115,3 +118,19 @@ jobs:
           path: build/outputs/SuperDashboard.snplg
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish direct SNPLG development download
+        if: github.ref == 'refs/heads/development/pretty-dashboard'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp build/outputs/SuperDashboard.snplg build/outputs/MySuperPrettyDashboard.snplg
+          gh release create "dev-build-${{ github.run_number }}" \
+            build/outputs/MySuperPrettyDashboard.snplg \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "MySuperPrettyDashboard development build ${{ github.run_number }}" \
+            --notes "Experimental Manta plugin build from development/pretty-dashboard. Keep original SuperDashboard installed." \
+            --prerelease
