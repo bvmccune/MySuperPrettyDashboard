@@ -3,6 +3,8 @@ jest.mock('react-native', () => ({
   NativeModules: {DashboardNative: {
     readPrivateCalendarSnapshot: jest.fn(async()=> ''),
     savePrivateCalendarSnapshot: jest.fn(async()=> true),
+    secureLoadCalendarUrl: jest.fn(async()=> 'https://fixture.workers.dev/calendar'),
+    secureSaveCalendarUrl: jest.fn(async()=> true),
   }},
   AppState: {currentState:'active'},
 }));
