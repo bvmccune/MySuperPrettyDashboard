@@ -933,6 +933,46 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
         }
     }
 
+    /** Online/Wi-Fi indicator from Android connectivity APIs.
+     * No SSID, device identifiers or location information is read.
+     */
+    @ReactMethod
+    public void getNetworkStatus(Promise promise) {
+        try {
+            android.net.ConnectivityManager manager =
+                (android.net.ConnectivityManager) getReactApplicationContext()
+                    .getSystemService(Context.CONNECTIVITY_SERVICE);
+            boolean wifi = false;
+            boolean connected = false;
+            if (manager != null) {
+                if (Build.VERSION.SDK_INT >= 23) {
+                    android.net.Network active = manager.getActiveNetwork();
+                    if (active != null) {
+                        android.net.NetworkCapabilities caps =
+                            manager.getNetworkCapabilities(active);
+                        if (caps != null) {
+                            wifi = caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI);
+                            connected = caps.hasCapability(
+                                android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET);
+                        }
+                    }
+                } else {
+                    android.net.NetworkInfo info = manager.getActiveNetworkInfo();
+                    connected = info != null && info.isConnected();
+                    wifi = connected && info.getType() ==
+                        android.net.ConnectivityManager.TYPE_WIFI;
+                }
+            }
+            WritableMap status = Arguments.createMap();
+            status.putBoolean("wifi", wifi);
+            status.putBoolean("connected", connected);
+            promise.resolve(status);
+        } catch (Exception e) {
+            promise.reject("NETWORK_STATUS_FAILED",
+                "Could not read network connection state", e);
+        }
+    }
+
     /** Free/total bytes for internal shared storage, and the SD card if present. */
     @ReactMethod
     public void getStorage(Promise promise) {

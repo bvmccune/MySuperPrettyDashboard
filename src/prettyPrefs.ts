@@ -9,7 +9,7 @@ import {ShortcutItem, DashboardConfig} from './config';
 const {DashboardNative} = NativeModules;
 const PREFS = '/storage/emulated/0/MyStyle/Plugins/MySuperPrettyDashboard/pretty-prefs.json';
 
-export type PrettyAction = 'calendar' | 'files' | 'favorites' | 'search' | 'stars'
+export type PrettyAction = 'calendar' | 'files' | 'favorites' | 'search' | 'keywords'
   | 'last-note' | 'todo' | 'new-note' | 'quick-access';
 export type BubbleSpot = 'top-left' | 'top-right' | 'middle-left' | 'middle-right' | 'bottom-left' | 'bottom-right';
 export type PrettySize = 'normal' | 'large' | 'extra';
@@ -19,16 +19,13 @@ export interface PrettyPrefs {
   favorites: ShortcutItem[];
   shortcuts: PrettyAction[];
   size: PrettySize;
-  bubbleSpot: BubbleSpot;
-  starPreview: 'image' | 'text';
-  noteMode: 0 | 1;
 }
 export const ACTIONS: {key: PrettyAction; name: string; icon: string}[] = [
   {key:'calendar', name:'Calendar', icon:'calendar'},
-  {key:'files', name:'Files', icon:'files'},
+  {key:'files', name:'Notes folder', icon:'files'},
   {key:'favorites', name:'Favorites', icon:'favorites'},
   {key:'search', name:'Search', icon:'search'},
-  {key:'stars', name:'Stars', icon:'star'},
+  {key:'keywords', name:'Keywords', icon:'keywords'},
   {key:'last-note', name:'Last opened note', icon:'last-note'},
   {key:'todo', name:'To-do', icon:'todo'},
   {key:'new-note', name:'New note', icon:'new-note'},
@@ -37,11 +34,8 @@ export const ACTIONS: {key: PrettyAction; name: string; icon: string}[] = [
 export const DEFAULT_PRETTY: PrettyPrefs = {
   quick: [],
   favorites: [],
-  shortcuts: ['calendar','files','favorites','search','stars','last-note'],
-  size: 'large',
-  bubbleSpot: 'middle-right',
-  starPreview: 'image',
-  noteMode: 1,
+  shortcuts: ['calendar','files','favorites','search','keywords','last-note'],
+  size: 'normal',
 };
 
 function validPin(raw: any): raw is ShortcutItem {
@@ -51,18 +45,18 @@ function validPin(raw: any): raw is ShortcutItem {
 export function normalPretty(raw: any): PrettyPrefs {
   const allowed = new Set(ACTIONS.map(a => a.key));
   const shortcuts: PrettyAction[] = Array.isArray(raw?.shortcuts)
-    ? raw.shortcuts.filter((a: any): a is PrettyAction => allowed.has(a)).slice(0,6)
+    ? raw.shortcuts.map((x:any)=>x==='stars'?'keywords':x)
+        .filter((a: any): a is PrettyAction => allowed.has(a)).slice(0,6)
     : DEFAULT_PRETTY.shortcuts.slice();
-  while(shortcuts.length < 6) shortcuts.push(DEFAULT_PRETTY.shortcuts[shortcuts.length]);
-  const spots: BubbleSpot[] = ['top-left','top-right','middle-left','middle-right','bottom-left','bottom-right'];
+  for (const key of DEFAULT_PRETTY.shortcuts) {
+    if (shortcuts.length >= 6) break;
+    if (!shortcuts.includes(key)) shortcuts.push(key);
+  }
   return {
     quick: (Array.isArray(raw?.quick) ? raw.quick.filter(validPin) : []).slice(0,30),
     favorites: (Array.isArray(raw?.favorites) ? raw.favorites.filter(validPin) : []).slice(0,30),
     shortcuts,
-    size: ['normal','large','extra'].includes(raw?.size) ? raw.size : 'large',
-    bubbleSpot: spots.includes(raw?.bubbleSpot) ? raw.bubbleSpot : 'middle-right',
-    starPreview: raw?.starPreview === 'text' ? 'text' : 'image',
-    noteMode: raw?.noteMode === 0 ? 0 : 1,
+    size: ['normal','large','extra'].includes(raw?.size) ? raw.size : 'normal',
   };
 }
 export async function loadPrettyPrefs(legacy?: DashboardConfig | null): Promise<PrettyPrefs> {

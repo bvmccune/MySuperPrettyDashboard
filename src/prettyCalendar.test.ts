@@ -20,7 +20,7 @@ import {
   eventDuration, eventTimeRange, loadCalendarCache, normalizeFeed,
   refreshCalendar, sevenDayKeys,
 } from './prettyCalendar';
-import {compactEventRange} from './PrettyAgenda';
+import {compactEventRange, hasTimeConflict} from './PrettyAgenda';
 
 const event = (summary:string,start:string,end:string,all_day=false,calendar='Work') =>
   ({summary,start,end,all_day,calendar});
@@ -80,6 +80,29 @@ describe('Pretty Calendar — user-approved read-only agenda',()=>{
     expect(compactEventRange(a)).toContain('–');
     expect(eventTimeRange(a)).toContain('–');
     expect('description' in a).toBe(false);
+  });
+  test('two overlapping circles only appear for overlapping timed events',()=>{
+    const f=feed([
+      event('Meeting A','2026-11-24T13:00:00-05:00','2026-11-24T14:00:00-05:00'),
+      event('Meeting B','2026-11-24T13:30:00-05:00','2026-11-24T14:30:00-05:00'),
+      event('Meeting C','2026-11-24T14:30:00-05:00','2026-11-24T15:00:00-05:00'),
+      event('PTO','2026-11-24','2026-11-25',true),
+    ]);
+    const agenda=agendaFromFeed(f);
+    const first=agenda.find(e=>e.summary==='Meeting A')!;
+    const second=agenda.find(e=>e.summary==='Meeting B')!;
+    const third=agenda.find(e=>e.summary==='Meeting C')!;
+    const pto=agenda.find(e=>e.summary==='PTO')!;
+    expect(hasTimeConflict(first,agenda)).toBe(true);
+    expect(hasTimeConflict(second,agenda)).toBe(true);
+    expect(hasTimeConflict(third,agenda)).toBe(false);
+    expect(hasTimeConflict(pto,agenda)).toBe(false);
+  });
+  test('calendar date always opens seven days anchored on today',()=>{
+    const now=new Date(2026,10,24);
+    const days=sevenDayKeys(now);
+    expect(days[0]).toBe('2026-11-24');
+    expect(days[6]).toBe('2026-11-30');
   });
   test('offline failed refresh retains last successful saved snapshot',async()=>{
     const api=(NativeModules as any).DashboardNative;

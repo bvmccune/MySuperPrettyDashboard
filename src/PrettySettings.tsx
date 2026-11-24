@@ -4,8 +4,8 @@
  */
 import React, {useEffect, useRef, useState} from 'react';
 import {NativeModules, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
-import {DashboardConfig, loadConfig, saveConfig, ShortcutItem} from './config';
-import {ACTIONS, DEFAULT_PRETTY, loadPrettyPrefs, PrettyAction, PrettyPrefs, savePrettyPrefs} from './prettyPrefs';
+import {DashboardConfig, loadConfig, ShortcutItem} from './config';
+import {ACTIONS, loadPrettyPrefs, PrettyPrefs, savePrettyPrefs} from './prettyPrefs';
 import {
   disconnectSupernote, hasSupernoteLogin, readNativeSupernoteTasks,
   startSupernoteLogin, verifySupernoteLogin, LoginProgress,
@@ -134,12 +134,6 @@ export function PrettySettings(): React.JSX.Element {
     copy.splice(at,0,item);
     save({...prefs,[key]:copy});
   };
-  const updateLegacy = (fn:(c:DashboardConfig)=>void) => {
-    if(!legacy)return;
-    const clone:DashboardConfig=JSON.parse(JSON.stringify(legacy));
-    fn(clone);setLegacy(clone);
-    saveConfig(clone).then(ok=>{if(!ok)setStatus('Unable to save floating Home preference.');});
-  };
   const attempt = async(fn:()=>Promise<void>)=>{
     if(busy)return;setBusy(true);setStatus('');
     try {await fn();}
@@ -261,7 +255,7 @@ export function PrettySettings(): React.JSX.Element {
           )}
         </Group>
         <Group title="Quick access · pinned notebooks and files">
-          <TextLine faint>These are dashboard-managed links, independent of native Supernote Quick Access. The first five appear on Home; View all shows the rest. Links open the existing file or folder without copying it.</TextLine>
+          <TextLine faint>These are dashboard-managed links independent of native Supernote Quick Access. Home shows as many as can fit; Edit here changes their order. Each link opens the existing file or folder.</TextLine>
           {prefs.quick.map((item,i)=>(
             <View style={styles.entry} key={item.path}>
               <View style={{flex:1}}><TextLine>{item.label}</TextLine><TextLine faint>{item.path}</TextLine></View>
@@ -291,7 +285,7 @@ export function PrettySettings(): React.JSX.Element {
           <Action filled onPress={()=>{setDir(ROOTS[0]);setPicker('favorites');}}>+ Add a favorite notebook, document, or folder</Action>
         </Group>
         <Group title="Shortcuts">
-          <TextLine faint>Choose one of the available actions for each of the six buttons on Home. Each choice opens the named feature; no placeholder actions are offered. Last opened note uses the native Recent history where accessible; on restrictive firmware it opens the most recently modified note and the button is labeled accordingly.</TextLine>
+          <TextLine faint>Choose one action for each of the six unboxed shortcuts: Calendar, Notes folder, Favorites, Search, Keywords and Last Opened Note. Last Opened Note closes the dashboard and returns to the underlying note.</TextLine>
           {prefs.shortcuts.map((key,i)=>{
             const item=ACTIONS.find(a=>a.key===key);
             return <View key={i} style={styles.entry}>
@@ -308,37 +302,14 @@ export function PrettySettings(): React.JSX.Element {
           </View>}
         </Group>
         <Group title="Display">
-          <TextLine faint>Google Sans Flex matches your Pretty Calendar. Standard / Large / Extra large change dashboard text sizes, not panel arrangement. Home never scrolls.</TextLine>
+          <TextLine faint>Google Sans Flex. Standard is the preferred Manta text size; Large and Extra large are accessibility alternatives. All six content sections use the same body size and fixed equal-height bands.</TextLine>
           <View style={{flexDirection:'row',flexWrap:'wrap',marginVertical:6}}>
             {(['normal','large','extra'] as const).map(sz=><Action key={sz} small filled={prefs.size===sz} onPress={()=>save({...prefs,size:sz})}>{sz==='normal'?'Standard':sz==='large'?'Large':'Extra large'}</Action>)}
           </View>
-          <TextLine>Handwritten star previews</TextLine>
-          <View style={{flexDirection:'row'}}>
-            {(['image','text'] as const).map(mode=><Action key={mode} small filled={prefs.starPreview===mode} onPress={()=>save({...prefs,starPreview:mode})}>{mode==='image'?'Handwriting':'OCR when possible'}</Action>)}
-          </View>
         </Group>
-        <Group title="New note">
-          <TextLine faint>Choose recognition notebooks (searchable handwriting) or standard notebooks. Blank template is selected automatically.</TextLine>
-          <View style={{flexDirection:'row',flexWrap:'wrap'}}>
-            <Action small filled={prefs.noteMode===1} onPress={()=>save({...prefs,noteMode:1})}>Real-time recognition</Action>
-            <Action small filled={prefs.noteMode===0} onPress={()=>save({...prefs,noteMode:0})}>Standard note</Action>
-          </View>
-        </Group>
-        <Group title="Floating Home button">
-          <TextLine faint>Choose where the floating dashboard button starts when other Supernote screens are open. You can still drag it.</TextLine>
-          <View style={{flexDirection:'row',flexWrap:'wrap'}}>
-            {(['top-left','top-right','middle-left','middle-right','bottom-left','bottom-right'] as const).map(place=>
-              <Action key={place} small filled={prefs.bubbleSpot===place} onPress={()=>{
-                save({...prefs,bubbleSpot:place});
-                DashboardNative.setBubblePosition(place).catch(()=>setStatus('Could not change floating Home position.'));
-              }}>{place.replace('-',' ')}</Action>)}
-          </View>
-          <View style={{flexDirection:'row',alignItems:'center'}}>
-            <TextLine>Floating Home is {legacy.bubble.mode==='off'?'off':'on'}</TextLine>
-            <Action small onPress={()=>updateLegacy(c=>{c.bubble.mode=c.bubble.mode==='off'?'icon':'off';})}>
-              Turn {legacy.bubble.mode==='off'?'on':'off'}
-            </Action>
-          </View>
+        <Group title="Dashboard navigation">
+          <TextLine faint>No floating button will appear over Supernote. Last Opened Note closes the dashboard, returning to the note beneath it. Calendar resets to today and opens the dashboard's read-only agenda; no native Calendar event records are created.</TextLine>
+          <TextLine faint>For launching the dashboard elsewhere, add the Plugins tool to your native notebook toolbar. A direct sidebar gesture or dedicated plugin Quick Access entry is not publicly documented.</TextLine>
         </Group>
         <TextLine faint>MySuperPrettyDashboard · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Native Files and To-do shortcuts remain available. Your original SuperDashboard settings remain separate.</TextLine>
       </ScrollView>
