@@ -11,7 +11,18 @@
 import {AppState, NativeModules} from 'react-native';
 import {PluginManager} from 'sn-plugin-lib';
 
-export const PRETTY_CALENDAR_URL = 'Redacted';
+// Feed address is stored encrypted on the Manta, never embedded in public code.
+export async function isCalendarSourceConfigured():Promise<boolean> {
+  const url:string=await DashboardNative.secureLoadCalendarUrl();
+  return Boolean(url);
+}
+export async function configureCalendarSource(url:string):Promise<void> {
+  const source=url.trim();
+  if (!/^https:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.workers\.dev\/calendar\/?$/i.test(source))
+    throw new Error('Enter the HTTPS Pretty Calendar Cloudflare Worker /calendar URL.');
+  const result=await DashboardNative.secureSaveCalendarUrl(source);
+  if(result!==true)throw new Error('The calendar source could not be saved.');
+}
 export const CALENDAR_REFRESH_MS = 5 * 60 * 1000;
 
 const {DashboardNative} = NativeModules;
@@ -222,10 +233,12 @@ export function refreshCalendar():Promise<CalendarResult>{
     let controller:AbortController|null=null;
     let timeout:ReturnType<typeof setTimeout>|undefined;
     try {
+      const source:string=await DashboardNative.secureLoadCalendarUrl();
+      if(!source)throw new Error('Configure your Pretty Calendar feed URL once in Settings.');
       await internetPermission();
       controller=new AbortController();
       timeout=setTimeout(()=>controller?.abort(),15000);
-      const response=await fetch(PRETTY_CALENDAR_URL,{
+      const response=await fetch(source,{
         method:'GET',
         headers:{Accept:'application/json'},
         signal:controller.signal,
