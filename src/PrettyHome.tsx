@@ -595,9 +595,12 @@ export function PrettyHome({
               {calendarResult.status==='cached'?' · offline copy':''}
             </Label>
             {!calendarResult.snapshot?
-              <TouchableOpacity onPress={refresh}>
+              <TouchableOpacity onPress={calendarResult.error?.includes('Configure')
+                ? onSettings : refresh}>
                 <Label size={Math.max(13,body-2)} muted>
-                  Calendar unavailable. Tap to refresh.
+                  {calendarResult.error?.includes('Configure')
+                    ? 'Set your Pretty Calendar feed URL in Settings.'
+                    : 'Calendar unavailable. Tap to refresh.'}
                 </Label>
               </TouchableOpacity>:
               !selectedEvents.length?
