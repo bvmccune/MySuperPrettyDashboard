@@ -23,7 +23,7 @@ Worker, iPhone automation, TRMNL plugin, or native Supernote Calendar.
 
 ## Approved icons
 - [x] Section icons each inside 48-unit matched circles: coffee, sprouting
-  plant, jellyfish with motion whiskers, crystal with sparkles, d20, chicken
+  plant, jellyfish with motion whiskers, crystal with sparkles, 2d6 dice, chicken
   drumstick. No hearts and no gratuitous sparkle marks on other illustrations.
 - [x] Header New Note standalone glyph (not circled); Shortcuts icons standalone
   with **no boxed buttons**; large 36-unit functional glyphs.

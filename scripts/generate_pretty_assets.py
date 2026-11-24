@@ -45,7 +45,7 @@ icons = {
     # User-approved whimsical functional illustrations, not a decorative footer.
     "lizard": '<path d=\'M4 22c3-1 4-5 7-6 3-2 6-1 8-4 3-4 8-4 10-1 1 3-3 5-6 4-1 4-5 7-8 5-4 0-4 6-10 6M12 17l-4-5M16 20l2 6M22 14l5 6M9 21l-5 1\'/><circle cx=\'26\' cy=\'11\' r=\'1\' fill=\'#111\' stroke=\'none\'/>',
     "stars": '<path d="M15 2 18 11 27 12 20 18 22 27 15 22 8 27 10 18 3 12 12 11zM26 2l1 3 3 1-3 1-1 3-1-3-3-1 3-1z"/>',
-    "dice": '<path d=\'M16 2 29 10v14L16 31 3 24V10zM3 10l13 8 13-8M16 18v13M16 2l-5 11 5 5 5-5z\'/><path d=\'M11 13l-8-3M21 13l8-3\'/>',
+    "dice": '<rect x=\'15.5\' y=\'4\' width=\'13\' height=\'14\' rx=\'1.6\' transform=\'rotate(9 22 11)\'/><rect x=\'3.5\' y=\'13.5\' width=\'15\' height=\'15\' rx=\'1.6\' transform=\'rotate(-9 11 21)\'/><circle cx=\'20\' cy=\'9\' r=\'1.2\' fill=\'#111\'/><circle cx=\'25\' cy=\'13\' r=\'1.2\' fill=\'#111\'/><circle cx=\'9\' cy=\'19\' r=\'1.2\' fill=\'#111\'/><circle cx=\'14\' cy=\'24\' r=\'1.2\' fill=\'#111\'/>',
     "ramen": '<path d="M4 15h24c0 12-7 14-12 14S4 27 4 15zM3 15h26M8 11c-4-5 3-6 0-9M16 11c-4-5 3-6 0-9M24 11c-4-5 3-6 0-9M20 14l9-10"/>',
     "controller": '<path d="M9 10h14c3 0 5 4 6 12 0 3-3 4-5 2l-5-5h-6l-5 5c-2 2-5 1-5-2 1-8 3-12 6-12zM7 15h9M11.5 11v9"/><circle cx="22" cy="14" r="1"/><circle cx="26" cy="17" r="1"/>',
     "jellyfish": '<path d=\'M5 16C5 4 27 4 27 16c-3 4-7 1-11 3-4-2-8 1-11-3zM9 20c-2 3 2 5 0 9M16 20v10M23 20c-2 3 2 5 0 9\'/><path d=\'M3 6 1 4M29 6l2-2M2 13H0M30 13h2\' stroke-width=\'1.4\'/><circle cx=\'11\' cy=\'13\' r=\'1\' fill=\'#111\'/><circle cx=\'21\' cy=\'13\' r=\'1\' fill=\'#111\'/>',
