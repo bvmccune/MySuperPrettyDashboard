@@ -26,8 +26,9 @@ export function AgendaRow({event,onPress,scale=1}:{
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={
       event.summary+'. '+compactEventRange(event)}
       onPress={onPress} style={{flexDirection:'row',alignItems:'center',
-        paddingVertical:5*scale, minHeight:30*scale,borderBottomWidth:0.5,
-        borderBottomColor:'#d7d7d7'}}>
+        paddingVertical:5*scale,paddingHorizontal:event.all_day?6*scale:0,
+        minHeight:30*scale,borderBottomWidth:0.5,borderBottomColor:'#d7d7d7',
+        backgroundColor:event.all_day?'#ececec':'white'}}>
       <Text numberOfLines={2} ellipsizeMode="tail"
         style={{fontFamily:FONT,fontSize:16*scale,lineHeight:19*scale,
           color:'#111',flex:1,includeFontPadding:false,marginRight:9*scale,
@@ -58,10 +59,20 @@ export function AgendaDay({day,events,onEvent,onDayPress,scale=1}:{
         Select ›
       </Text>}
     </TouchableOpacity>
-    {events.length?events.map(event=><AgendaRow key={event.key}
-      event={event} onPress={()=>onEvent(event)} scale={scale}/>):
-      <Text style={{fontFamily:FONT,fontSize:14*scale,color:'#777'}}>
-        No events
-      </Text>}
+    {events.length===0&&<Text style={{fontFamily:FONT,fontSize:14*scale,color:'#777'}}>
+      No events
+    </Text>}
+    {events.some(e=>e.all_day)&&<>
+      <Text style={{fontFamily:FONT,fontSize:12*scale,color:'#666',marginTop:2*scale,
+        marginBottom:3*scale}}>All-day</Text>
+      {events.filter(e=>e.all_day).map(event=><AgendaRow key={event.key}
+        event={event} onPress={()=>onEvent(event)} scale={scale}/>)}
+    </>}
+    {events.some(e=>!e.all_day)&&<>
+      {events.some(e=>e.all_day)&&<Text style={{fontFamily:FONT,fontSize:12*scale,
+        color:'#666',marginTop:8*scale,marginBottom:3*scale}}>Timed</Text>}
+      {events.filter(e=>!e.all_day).map(event=><AgendaRow key={event.key}
+        event={event} onPress={()=>onEvent(event)} scale={scale}/>)}
+    </>}
   </View>;
 }
