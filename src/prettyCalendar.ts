@@ -141,7 +141,7 @@ export function normalizeFeed(input: unknown): PrettyCalendarFeed {
 }
 function holidayKey(event: AgendaEvent): string | null {
   if (!event.all_day) return null;
-  let name=event.summary.trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+  let name=event.summary.trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   if (!/\b(holiday|thanksgiving|christmas|new year|easter|memorial day|labor day|independence day|veterans day|juneteenth)\b/.test(name)) return null;
   name=name.replace(/\s+day$/,'').replace(/^observed\s+/,'').trim();
   return event.startDay+'|'+event.endDayExclusive+'|'+name;
