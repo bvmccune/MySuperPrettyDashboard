@@ -988,6 +988,54 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
         return gen.generateKey();
     }
 
+
+    // The calendar feed URL may function as a bearer capability. Never embed
+    // it in a public source repository or save it to shared MyStyle storage.
+    // Store it encrypted with a device-only Android Keystore key instead.
+    private static final String CALENDAR_SOURCE_KEY = "pretty-calendar-source-url";
+    @ReactMethod
+    public void secureSaveCalendarUrl(String value, Promise promise) {
+        try {
+            String url = value == null ? "" : value.trim();
+            if (!url.matches("(?i)^https://[a-z0-9-]+(\\.[a-z0-9-]+)*\\.workers\\.dev/calendar/?$")) {
+                throw new IllegalArgumentException("Expected an HTTPS Cloudflare Worker /calendar URL");
+            }
+            javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, todoSecretKey());
+            byte[] encrypted = cipher.doFinal(url.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            String stored = android.util.Base64.encodeToString(cipher.getIV(), android.util.Base64.NO_WRAP)
+                + "." + android.util.Base64.encodeToString(encrypted, android.util.Base64.NO_WRAP);
+            if (!getReactApplicationContext().getSharedPreferences(TODO_PREFS, Context.MODE_PRIVATE)
+                    .edit().putString(CALENDAR_SOURCE_KEY, stored).commit()) {
+                throw new IllegalStateException("Encrypted calendar source was not saved");
+            }
+            promise.resolve(true);
+        } catch (Exception e) {
+            promise.reject("CALENDAR_SOURCE_SAVE_FAILED", "Unable to store calendar feed URL", e);
+        }
+    }
+
+    @ReactMethod
+    public void secureLoadCalendarUrl(Promise promise) {
+        try {
+            String value = getReactApplicationContext()
+                .getSharedPreferences(TODO_PREFS, Context.MODE_PRIVATE)
+                .getString(CALENDAR_SOURCE_KEY, "");
+            if (value == null || value.isEmpty()) { promise.resolve(""); return; }
+            String[] parts = value.split("\\.",2);
+            if (parts.length!=2) throw new IllegalStateException("Encrypted source is malformed");
+            javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(javax.crypto.Cipher.DECRYPT_MODE,todoSecretKey(),
+                new javax.crypto.spec.GCMParameterSpec(128,
+                  android.util.Base64.decode(parts[0],android.util.Base64.DEFAULT)));
+            byte[] decoded=cipher.doFinal(android.util.Base64.decode(parts[1],android.util.Base64.DEFAULT));
+            promise.resolve(new String(decoded,java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            promise.reject("CALENDAR_SOURCE_READ_FAILED",
+                "Cannot read calendar source; re-enter the URL in dashboard Settings",e);
+        }
+    }
+
     /** Position of the house bubble outside the plugin view, user-selectable. */
     @ReactMethod
     public void setBubblePosition(String place, Promise promise) {
