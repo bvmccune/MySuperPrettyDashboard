@@ -4,12 +4,14 @@
 
 Source of truth (already maintained by the owner; this project MUST NOT edit it):
 
-`Redacted`
+Your existing Cloudflare Worker `/calendar` feed URL, entered once under
+Pretty Dashboard Settings. The URL is encrypted in Android app-private
+preferences, **not shipped in this public repository**.
 
 The existing iPhone Shortcut / Cloudflare Worker / TRMNL plugin run unchanged.
 MySuperPrettyDashboard issues a read-only HTTPS GET, validates the complete
 JSON document, atomically saves a replacement **local app-private snapshot**,
-and renders both compact/expanded views from the same snapshot.
+and renders both compact/expanded views from the same snapshot. The actual feed address is not included in public source.
 No calendar records are replicated into the Supernote native Calendar.
 No additional accounts, credentials, or cloud calendars are created.
 
@@ -81,6 +83,9 @@ layout fit, and battery usage.
 **Privacy/security check:** The owner should confirm that transferring work
 calendar metadata to the existing Cloudflare Worker is permitted by their
 employer and that the public feed URL has adequate access controls. This
-implementation does not change the worker or add authentication. The assistant
+implementation does not change the worker or add authentication. Because an
+older public development commit temporarily contained the feed URL, consider
+rotating or access-restricting the endpoint through a separately authorized
+change if it exposes work event titles. The assistant
 has not verified source endpoint access from its environment; the actual
 response schema still requires on-device validation.
