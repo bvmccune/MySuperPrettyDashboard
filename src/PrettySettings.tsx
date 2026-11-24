@@ -51,9 +51,6 @@ export function PrettySettings(): React.JSX.Element {
   const [dir,setDir] = useState(ROOTS[0]);
   const [entries,setEntries] = useState<FileEntry[]>([]);
   const [editingShortcut,setEditingShortcut] = useState<number|null>(null);
-  const [calendarDiagnosticsOpen,setCalendarDiagnosticsOpen] = useState(false);
-  const [calendarReport,setCalendarReport] = useState('');
-  const [calendarExportPath,setCalendarExportPath] = useState('');
   const [calendarState,setCalendarState] = useState<CalendarResult>(()=>currentCalendar());
   const [calendarConfigured,setCalendarConfigured] = useState(false);
   const [calendarSourceInput,setCalendarSourceInput] = useState('');
@@ -149,20 +146,6 @@ export function PrettySettings(): React.JSX.Element {
     catch(e:any){setStatus(String(e?.message??e));}
     finally {setBusy(false);}
   };
-  // Read-only package inspection. Nothing is launched or modified by this probe.
-  const inspectCalendar = ()=>attempt(async()=>{
-    const report: string = await DashboardNative.inspectNativeCalendar();
-    setCalendarReport(report);
-    setCalendarDiagnosticsOpen(true);
-    setStatus('Read-only Calendar inspection finished. No Calendar state was changed.');
-  });
-  // APK export occurs only after the user explicitly taps the export control.
-  // The app binary is kept on the device until the user chooses to share it.
-  const exportCalendar = ()=>attempt(async()=>{
-    const path: string = await DashboardNative.exportNativeCalendarPackage();
-    setCalendarExportPath(path);
-    setStatus('Calendar app package copied. No events or account data were exported.');
-  });
   const signIn = ()=>attempt(async()=>{
     const r=await startSupernoteLogin(email,password);
     setPassword('');
@@ -357,23 +340,7 @@ export function PrettySettings(): React.JSX.Element {
             </Action>
           </View>
         </Group>
-        <Group title="Calendar navigation research">
-          <TextLine faint>Your native Calendar has a Today button. The button proves the app can select dates internally, but no public Supernote plugin API documents passing a date to that control.</TextLine>
-          <Action small onPress={()=>setCalendarDiagnosticsOpen(!calendarDiagnosticsOpen)}>
-            {calendarDiagnosticsOpen?'Hide Calendar compatibility tools':'Show Calendar compatibility tools'}
-          </Action>
-          {calendarDiagnosticsOpen&&<>
-            <TextLine faint>Inspecting lists only exported Android activities and the handlers actually registered for common date-view intents. It does not open Calendar or read events.</TextLine>
-            <Action disabled={busy} onPress={inspectCalendar}>Inspect Calendar (read only)</Action>
-            {!!calendarReport&&<View style={{backgroundColor:'#f4f4f4',padding:9,marginVertical:7,borderWidth:1,borderColor:'#ccc'}}>
-              <Text selectable style={{fontFamily:'monospace',fontSize:13,color:'#111'}}>{calendarReport}</Text>
-            </View>}
-            <TextLine faint>Optional deeper inspection: export the installed Calendar APK to EXPORT/MySuperPrettyDashboard. This copies application code only, not notes or Calendar entries. Only tap if you wish to share the APK privately for compatibility analysis.</TextLine>
-            <Action disabled={busy} onPress={exportCalendar}>Export Calendar APK for analysis</Action>
-            {!!calendarExportPath&&<TextLine faint>Exported to: {calendarExportPath}</TextLine>}
-          </>}
-        </Group>
-        <TextLine faint>MySuperPrettyDashboard · Supernote plugin. Native Calendar, Files and To-do launch actions are community-tested. A specific-date Calendar deep link remains unverified. Your original SuperDashboard settings remain separate.</TextLine>
+        <TextLine faint>MySuperPrettyDashboard · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Native Files and To-do shortcuts remain available. Your original SuperDashboard settings remain separate.</TextLine>
       </ScrollView>
       {!!status&&<View style={styles.status}><TextLine>{status}</TextLine><Action small onPress={()=>setStatus('')}>Close</Action></View>}
     </View>
