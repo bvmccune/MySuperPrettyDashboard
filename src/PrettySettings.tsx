@@ -11,7 +11,7 @@ import {
   startSupernoteLogin, verifySupernoteLogin, LoginProgress,
 } from './prettyCloud';
 import {setRoute} from './route';
-import {CalendarResult, currentCalendar, loadCalendarCache, refreshCalendar} from './prettyCalendar';
+import {CalendarResult, currentCalendar, loadCalendarCache, refreshCalendar, configureCalendarSource, isCalendarSourceConfigured} from './prettyCalendar';
 import {openFile, openFolder} from './open';
 
 const {DashboardNative} = NativeModules;
@@ -55,6 +55,8 @@ export function PrettySettings(): React.JSX.Element {
   const [calendarReport,setCalendarReport] = useState('');
   const [calendarExportPath,setCalendarExportPath] = useState('');
   const [calendarState,setCalendarState] = useState<CalendarResult>(()=>currentCalendar());
+  const [calendarConfigured,setCalendarConfigured] = useState(false);
+  const [calendarSourceInput,setCalendarSourceInput] = useState('');
   // Serialize writes: rapid edits must never allow an older save to replace
   // newer settings. Done waits for disk persistence and verifies the read-back.
   const saveQueue = useRef<Promise<boolean>>(Promise.resolve(true));
@@ -70,6 +72,8 @@ export function PrettySettings(): React.JSX.Element {
       if(live)setConnected(ok);
       const cached=await loadCalendarCache();
       if(live)setCalendarState(cached);
+      const configured=await isCalendarSourceConfigured().catch(()=>false);
+      if(live)setCalendarConfigured(configured);
     })().catch(e=>{if(live)setStatus(String(e?.message??e));});
     return()=>{live=false;};
   },[]);
@@ -171,6 +175,15 @@ export function PrettySettings(): React.JSX.Element {
     setCode('');setProgress(null);setConnected(true);
     setStatus('Connected. The dashboard will read your existing Supernote To-do tasks.');
   });
+  const saveCalendarSource = ()=>attempt(async()=>{
+    await configureCalendarSource(calendarSourceInput);
+    setCalendarConfigured(true);setCalendarSourceInput('');
+    const result=await refreshCalendar();
+    setCalendarState(result);
+    setStatus(result.error
+      ? 'Feed URL saved locally. Calendar request: '+result.error
+      : 'Calendar feed saved and retrieved.');
+  });
   const syncCalendar = ()=>attempt(async()=>{
     const result=await refreshCalendar();
     setCalendarState(result);
@@ -218,6 +231,14 @@ export function PrettySettings(): React.JSX.Element {
       <ScrollView style={{flex:1}}>
         <Group title="Pretty Calendar · read-only events">
           <TextLine faint>Uses your existing TRMNL Pretty Calendar Cloudflare feed directly. No additional calendars, accounts, sign-ins or native Calendar event records are created.</TextLine>
+          <TextLine faint>One-time setup: paste your existing Cloudflare Worker /calendar URL. It will be stored encrypted on this Manta, not in the public GitHub repository.</TextLine>
+          {calendarConfigured&&<TextLine>Calendar feed address saved privately</TextLine>}
+          <TextInput style={styles.input} placeholder={calendarConfigured?'Replace feed URL (optional)':'https://your-worker.workers.dev/calendar'}
+            autoCapitalize="none" autoCorrect={false} keyboardType="url"
+            value={calendarSourceInput} onChangeText={setCalendarSourceInput}/>
+          <Action disabled={busy||!calendarSourceInput.trim()} onPress={saveCalendarSource}>
+            {calendarConfigured?'Update source URL':'Connect existing Pretty Calendar feed'}
+          </Action>
           <TextLine faint>Dashboard refreshes the snapshot on opening, on request, and every five minutes while active. Failed or offline requests retain the last successful snapshot in the plugin's private app storage.</TextLine>
           <TextLine>Status: {calendarState.status==='fresh'?'Current':calendarState.status==='empty'?'Source has no events':calendarState.status==='cached'?'Saved offline snapshot':calendarState.status==='loading'?'Loading':'Unavailable'}</TextLine>
           {calendarState.snapshot&&<>
