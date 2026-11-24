@@ -44,9 +44,9 @@ export function AgendaRow({event,onPress,allEvents=[],scale=1}:{
       fontFamily:FONT,fontSize:17.2*scale,lineHeight:21*scale,
       fontWeight:'500',color:'#111',flex:1,marginRight:8*scale,
       includeFontPadding:false}}>{event.summary}</Text>
-    <Text numberOfLines={1} style={{fontFamily:FONT,fontSize:15*scale,
+    <Text numberOfLines={1} style={{fontFamily:FONT,fontSize:17.2*scale,
       fontWeight:'500',color:'#444',textAlign:'right',
-      maxWidth:168*scale,includeFontPadding:false}}>
+      maxWidth:182*scale,includeFontPadding:false}}>
       {compactEventRange(event)}
     </Text>
   </TouchableOpacity>;

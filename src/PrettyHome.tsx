@@ -520,7 +520,9 @@ export function PrettyHome({config,nonce,onSettings}:{
     <Modal transparent animationType="none" visible={overlay!==null}
       onRequestClose={()=>setOverlay(overlay==='event'&&returnToAgenda?'agenda':null)}>
       <View style={styles.shade}>
-        <View style={[styles.sheet,{margin:19*s,padding:19*s}]}>
+        <View style={[styles.sheet,{margin:19*s,padding:19*s,
+          flex:overlay==='event'?0:1,
+          height:overlay==='event'?Math.min(530*s,height-100*s):undefined}]}>
           {overlay!=='new-note'&&<View style={{flexDirection:'row',alignItems:'center',marginBottom:13*s}}>
             <IconTap icon="back" label="Back" size={25*s}
               onPress={()=>setOverlay(overlay==='event'&&returnToAgenda?'agenda':null)}/>
