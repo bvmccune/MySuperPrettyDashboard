@@ -11,6 +11,7 @@ import {
   startSupernoteLogin, verifySupernoteLogin, LoginProgress,
 } from './prettyCloud';
 import {setRoute} from './route';
+import {CalendarResult, currentCalendar, loadCalendarCache, refreshCalendar} from './prettyCalendar';
 import {openFile, openFolder} from './open';
 
 const {DashboardNative} = NativeModules;
@@ -53,6 +54,7 @@ export function PrettySettings(): React.JSX.Element {
   const [calendarDiagnosticsOpen,setCalendarDiagnosticsOpen] = useState(false);
   const [calendarReport,setCalendarReport] = useState('');
   const [calendarExportPath,setCalendarExportPath] = useState('');
+  const [calendarState,setCalendarState] = useState<CalendarResult>(()=>currentCalendar());
   // Serialize writes: rapid edits must never allow an older save to replace
   // newer settings. Done waits for disk persistence and verifies the read-back.
   const saveQueue = useRef<Promise<boolean>>(Promise.resolve(true));
@@ -66,6 +68,8 @@ export function PrettySettings(): React.JSX.Element {
       if(live){setLegacy(cfg);setPrefs(next);latestPrefs.current=next;}
       const ok=await hasSupernoteLogin().catch(()=>false);
       if(live)setConnected(ok);
+      const cached=await loadCalendarCache();
+      if(live)setCalendarState(cached);
     })().catch(e=>{if(live)setStatus(String(e?.message??e));});
     return()=>{live=false;};
   },[]);
@@ -167,6 +171,13 @@ export function PrettySettings(): React.JSX.Element {
     setCode('');setProgress(null);setConnected(true);
     setStatus('Connected. The dashboard will read your existing Supernote To-do tasks.');
   });
+  const syncCalendar = ()=>attempt(async()=>{
+    const result=await refreshCalendar();
+    setCalendarState(result);
+    setStatus(result.error
+      ? 'Calendar refresh failed. '+result.error+(result.snapshot?' Last saved copy kept.':'')
+      : 'Calendar feed retrieved. '+result.snapshot?.feed.events.length+' event records.');
+  });
   const testSync = ()=>attempt(async()=>{
     const tasks=await readNativeSupernoteTasks();
     setStatus('Supernote Cloud returned '+tasks.tasks.length+' incomplete task'+(tasks.tasks.length===1?'':'s')+(tasks.truncated?' (list truncated)':'')+'.');
@@ -205,6 +216,21 @@ export function PrettySettings(): React.JSX.Element {
         <Action filled disabled={busy} onPress={saveAndExit}>Done · Save and return</Action>
       </View>
       <ScrollView style={{flex:1}}>
+        <Group title="Pretty Calendar · read-only events">
+          <TextLine faint>Uses your existing TRMNL Pretty Calendar Cloudflare feed directly. No additional calendars, accounts, sign-ins or native Calendar event records are created.</TextLine>
+          <TextLine faint>Dashboard refreshes the snapshot on opening, on request, and every five minutes while active. Failed or offline requests retain the last successful snapshot in the plugin's private app storage.</TextLine>
+          <TextLine>Status: {calendarState.status==='fresh'?'Current':calendarState.status==='empty'?'Source has no events':calendarState.status==='cached'?'Saved offline snapshot':calendarState.status==='loading'?'Loading':'Unavailable'}</TextLine>
+          {calendarState.snapshot&&<>
+            <TextLine faint>Last retrieved: {new Date(calendarState.snapshot.fetchedAt).toLocaleString('en-US')}</TextLine>
+            {calendarState.snapshot.feed.updated_at!=null&&
+              <TextLine faint>Source updated: {String(calendarState.snapshot.feed.updated_at)}</TextLine>}
+            {calendarState.snapshot.feed.polled_at!=null&&
+              <TextLine faint>Source polled: {String(calendarState.snapshot.feed.polled_at)}</TextLine>}
+          </>}
+          {calendarState.error&&<TextLine faint>Last request: {calendarState.error}</TextLine>}
+          <Action filled disabled={busy} onPress={syncCalendar}>Refresh Pretty Calendar now</Action>
+          <TextLine faint>Privacy: Confirm your employer permits this existing calendar feed. Anyone with access to the endpoint may be able to retrieve the work event titles if it is not protected by authentication.</TextLine>
+        </Group>
         <Group title="Supernote To-do · your existing list">
           <TextLine faint>This reads your actual Supernote To-do items through Supernote Cloud. It does not create a second list. Ensure To-do cloud sync is enabled on the device.</TextLine>
           <TextLine faint>The connection uses Supernote's unofficial cloud API. The account password and verification code are never saved; the session is encrypted on this device. Supernote sessions expire after approximately 30 days.</TextLine>

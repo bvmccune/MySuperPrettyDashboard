@@ -78,6 +78,58 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
     }
 
 
+
+    // The Pretty Calendar snapshot is stored under PluginHost's private
+    // Android files directory, not in the user's shared MyStyle directory.
+    // This is a read-only copy of the existing feed and never mirrors records
+    // into the system Calendar database.
+    private File privateCalendarSnapshotFile() throws java.io.IOException {
+        File dir = new File(getReactApplicationContext().getFilesDir(),
+                "MySuperPrettyDashboard");
+        if (!dir.isDirectory() && !dir.mkdirs()) {
+            throw new java.io.IOException("Cannot create private calendar cache folder");
+        }
+        return new File(dir, "calendar-snapshot.json");
+    }
+
+    @ReactMethod
+    public void readPrivateCalendarSnapshot(Promise promise) {
+        try {
+            File file = privateCalendarSnapshotFile();
+            if (!file.isFile()) { promise.resolve(""); return; }
+            if (file.length() > 4L * 1024L * 1024L) {
+                throw new java.io.IOException("Calendar cache exceeds size limit");
+            }
+            byte[] data = java.nio.file.Files.readAllBytes(file.toPath());
+            promise.resolve(new String(data, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            promise.reject("CALENDAR_CACHE_READ_FAILED",
+                    "Could not load saved calendar snapshot", e);
+        }
+    }
+
+    @ReactMethod
+    public void savePrivateCalendarSnapshot(String json, Promise promise) {
+        android.util.AtomicFile atomic = null;
+        java.io.FileOutputStream out = null;
+        try {
+            byte[] data = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            if (data.length > 4L * 1024L * 1024L) {
+                throw new java.io.IOException("Calendar snapshot exceeds size limit");
+            }
+            atomic = new android.util.AtomicFile(privateCalendarSnapshotFile());
+            out = atomic.startWrite();
+            out.write(data);
+            atomic.finishWrite(out);
+            out = null;
+            promise.resolve(true);
+        } catch (Exception e) {
+            if (out != null && atomic != null) atomic.failWrite(out);
+            promise.reject("CALENDAR_CACHE_WRITE_FAILED",
+                    "Could not save calendar snapshot", e);
+        }
+    }
+
     // Calendar interoperability probe (read only). A visible Today button does
     // NOT prove there is an exported date-navigation contract.
     // Inspect PackageManager's documented exported surfaces before attempting

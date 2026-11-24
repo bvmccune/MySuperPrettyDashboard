@@ -85,6 +85,12 @@ jobs:
           set -euo pipefail
           ./node_modules/.bin/tsc --noEmit --pretty false
 
+      - name: Test Pretty Calendar JSON parsing and offline behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm test -- --runInBand src/prettyCalendar.test.ts
+
       - name: Align SDK library NDK with installed Android NDK
         shell: bash
         run: |
