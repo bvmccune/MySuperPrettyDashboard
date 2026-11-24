@@ -89,7 +89,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm test -- --runInBand src/prettyCalendar.test.ts src/prettyPrefs.test.ts
+          npm test -- --runInBand src/prettyCalendar.test.ts src/prettyPrefs.test.ts src/prettyHomeNavigation.test.tsx
 
       - name: Align SDK library NDK with installed Android NDK
         shell: bash

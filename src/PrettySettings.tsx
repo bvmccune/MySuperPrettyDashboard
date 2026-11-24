@@ -94,15 +94,17 @@ export function PrettySettings(): React.JSX.Element {
   };
   const saveAndExit = async () => {
     if(busy)return;
-    setBusy(true);setStatus('');
+    setBusy(true);setStatus('Saving and verifying settings…');
+    let stage='Settings save';
     try{
       const ok=await saveQueue.current;
       if(!ok)throw new Error('Saving failed. Settings have not been confirmed on disk.');
       const check=await loadPrettyPrefs(legacy);
       if(JSON.stringify(check)!==JSON.stringify(latestPrefs.current))
         throw new Error('Saved settings differ from your selections. Please try again.');
+      stage='Opening dashboard';
       setRoute('dashboard');
-    }catch(e:any){setStatus(String(e?.message??e));}
+    }catch(e:any){setStatus(stage+' failed: '+String(e?.message??e));}
     finally{setBusy(false);}
   };
   const pin = (path:string,isDir:boolean) => {

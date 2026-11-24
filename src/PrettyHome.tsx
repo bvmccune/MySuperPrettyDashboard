@@ -202,8 +202,10 @@ export function PrettyHome({config,nonce,onSettings}:{
   const [keywordBusy,setKeywordBusy]=useState(false);
   const [topH,setTopH]=useState(245*s);
   const [bottomH,setBottomH]=useState(245*s);
-  const pinned=prefs?.quick||[];
-  const favorites=prefs?.favorites||[];
+  // Keep the empty lists stable while preferences load. Otherwise the file
+  // metadata effect sees a new dependency on every render and schedules itself.
+  const pinned=useMemo(()=>prefs?.quick??[],[prefs]);
+  const favorites=useMemo(()=>prefs?.favorites??[],[prefs]);
 
   useEffect(()=>{
     let live=true;
