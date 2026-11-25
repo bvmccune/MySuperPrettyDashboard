@@ -21,7 +21,7 @@ function log(m: string): void {
 
 export type RecentMode = 'opened' | 'modified';
 export interface RecentResult { paths: string[]; mode: RecentMode }
-export async function readRecentDetailed(force = false): Promise<RecentResult> {
+export async function readRecentDetailed(): Promise<RecentResult> {
   // 1) Direct read of the device's recent list: works on the old firmware and
   //    anywhere /Recent is in FILE:READ scope.
   try {
@@ -37,7 +37,7 @@ export async function readRecentDetailed(force = false): Promise<RecentResult> {
   }
   // 2) Chauvet: /Recent is unreachable. Show recently-modified notes/docs instead.
   try {
-    const files = await recentModifiedFiles(RECENT_MAX, force);
+    const files = await recentModifiedFiles(RECENT_MAX);
     log(`fallback recently-modified ${files.length}`);
     return {paths: files, mode: 'modified'};
   } catch (e: any) {

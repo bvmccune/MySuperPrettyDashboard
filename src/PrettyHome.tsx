@@ -6,16 +6,13 @@
  * Calendar: owner's existing read-only feed, not native event mirroring.
  * To-do: owner's real Supernote Cloud tasks, never a second task database.
  */
-import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {
   AppState,DeviceEventEmitter,Image,ImageSourcePropType,Modal,NativeModules,
   ScrollView,StyleSheet,Text,TouchableOpacity,View,useWindowDimensions,
 } from 'react-native';
 import {DashboardConfig,ShortcutItem} from './config';
 import {leavePlugin} from './bubble';
-import {NativeUIUtils} from 'sn-plugin-lib';
-import {findLastSavedNote} from './lastSavedNote';
-import {sdRoots} from './storage';
 import {launchApp,openFile,openFolder} from './open';
 import {readRecentDetailed} from './recent';
 import {dayKey,dueBucket} from './relay';
@@ -44,7 +41,7 @@ type IconName =
   | 'search'|'favorites'|'star'|'star-filled'|'book'|'home'|'settings'|'grid'
   | 'last-note'|'charging'|'notebook'|'edit'|'plus'|'refresh'|'back'
   | 'chicken'|'lizard'|'stars'|'dice'|'ramen'|'controller'|'jellyfish'
-  | 'plants'|'octopus'|'rocks'|'coffee'|'wifi'|'wifi-off'|'keywords'|'pending'|'stardust'|'battery'|'battery-charging'|'calendar-dot'|'open-notebook'|'cloud-sync';
+  | 'plants'|'octopus'|'rocks'|'coffee'|'wifi'|'wifi-off'|'keywords'|'pending'|'stardust'|'battery'|'calendar-dot'|'open-notebook';
 const IMAGES:Record<IconName,ImageSourcePropType>={
   quick:require('../assets/pretty/quick.png'),
   'new-note':require('../assets/pretty/new-note.png'),
@@ -86,8 +83,6 @@ const IMAGES:Record<IconName,ImageSourcePropType>={
   pending:require('../assets/pretty/pending.png'),
   stardust:require('../assets/pretty/stardust.png'),
   battery:require('../assets/pretty/battery.png'),
-  'battery-charging':require('../assets/pretty/battery-charging.png'),
-  'cloud-sync':require('../assets/pretty/cloud-sync.png'),
   'calendar-dot':require('../assets/pretty/calendar-dot.png'),
   'open-notebook':require('../assets/pretty/open-notebook.png'),
 };
@@ -212,8 +207,6 @@ export function PrettyHome({config,nonce,onSettings}:{
   const [keywordHits,setKeywordHits]=useState<KeywordHit[]>([]);
   const [keywordBusy,setKeywordBusy]=useState(false);
   const [topH,setTopH]=useState(245*s);
-  const [syncNonce,setSyncNonce]=useState(0);
-  const openingSavedNote=useRef(false);
   const [middleH,setMiddleH]=useState(245*s);
   const [bottomH,setBottomH]=useState(190*s);
   // Keep the empty lists stable while preferences load. Otherwise the file
@@ -227,7 +220,7 @@ export function PrettyHome({config,nonce,onSettings}:{
     // A previously installed version may have left its floating bubble visible.
     DashboardNative.hideBubble().catch(()=>{});
     return ()=>{live=false;};
-  },[config,nonce,syncNonce]);
+  },[config,nonce]);
 
   const scanCreated=useCallback(async()=>{
     const queue=[NOTE_ROOT],seen=new Set<string>(),notes:CreatedNote[]=[];
@@ -251,13 +244,13 @@ export function PrettyHome({config,nonce,onSettings}:{
     setCreatedDays(new Set(notes.map(n=>dateKey(new Date(n.createdAt)))));
   },[]);
 
-  const refresh=useCallback((force=false)=>{
+  const refresh=useCallback(()=>{
     const today=new Date();
     setNow(today);
     DashboardNative.getBattery().then(setBattery).catch(()=>{});
     DashboardNative.getNetworkStatus().then(setNetwork).catch(()=>{});
     refreshCalendar().then(setCalendar).catch(()=>{});
-    readRecentDetailed(force===true).then(r=>setRecent(r.paths.filter(p=>FILE_RE.test(p)))).catch(()=>{});
+    readRecentDetailed().then(r=>setRecent(r.paths.filter(p=>FILE_RE.test(p)))).catch(()=>{});
     scanCreated().catch(()=>{});
     setTaskLoading(true);
     readNativeSupernoteTasks().then(result=>{
@@ -266,7 +259,6 @@ export function PrettyHome({config,nonce,onSettings}:{
     }).catch(e=>{setTasks([]);setTaskError(String(e?.message||'Supernote To-do unavailable'));})
       .finally(()=>setTaskLoading(false));
   },[scanCreated]);
-  const refreshAll=()=>{setSyncNonce(v=>v+1);refresh(true);};
 
   useEffect(()=>{
     let live=true;
@@ -291,7 +283,7 @@ export function PrettyHome({config,nonce,onSettings}:{
   },[refresh,nonce]);
 
   useEffect(()=>{
-    const items=[...pinned.map(p=>p.path),...favorites.map(p=>p.path),...recent.slice(0,20)];
+    const items=[...pinned.map(p=>p.path),...recent.slice(0,20)];
     const dirs=[...new Set(items.map(p=>p.substring(0,p.lastIndexOf('/'))))];
     let live=true;
     Promise.all(dirs.map(async d=>{
@@ -304,7 +296,7 @@ export function PrettyHome({config,nonce,onSettings}:{
       setFileInfo(next);
     }).catch(()=>{});
     return()=>{live=false;};
-  },[pinned,favorites,recent,nonce,syncNonce]);
+  },[pinned,recent,nonce]);
 
   useEffect(()=>{
     if(overlay!=='keywords')return;
@@ -340,18 +332,6 @@ export function PrettyHome({config,nonce,onSettings}:{
     else openFile(item.path,item.kind==='note-page'?item.page:0);
   };
   const close=()=>{setOverlay(null);leavePlugin();};
-  const openLastSaved=async()=>{
-    if(openingSavedNote.current)return;
-    openingSavedNote.current=true;
-    try{
-      const roots=await sdRoots();
-      const path=await findLastSavedNote((dir)=>DashboardNative.listDir(dir),roots);
-      if(!path)throw new Error('No saved note was found.');
-      await openFile(path);
-    }catch(e:any){
-      try{await NativeUIUtils.showRattaDialog(String(e?.message||'Could not find the last saved note.'),'','OK',false);}catch{}
-    }finally{openingSavedNote.current=false;}
-  };
   const actions:Record<PrettyAction,()=>void>={
     calendar:openTodayAgenda,
     files:()=>openFolder(NOTE_ROOT),
@@ -362,10 +342,9 @@ export function PrettyHome({config,nonce,onSettings}:{
     todo:()=>launchApp(APPS.todo),
     'new-note':()=>setOverlay('new-note'),
     'quick-access':()=>onSettings(),
-    refresh:()=>refresh(),settings:onSettings,
-    'cloud-sync':refreshAll,'last-saved-note':()=>{void openLastSaved();},
+    refresh,settings:onSettings,
   };
-  const shortcuts=(prefs?.shortcuts??DEFAULT_PRETTY.shortcuts).slice(0,6)
+  const shortcuts=(prefs?.shortcuts??DEFAULT_PRETTY.shortcuts).slice(0,4)
     .map((id,i)=>{
       const item=ACTIONS.find(a=>a.key===id);
       return {key:i,name:item?.name||id,icon:(item?.icon||'grid') as IconName,
@@ -448,20 +427,15 @@ export function PrettyHome({config,nonce,onSettings}:{
         <View style={{flexDirection:'row',alignItems:'center'}}>
           <Glyph name={network?.wifi?'wifi':'wifi-off'} size={22*s}/>
           <View style={{marginHorizontal:7*s,flexDirection:'row',alignItems:'center'}}>
-            {battery?.level!=null&&battery.level>=0?
-              <View style={{width:(battery.charging?50:34)*s,height:22*s}}>
-                <Image accessibilityLabel={battery.charging?'Charging battery':'Battery'}
-                  source={IMAGES[battery.charging?'battery-charging':'battery']}
-                  resizeMode="contain" style={{width:(battery.charging?50:34)*s,height:22*s}}/>
-                <View style={{position:'absolute',left:4*s,top:5.5*s,
-                  width:23*s*Math.max(0,Math.min(100,battery.level))/100,height:11*s,backgroundColor:'#000'}}/>
-              </View>:<View style={{flexDirection:'row',alignItems:'center'}}>
-                <Image source={IMAGES.battery} resizeMode="contain" style={{width:34*s,height:22*s}}/>
-                {!!battery?.charging&&<Glyph name="charging" size={17*s}/>}
-              </View>}
+            <View style={{width:34*s,height:22*s}}>
+              <Image source={IMAGES.battery} resizeMode="contain" style={{width:34*s,height:22*s}}/>
+              <View style={{position:'absolute',left:4*s,top:5.5*s,
+                width:23*s*Math.max(0,Math.min(100,battery?.level??0))/100,height:11*s,backgroundColor:'#000'}}/>
+            </View>
             <Txt size={14*s} style={{marginLeft:5*s}}>
               {battery?.level!=null&&battery.level>=0?battery.level+'%':'—'}
             </Txt>
+            {!!battery?.charging&&<Glyph name="charging" size={17*s}/>}
           </View>
  
         </View>
@@ -554,10 +528,10 @@ export function PrettyHome({config,nonce,onSettings}:{
           <SectionTitle icon="chicken" label="ShortCats" scale={s} actionLabel="Edit" action={onSettings}/>
           <View style={{flex:1,flexDirection:'row',minHeight:0}}>
             <View style={{flex:1,flexDirection:'row',flexWrap:'wrap',alignContent:'stretch',paddingBottom:4*s}}>
-              {shortcuts.map(item=><View key={item.key} style={{width:'50%',height:'33.333%',padding:2*s}}>
+              {shortcuts.map(item=><View key={item.key} style={{width:'50%',height:'50%',padding:3*s}}>
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel={item.name} onPress={item.onPress}
                   style={{flex:1,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#111',borderRadius:6*s}}>
-                  <Glyph name={item.icon} size={Math.max(18*s,Math.min(32*s,(bottomH-54*s)/3-6*s))}/>
+                  <Glyph name={item.icon} size={32*s}/>
                 </TouchableOpacity>
               </View>)}
             </View>

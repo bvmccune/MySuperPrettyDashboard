@@ -2,9 +2,9 @@ jest.mock('react-native',()=>({NativeModules:{DashboardNative:{}}}));
 import {ACTIONS,DEFAULT_PRETTY,normalPretty} from './prettyPrefs';
 
 describe('Manta-specific settings migration',()=>{
-  it('defaults to approved six shortcuts and medium typography',()=>{
+  it('defaults to approved four shortcuts and medium typography',()=>{
     const result=normalPretty(null);
-    expect(result.shortcuts).toEqual(['refresh','settings','calendar','search','cloud-sync','last-saved-note']);
+    expect(result.shortcuts).toEqual(['refresh','settings','calendar','search']);
     expect(result.size).toBe('normal');
     expect(ACTIONS.map(a=>a.key)).not.toContain('stars');
     expect(ACTIONS.find(a=>a.key==='files')?.name).toBe('Notes folder');
@@ -14,7 +14,7 @@ describe('Manta-specific settings migration',()=>{
       size:'large',quick:[{kind:'note-last',path:'/storage/emulated/0/Note/Demo.note',label:'Demo'}],
       bubbleSpot:'top-right',starPreview:'text'};
     const p=normalPretty(saved);
-    expect(p.shortcuts).toEqual(['refresh','settings','calendar','search','cloud-sync','last-saved-note']);
+    expect(p.shortcuts).toEqual(['refresh','settings','calendar','search']);
     expect(p.quick).toHaveLength(1);
     expect(p.size).toBe('large');
     expect(Object.keys(p)).not.toContain('starPreview');
@@ -23,13 +23,7 @@ describe('Manta-specific settings migration',()=>{
   });
   it('rejects invalid shortcuts without changing list length',()=>{
     const p=normalPretty({shortcuts:['calendar','fake','todo','bad',null]});
-    expect(p.shortcuts).toHaveLength(6);
+    expect(p.shortcuts).toHaveLength(4);
     expect(p.shortcuts).not.toContain('fake');
   });
-});
-
-it('appends the two new actions without disturbing four existing shortcuts',()=>{
-  const p=normalPretty({shortcuts:['search','settings','calendar','refresh']});
-  expect(p.shortcuts).toEqual(['search','settings','calendar','refresh','cloud-sync','last-saved-note']);
-  expect(normalPretty(p)).toEqual(p);
 });
