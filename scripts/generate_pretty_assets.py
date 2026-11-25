@@ -83,6 +83,8 @@ for dest,src in aliases.items():
 # Use the approved battery outline; the fill is drawn dynamically from the actual level.
 empty=re.sub(r'(id="charge-fill"[^>]*?width=")[^"]+(")',r'\g<1>0\2',originals['battery.svg'])
 cairosvg.svg2png(bytestring=empty.encode(),write_to=str(OUT/'battery.png'),output_width=272,output_height=176)
+empty_charging=re.sub(r'(id="charge-fill"[^>]*?width=")[^"]+(")',r'\g<1>0\2',originals['battery-charging.svg'])
+cairosvg.svg2png(bytestring=empty_charging.encode(),write_to=str(OUT/'battery-charging.png'),output_width=400,output_height=176)
 (OUT/'cats-placeholder.png').write_bytes(base64.b64decode(originals['cats-placeholder.png']))
 shutil.copyfile(OUT/'stardust.png',OUT.parent/'icon.png')
 print('Verified and rasterized all 22 approved SVGs')

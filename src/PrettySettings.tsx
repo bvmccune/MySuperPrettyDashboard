@@ -287,7 +287,7 @@ export function PrettySettings(): React.JSX.Element {
           <Action filled onPress={()=>{setDir(ROOTS[0]);setPicker('favorites');}}>+ Add a favorite notebook, document, or folder</Action>
         </Group>
         <Group title="ShortCats">
-          <TextLine faint>Choose four actions for the 2 × 2 ShortCats buttons. Keep one Settings or Quick access button so you can return here. Tap the star in the header to close the dashboard.</TextLine>
+          <TextLine faint>Choose six actions for the 2 × 3 ShortCats buttons. Cloud sync reloads all content; Last saved note uses actual file modification time, not recent opens. Keep one Settings or Quick access button so you can return here. Tap the star in the header to close the dashboard.</TextLine>
           {prefs.shortcuts.map((key,i)=>{
             const item=ACTIONS.find(a=>a.key===key);
             return <View key={i} style={styles.entry}>

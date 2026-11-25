@@ -10,7 +10,7 @@ const {DashboardNative} = NativeModules;
 const PREFS = '/storage/emulated/0/MyStyle/Plugins/MySuperPrettyDashboard/pretty-prefs.json';
 
 export type PrettyAction = 'calendar' | 'files' | 'favorites' | 'search' | 'keywords'
-  | 'last-note' | 'todo' | 'new-note' | 'quick-access' | 'refresh' | 'settings';
+  | 'last-note' | 'todo' | 'new-note' | 'quick-access' | 'refresh' | 'settings' | 'cloud-sync' | 'last-saved-note';
 export type BubbleSpot = 'top-left' | 'top-right' | 'middle-left' | 'middle-right' | 'bottom-left' | 'bottom-right';
 export type PrettySize = 'normal' | 'large' | 'extra';
 
@@ -32,11 +32,13 @@ export const ACTIONS: {key: PrettyAction; name: string; icon: string}[] = [
   {key:'quick-access', name:'Quick access', icon:'quick'},
   {key:'refresh',name:'Refresh dashboard',icon:'refresh'},
   {key:'settings',name:'Settings',icon:'settings'},
+  {key:'cloud-sync',name:'Refresh all content',icon:'cloud-sync'},
+  {key:'last-saved-note',name:'Last saved note',icon:'open-notebook'},
 ];
 export const DEFAULT_PRETTY: PrettyPrefs = {
   quick: [],
   favorites: [],
-  shortcuts: ['refresh','settings','calendar','search'],
+  shortcuts: ['refresh','settings','calendar','search','cloud-sync','last-saved-note'],
   size: 'normal',
 };
 
@@ -46,13 +48,15 @@ function validPin(raw: any): raw is ShortcutItem {
 }
 export function normalPretty(raw: any): PrettyPrefs {
   const allowed = new Set(ACTIONS.map(a => a.key));
-  // The previous six-button layout migrates once to the mockup's four actions.
-  // Preserve four-button choices thereafter; keep Settings reachable.
-  const shortcuts: PrettyAction[] = Array.isArray(raw?.shortcuts) && raw.shortcuts.length<=4
-    ? raw.shortcuts.filter((a: any): a is PrettyAction => allowed.has(a)).slice(0,4)
+  // Build 50 had four buttons. Preserve their positions and append the two
+  // new actions; migrate the exact old pre-50 default list to the new layout.
+  const oldDefault = Array.isArray(raw?.shortcuts) &&
+    raw.shortcuts.join(',').replace('stars','keywords')==='calendar,files,favorites,search,keywords,last-note';
+  const shortcuts: PrettyAction[] = Array.isArray(raw?.shortcuts) && !oldDefault
+    ? raw.shortcuts.filter((a: any): a is PrettyAction => allowed.has(a)).slice(0,6)
     : DEFAULT_PRETTY.shortcuts.slice();
-  for (const key of DEFAULT_PRETTY.shortcuts) {
-    if (shortcuts.length >= 4) break;
+  for (const key of ['cloud-sync','last-saved-note',...DEFAULT_PRETTY.shortcuts] as PrettyAction[]) {
+    if (shortcuts.length >= 6) break;
     if (!shortcuts.includes(key)) shortcuts.push(key);
   }
   if (!shortcuts.includes('settings') && !shortcuts.includes('quick-access'))

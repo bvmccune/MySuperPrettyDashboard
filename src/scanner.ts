@@ -589,9 +589,9 @@ function recentLog(m: string): void {
  *  A safe stand-in for /Recent/Recent.txt (recently OPENED), which the Chauvet
  *  firmware blocks even with FILE:READ granted. Uses the same bounded listDir walk
  *  as the scanner (listDir works on the in-scope /Note and /Document trees). */
-export async function recentModifiedFiles(limit: number): Promise<string[]> {
+export async function recentModifiedFiles(limit: number, force = false): Promise<string[]> {
   const now = Date.now();
-  if (recentCache && now - recentCache.at < RECENT_TTL) return recentCache.files.slice(0, limit);
+  if (!force && recentCache && now - recentCache.at < RECENT_TTL) return recentCache.files.slice(0, limit);
   const out: {path: string; mtime: number}[] = [];
   await walkRecent(RECENT_ROOTS, SKIP_DIR, 400, out);
   // Mounted SD cards too (whole card, minus its system folders), on their own
@@ -603,7 +603,7 @@ export async function recentModifiedFiles(limit: number): Promise<string[]> {
     sdRecentCache = null;
   } else {
     const key = cards.join('|');
-    if (!sdRecentCache || sdRecentCache.key !== key || now - sdRecentCache.at >= SD_RECENT_TTL) {
+    if (force || !sdRecentCache || sdRecentCache.key !== key || now - sdRecentCache.at >= SD_RECENT_TTL) {
       const sd: {path: string; mtime: number}[] = [];
       await walkRecent(cards, SD_SYSTEM_DIR, 200, sd);
       sdRecentCache = {at: now, key, files: sd};
