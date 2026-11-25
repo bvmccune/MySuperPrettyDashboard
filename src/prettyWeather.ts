@@ -56,8 +56,15 @@ function validSnapshot(x:any,l:WeatherLocation):x is WeatherSnapshot{
 let permitted=false;
 async function getJson(url:string){
  if(!permitted){const k='plugin.permission.INTERNET';let p=await PluginManager.hasPermission(k);if(p!==1&&p!==2)p=await PluginManager.requestPermission(k,'Retrieve weather for your selected city.');if(p!==1&&p!==2)throw new Error('Weather internet permission denied');permitted=true;}
- const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
- try{const r=await fetch(url,{signal:controller.signal,headers:{Accept:'application/json'}});if(!r.ok)throw new Error('Weather HTTP '+r.status);return await r.json();}finally{clearTimeout(timer);}
+ let last:unknown;
+ for(let attempt=0;attempt<2;attempt++){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+  try{const r=await fetch(url,{method:'GET',signal:controller.signal,headers:{Accept:'application/json'}});if(!r.ok)throw new Error('Weather HTTP '+r.status);return await r.json();}
+  catch(e:any){last=e;if(/^Weather HTTP 4/.test(String(e?.message)))break;}
+  finally{clearTimeout(timer);}
+ }
+ const error=last as any;
+ throw new Error(new URL(url).hostname+': '+(error?.name==='AbortError'?'Request timed out':String(error?.message||'Network request failed')));
 }
 const memory=new Map<string,WeatherSnapshot>(),pending=new Map<string,Promise<WeatherResult>>();
 async function cached(l:WeatherLocation):Promise<WeatherSnapshot|null>{

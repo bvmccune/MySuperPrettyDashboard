@@ -76,6 +76,10 @@ jobs:
           print("Icon references verified:", len(used))
           PY
 
+      - name: Embed installed build number
+        shell: bash
+        run: printf "export const BUILD_LABEL='v%s';\n" "$GITHUB_RUN_NUMBER" > src/prettyBuild.ts
+
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 

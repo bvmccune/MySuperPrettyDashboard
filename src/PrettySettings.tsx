@@ -16,7 +16,6 @@ import {openFile, openFolder} from './open';
 import {PrettyScreenHeader, SCREEN_BODY} from './PrettyScreen';
 import {WeatherIcon} from './WeatherIcon';
 import {WeatherLocation,searchWeatherLocations,refreshWeather,DEFAULT_WEATHER_LOCATION} from './prettyWeather';
-import {DEFAULT_WORK_HOURS,validWorkHours} from './prettyAvailability';
 import {ARTWORK_DIR} from './PrettySummaryPanel';
 
 const {DashboardNative} = NativeModules;
@@ -60,8 +59,6 @@ export function PrettySettings(): React.JSX.Element {
   const [calendarSourceInput,setCalendarSourceInput] = useState('');
   const [locationQuery,setLocationQuery]=useState('');
   const [locations,setLocations]=useState<WeatherLocation[]>([]);
-  const [workStart,setWorkStart]=useState(DEFAULT_WORK_HOURS.start);
-  const [workEnd,setWorkEnd]=useState(DEFAULT_WORK_HOURS.end);
   // Serialize writes: rapid edits must never allow an older save to replace
   // newer settings. Done waits for disk persistence and verifies the read-back.
   const saveQueue = useRef<Promise<boolean>>(Promise.resolve(true));
@@ -72,7 +69,7 @@ export function PrettySettings(): React.JSX.Element {
     (async()=>{
       const cfg=await loadConfig();
       const next=await loadPrettyPrefs(cfg);
-      if(live){setLegacy(cfg);setPrefs(next);latestPrefs.current=next;setWorkStart(next.workHours?.start??DEFAULT_WORK_HOURS.start);setWorkEnd(next.workHours?.end??DEFAULT_WORK_HOURS.end);}
+      if(live){setLegacy(cfg);setPrefs(next);latestPrefs.current=next;}
       const ok=await hasSupernoteLogin().catch(()=>false);
       if(live)setConnected(ok);
       const cached=await loadCalendarCache();
@@ -251,13 +248,7 @@ export function PrettySettings(): React.JSX.Element {
           <Action disabled={busy} onPress={()=>attempt(async()=>{const results=await searchWeatherLocations(locationQuery);setLocations(results);setStatus(results.length?'Choose the matching city.':'No cities found.');})}>Find location</Action>
           {locations.map((location,i)=><Action key={i} small disabled={busy} onPress={()=>{if(!prefs)return;save({...prefs,weatherLocation:location});setLocations([]);setLocationQuery('');setStatus('Weather location saved: '+location.name);}}>{location.name}</Action>)}
           <Action disabled={busy} onPress={()=>attempt(async()=>{const result=await refreshWeather(prefs.weatherLocation??DEFAULT_WEATHER_LOCATION,true);setStatus(result.error?'Weather refresh: '+result.error:'Weather updated.');})}>Refresh weather now</Action>
-          <TextLine bold>Free / busy work hours (24-hour clock)</TextLine>
-          <TextLine faint>Today counts remaining work hours; other selected dates use the full configured workday. Timed calendar events are merged to avoid double counting. All-day entries are excluded because the feed has no availability flag.</TextLine>
-          <View style={{flexDirection:'row',alignItems:'center'}}>
-            <View style={{flex:1,marginRight:12}}><TextLine>Start</TextLine><TextInput value={workStart} onChangeText={setWorkStart} style={[styles.input,{minWidth:0}]} placeholder="09:00"/></View>
-            <View style={{flex:1}}><TextLine>End</TextLine><TextInput value={workEnd} onChangeText={setWorkEnd} style={[styles.input,{minWidth:0}]} placeholder="17:00"/></View>
-          </View>
-          <Action disabled={busy} onPress={()=>{const hours={start:workStart.trim(),end:workEnd.trim()};if(!validWorkHours(hours)){setStatus('Enter valid HH:MM times; end must be after start.');return;}save({...prefs,workHours:hours});setStatus('Work hours saved.');}}>Save work hours</Action>
+          <TextLine faint>Availability shows the current and next calendar states for today, using timed events only. It does not use working hours.</TextLine>
           <TextLine bold>Rotating artwork</TextLine>
           <TextLine faint>Copy your PNG, JPEG or WebP illustrations into MyStyle/Plugins/MySuperPrettyDashboard/artwork. One illustration is selected per day. With a single file, it stays fixed.</TextLine>
           <Action disabled={busy} onPress={()=>attempt(async()=>{await DashboardNative.writeFile(ARTWORK_DIR+'/.keep','');setStatus('Artwork folder is ready. Copy your possum image there.');})}>Create artwork folder</Action>

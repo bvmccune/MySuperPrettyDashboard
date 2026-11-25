@@ -32,9 +32,9 @@ describe('Manta-specific settings migration',()=>{
   });
 });
 
- it('migrates weather and working hours without altering existing preferences',()=>{
+ it('retains location and removes obsolete work hours without altering other preferences',()=>{
   const prefs=normalPretty({size:'large',weatherLocation:{name:'Custom',latitude:40,longitude:-75},workHours:{start:'08:30',end:'16:30'}});
-  expect(prefs.weatherLocation.name).toBe('Custom');expect(prefs.workHours).toEqual({start:'08:30',end:'16:30'});
-  expect(normalPretty({workHours:{start:'17:00',end:'09:00'}}).workHours).toEqual(DEFAULT_PRETTY.workHours);
+  expect(prefs.weatherLocation.name).toBe('Custom');expect(prefs).not.toHaveProperty('workHours');
+  expect(normalPretty({workHours:{start:'17:00',end:'09:00'}})).not.toHaveProperty('workHours');
   expect(normalPretty({weatherLocation:{name:'Invalid',latitude:200,longitude:0}}).weatherLocation).toEqual(DEFAULT_PRETTY.weatherLocation);
 });

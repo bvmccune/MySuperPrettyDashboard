@@ -159,18 +159,29 @@ describe('Pretty Calendar — user-approved read-only agenda',()=>{
 
 // Include weather/availability acceptance tests in the existing CI test entry.
 import './weatherIconMapping.test';
-import {availability,DEFAULT_WORK_HOURS,minuteLabel} from './prettyAvailability';
+import {availability,minuteLabel} from './prettyAvailability';
+import {gaugeFraction} from './PrettySummaryPanel';
 import {normalizeWeather,weatherDay,weatherIsDay,weatherCondition,weatherForecastUrl,DEFAULT_WEATHER_LOCATION} from './prettyWeather';
 
 describe('availability and weather acceptance',()=>{
-  test('overlapping appointments merge; current day counts only remaining work hours',()=>{
+  test('TRMNL current to next: strict overlaps, back-to-back, all-day and instant excluded',()=>{
     const t=(hour:number,minute=0)=>new Date(2026,10,25,hour,minute).toISOString();
-    const agenda=agendaFromFeed(feed([event('A',t(9),t(11)),event('B',t(10),t(12)),event('C',t(15),t(16)),event('D',t(16,30),t(18)),event('Holiday','2026-11-25','2026-11-26',true)]));
-    const totals=availability('2026-11-25',agenda,DEFAULT_WORK_HOURS,new Date(2026,10,25,10,30));
-    expect(totals).toEqual({free:210,busy:180,remaining:true});
-    expect(availability('2026-11-25',agenda,DEFAULT_WORK_HOURS,new Date(2026,10,24)).busy).toBe(270);
-    expect(availability('2026-11-25',agenda,DEFAULT_WORK_HOURS,new Date(2026,10,25,18))).toEqual({free:0,busy:0,remaining:true});
+    const agenda=agendaFromFeed(feed([event('A',t(9),t(11)),event('B',t(10),t(12)),event('C',t(12),t(13)),event('D',t(15),t(16)),event('Instant',t(17),t(17)),event('Holiday','2026-11-25','2026-11-26',true)]));
+    const at=(h:number,m=0)=>availability(agenda,new Date(2026,10,25,h,m));
+    expect(at(8)).toEqual([{kind:'free',minutes:60},{kind:'busy',minutes:180}]);
+    expect(at(10,30)).toEqual([{kind:'busy',minutes:90,left:true},{kind:'busy',minutes:60}]);
+    expect(at(12)).toEqual([{kind:'busy',minutes:60,left:true},{kind:'free',minutes:120}]);
+    expect(at(15)).toEqual([{kind:'busy',minutes:60,left:true},{kind:'rest'}]);
+    expect(at(16)).toEqual([{kind:'rest'},{kind:'art'}]);
+    expect(at(17)).toEqual([{kind:'rest'},{kind:'art'}]);
     expect(minuteLabel(210)).toBe('3h 30m');
+    expect(availability(agenda,new Date(2026,10,25,14),['D'])).toEqual([{kind:'rest'},{kind:'art'}]);
+  });
+  test('temperature gauge clamps readings and handles equal high and low',()=>{
+    expect(gaugeFraction(46,45,54)).toBeCloseTo(1/9);
+    expect(gaugeFraction(40,45,54)).toBe(0);
+    expect(gaugeFraction(60,45,54)).toBe(1);
+    expect(gaugeFraction(45,45,45)).toBe(.5);
   });
   test('daily high and low follow location day and sunset changes icons independently of theme',()=>{
     const midnight=1795582800,sunrise=midnight+7*3600,sunset=midnight+17*3600;

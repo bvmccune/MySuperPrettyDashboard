@@ -31,7 +31,7 @@ import {INK,PAPER,DARK_GRAY,LIGHT_GRAY} from './prettyPalette';
 import {scanKeywords,KeywordHit} from './scanner';
 import {PrettySummaryPanel} from './PrettySummaryPanel';
 import {WeatherResult,refreshWeather,WEATHER_REFRESH_MS,DEFAULT_WEATHER_LOCATION,locationKey} from './prettyWeather';
-import {DEFAULT_WORK_HOURS} from './prettyAvailability';
+import {BUILD_LABEL} from './prettyBuild';
 
 const {DashboardNative}=NativeModules;
 const NOTE_ROOT='/storage/emulated/0/Note';
@@ -387,7 +387,7 @@ export function PrettyHome({config,nonce,onSettings}:{
       </Txt>
       {overdue?<View style={{backgroundColor:INK,paddingHorizontal:5*s,
         paddingVertical:3*s,borderRadius:3}}>
-        <Text style={{fontFamily:FONT,fontSize:10.5*s,color:PAPER,fontWeight:'700'}}>Overdue</Text>
+        <Text style={{fontFamily:FONT,fontSize:10.5*s,color:PAPER,fontWeight:'700'}}>OVERDUE</Text>
       </View>:item.due?<Txt size={secondary} muted>{dueShort(item.due)}</Txt>:null}
     </TouchableOpacity>;
   };
@@ -410,38 +410,38 @@ export function PrettyHome({config,nonce,onSettings}:{
           <Txt size={17*s} bold>{dateLong(now)}</Txt>
         </TouchableOpacity>
         <View pointerEvents="none" style={{position:'absolute',left:0,right:0,alignItems:'center'}}>
-          <Txt size={16*s} bold>SmartyNote</Txt>
+          <View style={{flexDirection:'row',alignItems:'baseline'}}><Txt size={16*s} bold>SmartyNote</Txt><Txt size={10*s} muted style={{marginLeft:5*s}}>{BUILD_LABEL}</Txt></View>
         </View>
         <View style={{flexDirection:'row',alignItems:'center'}}>
+          <IconTap icon="refresh" label="Refresh dashboard" size={23*s} onPress={refreshAll}/>
+          <IconTap icon="settings" label="Settings" size={23*s} onPress={onSettings}/>
           <Glyph name={network?.wifi?'wifi':'wifi-off'} size={22*s}/>
-          <View style={{marginHorizontal:7*s,flexDirection:'row',alignItems:'center'}}>
+          <View style={{marginLeft:7*s,flexDirection:'row',alignItems:'center'}}>
+            <Txt size={14*s} style={{marginRight:5*s}}>{battery?.level!=null&&battery.level>=0?battery.level+'%':'—'}</Txt>
             <View style={{width:34*s,height:22*s}}>
               <Image source={IMAGES.battery} resizeMode="contain" style={{width:34*s,height:22*s}}/>
               <View style={{position:'absolute',left:4*s,top:5.5*s,
                 width:23*s*Math.max(0,Math.min(100,battery?.level??0))/100,height:11*s,backgroundColor:'#000'}}/>
             </View>
-            <Txt size={14*s} style={{marginLeft:5*s}}>
-              {battery?.level!=null&&battery.level>=0?battery.level+'%':'—'}
-            </Txt>
             {!!battery?.charging&&<Glyph name="charging" size={17*s}/>}
           </View>
-          <IconTap icon="refresh" label="Refresh dashboard" size={23*s} onPress={refreshAll}/>
-          <IconTap icon="settings" label="Settings" size={23*s} onPress={onSettings}/>
         </View>
       </View>
       <View style={{flexDirection:'row',alignItems:'center',height:75*s}}>
-        <Txt size={58*s} bold>{timeLong(now)}</Txt>
+        <View style={{flex:1,minWidth:0}}><Txt size={58*s} bold>{timeLong(now)}</Txt></View>
+        <View style={{width:1,marginHorizontal:7*s}}/>
+        <View style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',paddingLeft:4*s}}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Search" onPress={()=>launchApp(APPS.search)}
-          style={{flex:1,maxWidth:250*s,marginLeft:22*s,marginRight:10*s,borderWidth:1,borderColor:DARK_GRAY,
+          style={{flex:1,marginRight:10*s,borderWidth:1,borderColor:DARK_GRAY,
             borderRadius:5*s,height:38*s,flexDirection:'row',alignItems:'center',paddingHorizontal:9*s}}>
           <Glyph name="search" size={22*s}/><Txt size={17*s} style={{marginLeft:9*s}}>Search</Txt>
         </TouchableOpacity>
-        <View style={{flex:1}}/>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose note name, type, template"
           onPress={()=>setOverlay('new-note')}
           style={{width:67*s,height:67*s,alignItems:'center',justifyContent:'center'}}>
           <Glyph name="new-note" size={58*s}/>
         </TouchableOpacity>
+        </View>
       </View>
     </View>
 
@@ -528,12 +528,13 @@ export function PrettyHome({config,nonce,onSettings}:{
               style={{width:CIRCLE*s,height:CIRCLE*s,alignItems:'center',justifyContent:'center'}}>
               <Glyph name="stardust" size={CIRCLE*s*120/113}/>
             </TouchableOpacity>
+            <Txt size={21*s} bold lines={1} style={{marginLeft:6*s,flexShrink:1}}>Complications</Txt>
             <View style={{flex:1}}/>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close dashboard" onPress={close}
               style={{padding:8*s}}><Txt size={12.8*s}>Close</Txt></TouchableOpacity>
           </View>
-          <PrettySummaryPanel events={agenda} selectedDay={selectedDay} hasCalendar={!!calendar.snapshot}
-            hours={prefs?.workHours??DEFAULT_WORK_HOURS} weather={weather} now={now} scale={s}
+          <PrettySummaryPanel events={agenda} hasCalendar={!!calendar.snapshot} calendarCached={calendar.status==='cached'}
+            weather={weather} now={now} scale={s}
             onSettings={onSettings} refreshTick={refreshTick+nonce}/>
         </View>
       </View>
