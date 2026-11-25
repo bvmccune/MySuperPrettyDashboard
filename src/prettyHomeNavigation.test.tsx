@@ -187,9 +187,18 @@ it('calendar shortcut opens today; selecting an event opens detail without chang
   const selectedHeading=dayLabel(dateKey(day))+' Notes';
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedHeading)).toBe(true);
   await act(async()=>{touch('Calendar').props.onPress();});
-  expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===dayLabel(todayKey)+' – '+dayLabel(addCalendarDays(todayKey,6)))).toBe(true);
+  // React represents the two JSX date expressions and intervening text as
+  // separate children. Compare the visible text, not their array identity.
+  const showsRange=(first:string)=>app!.root.findAllByType('Text' as any).some(n=>{
+    const children=n.props.children;
+    const rendered=Array.isArray(children)?children.join(''):children;
+    return rendered===dayLabel(first)+' – '+dayLabel(addCalendarDays(first,6));
+  });
+  expect(showsRange(todayKey)).toBe(true);
   await act(async()=>{touch('Previous seven days').props.onPress();});
+  expect(showsRange(addCalendarDays(todayKey,-7))).toBe(true);
   await act(async()=>{touch('Today').props.onPress();});
+  expect(showsRange(todayKey)).toBe(true);
   const event=app!.root.findAllByType('TouchableOpacity' as any).find(n=>String(n.props.accessibilityLabel).includes('Calendar acceptance fixture')&&String(n.props.accessibilityLabel).includes('Select for event details'))!;
   expect(event).toBeTruthy();
   await act(async()=>{event.props.onPress();});
