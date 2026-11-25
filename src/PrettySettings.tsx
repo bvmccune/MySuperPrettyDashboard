@@ -5,7 +5,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {NativeModules, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {DashboardConfig, loadConfig, ShortcutItem} from './config';
-import {ACTIONS, loadPrettyPrefs, PrettyPrefs, savePrettyPrefs} from './prettyPrefs';
+import {loadPrettyPrefs, PrettyPrefs, savePrettyPrefs} from './prettyPrefs';
 import {
   disconnectSupernote, hasSupernoteLogin, readNativeSupernoteTasks,
   startSupernoteLogin, verifySupernoteLogin, LoginProgress,
@@ -51,7 +51,6 @@ export function PrettySettings(): React.JSX.Element {
   const [picker,setPicker] = useState<'quick'|'favorites'|null>(null);
   const [dir,setDir] = useState(ROOTS[0]);
   const [entries,setEntries] = useState<FileEntry[]>([]);
-  const [editingShortcut,setEditingShortcut] = useState<number|null>(null);
   const [calendarState,setCalendarState] = useState<CalendarResult>(()=>currentCalendar());
   const [calendarConfigured,setCalendarConfigured] = useState(false);
   const [calendarSourceInput,setCalendarSourceInput] = useState('');
@@ -276,7 +275,7 @@ export function PrettySettings(): React.JSX.Element {
           <Action filled onPress={()=>{setDir(ROOTS[0]);setPicker('quick');}}>+ Pin a notebook, document, or folder</Action>
         </Group>
         <Group title="Favorites · your dashboard links">
-          <TextLine faint>These favorites are separate from Supernote's built-in starred Files. Add the notebooks, PDFs, or folders you want to find quickly; tap Favorites on Home to open this list. Changes save automatically; Done verifies the save.</TextLine>
+          <TextLine faint>These favorites are separate from Supernote's built-in starred Files. Add the notebooks, PDFs, or folders you want to find quickly; open them here in Settings. Changes save automatically; Done verifies the save.</TextLine>
           {prefs.favorites.length===0&&<TextLine faint>No favorites yet. Add one below to populate the Favorites screen.</TextLine>}
           {prefs.favorites.map((item,i)=>(
             <View style={styles.entry} key={item.path}>
@@ -292,35 +291,17 @@ export function PrettySettings(): React.JSX.Element {
           ))}
           <Action filled onPress={()=>{setDir(ROOTS[0]);setPicker('favorites');}}>+ Add a favorite notebook, document, or folder</Action>
         </Group>
-        <Group title="ShortCats">
-          <TextLine faint>Choose four actions for the 2 × 2 ShortCats buttons. Keep one Settings or Quick access button so you can return here. Tap the star in the header to close the dashboard.</TextLine>
-          {prefs.shortcuts.map((key,i)=>{
-            const item=ACTIONS.find(a=>a.key===key);
-            return <View key={i} style={styles.entry}>
-              <TextLine>{i+1}. {item?.name??key}</TextLine>
-              <View style={{flex:1}}/>
-              <Action small onPress={()=>setEditingShortcut(editingShortcut===i?null:i)}>Change</Action>
-            </View>;
-          })}
-          {editingShortcut!==null&&<View style={{flexDirection:'row',flexWrap:'wrap',marginVertical:8}}>
-            {ACTIONS.map(a=><Action key={a.key} small onPress={()=>{
-              const next=[...prefs.shortcuts];next[editingShortcut]=a.key;
-              if(!next.includes('settings')&&!next.includes('quick-access')){setStatus('Keep one Settings or Quick access button.');return;}
-              save({...prefs,shortcuts:next});setEditingShortcut(null);
-            }}>{a.name}</Action>)}
-          </View>}
-        </Group>
         <Group title="Display">
-          <TextLine faint>Google Sans Flex. Standard is the preferred Manta text size; Large and Extra large are accessibility alternatives. The first two content bands have equal height; the ShortCats and Quick access band is shorter.</TextLine>
+          <TextLine faint>Google Sans Flex. Standard is the preferred Manta text size; Large and Extra large are accessibility alternatives. The first two content bands have equal height; the illustration and Quick access band is shorter.</TextLine>
           <View style={{flexDirection:'row',flexWrap:'wrap',marginVertical:6}}>
             {(['normal','large','extra'] as const).map(sz=><Action key={sz} small filled={prefs.size===sz} onPress={()=>save({...prefs,size:sz})}>{sz==='normal'?'Standard':sz==='large'?'Large':'Extra large'}</Action>)}
           </View>
         </Group>
         <Group title="Dashboard navigation">
-          <TextLine faint>No floating button will appear over Supernote. The Stardust star closes the dashboard, returning to the note beneath it. Calendar resets to today and opens the dashboard's read-only agenda; no native Calendar event records are created.</TextLine>
+          <TextLine faint>No floating button will appear over Supernote. The Stardust star in the lower-right section closes the dashboard, returning to the note beneath it. Calendar resets to today and opens the dashboard's read-only agenda; no native Calendar event records are created.</TextLine>
           <TextLine faint>For launching the dashboard elsewhere, add the Plugins tool to your native notebook toolbar. A direct sidebar gesture or dedicated plugin Quick Access entry is not publicly documented.</TextLine>
         </Group>
-        <TextLine faint>MySuperPrettyDashboard · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Native Files and To-do shortcuts remain available. Your original SuperDashboard settings remain separate.</TextLine>
+        <TextLine faint>MySuperPrettyDashboard · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Search, Calendar, and To-do remain available from Home. Your original SuperDashboard settings remain separate.</TextLine>
       </ScrollView>
       {!!status&&<View style={styles.status}><View style={{flex:1}}><TextLine>{status}</TextLine></View><Action small onPress={()=>setStatus('')}>Dismiss</Action></View>}
       </View>

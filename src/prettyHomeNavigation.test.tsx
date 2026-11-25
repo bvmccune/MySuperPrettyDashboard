@@ -61,6 +61,7 @@ import {DEFAULT_PRETTY,loadPrettyPrefs,PrettyPrefs} from './prettyPrefs';
 import {PrettyHome} from './PrettyHome';
 import {PrettySettings} from './PrettySettings';
 import {HomeAgendaList} from './PrettyAgenda';
+import {PrettyFitList} from './PrettyFitList';
 import {agendaFromFeed,normalizeFeed,dateKey,dayLabel,addCalendarDays,loadCalendarCache} from './prettyCalendar';
 
 const native=NativeModules.DashboardNative;
@@ -206,4 +207,19 @@ it('calendar shortcut opens today; selecting an event opens detail without chang
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedHeading)).toBe(true);
   await act(async()=>{touch('Back').props.onPress();});
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children==='Seven-day agenda')).toBe(true);
+});
+
+it('fits complete wrapped rows after actual layout measurement',async()=>{
+  await act(async()=>{app=create(<PrettyFitList items={['one','two','three']}
+    keyOf={x=>x} renderRow={x=>React.createElement('Text',{},x)}
+    minHeight={38} maxHeight={85} initialHeight={100} empty={null}/>);});
+  await act(async()=>{
+    const rows=app!.root.findAll(n=>typeof n.type==='string'&&String(n.props.testID).startsWith('fit-measure-'));
+    expect(rows).toHaveLength(3);
+    rows.forEach((n,i)=>n.props.onLayout({nativeEvent:{layout:{height:[38,61,38][i]}}}));
+  });
+  const count=(value:string)=>app!.root.findAllByType('Text' as any).filter(n=>n.props.children===value).length;
+  expect(count('one')).toBe(2);
+  expect(count('two')).toBe(2);
+  expect(count('three')).toBe(1);
 });

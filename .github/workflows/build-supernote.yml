@@ -61,7 +61,7 @@ jobs:
           curl --fail --silent --show-error --location --retry 3             "https://raw.githubusercontent.com/google/fonts/main/ofl/googlesansflex/GoogleSansFlex%5BROND%2Copsz%2Cslnt%2Cwdth%2Cwght%5D.ttf"             --output android/app/src/main/assets/fonts/GoogleSansFlex.ttf
           curl --fail --silent --show-error --location --retry 3             "https://raw.githubusercontent.com/google/fonts/main/ofl/googlesansflex/OFL.txt"             --output android/app/src/main/assets/fonts/OFL.txt
           python3 -m venv /tmp/pretty-icons-venv
-          /tmp/pretty-icons-venv/bin/pip -q install cairosvg
+          /tmp/pretty-icons-venv/bin/pip -q install cairosvg pillow
           /tmp/pretty-icons-venv/bin/python scripts/generate_pretty_assets.py
           test -s assets/pretty/lizard.png
           test -s android/app/src/main/assets/fonts/GoogleSansFlex.ttf
