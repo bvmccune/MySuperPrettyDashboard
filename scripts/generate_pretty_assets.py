@@ -113,3 +113,6 @@ for name in sorted(weather_names):
     mono.putalpha(mask)
     mono.save(OUT/('weather-'+name+'.png'))
 print('Weather Iconic:',len(weather_names),'licensed monochrome assets')
+
+# Preserve the supplied blank-sign SVG wrapper; render to a native image at build time.
+cairosvg.svg2png(url=str(ROOT/'assets'/'artwork'/'rocky-sign.svg'),write_to=str(OUT/'rocky-sign.png'),output_width=240,output_height=240)

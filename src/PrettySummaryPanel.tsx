@@ -5,6 +5,7 @@ import {AgendaEvent} from './prettyCalendar';
 import {availability,minuteLabel,AvailabilityBox} from './prettyAvailability';
 import {WeatherResult,weatherCondition,weatherDay,weatherIsDay} from './prettyWeather';
 import {WeatherIcon} from './WeatherIcon';
+import {rockyPhrase} from './prettyRocky';
 const {DashboardNative}=NativeModules;
 export const ARTWORK_DIR='/storage/emulated/0/MyStyle/Plugins/MySuperPrettyDashboard/artwork';
 const FONT='GoogleSansFlex';
@@ -29,9 +30,12 @@ export function PrettySummaryPanel({events,hasCalendar,calendarCached,weather,no
     return()=>{live=false;};
   },[refreshTick]);
   const dayNumber=Math.floor(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())/86400000);
-  const artwork=art.length?art[((dayNumber%art.length)+art.length)%art.length]:'';
+  const rotationIndex=((dayNumber%(art.length+1))+(art.length+1))%(art.length+1);
+  const artwork=rotationIndex>0?art[rotationIndex-1]:'';
   const states=hasCalendar?availability(events,now):[{kind:'unavailable'},{kind:'unavailable'}] as [AvailabilityBox,AvailabilityBox];
   const [weatherSize,setWeatherSize]=useState({width:0,height:0});
+  const [artSize,setArtSize]=useState({width:0,height:0});
+  const rockySize=Math.max(0,Math.min(artSize.width-6*scale,artSize.height-6*scale));
   const snap=weather.snapshot,day=snap?weatherDay(snap,now.getTime()):null;
   const condition:{condition:string;hail?:boolean}=snap?weatherCondition(snap.code,snap.wind):{condition:'unavailable'};
   const expired=!!snap&&now.getTime()-snap.observedAt>2*3600000;
@@ -59,12 +63,15 @@ export function PrettySummaryPanel({events,hasCalendar,calendarCached,weather,no
         {(weather.status==='cached'||expired)&&<Text style={font(9)}>Cached</Text>}
       </View>
     </TouchableOpacity>
-    <View testID="artwork-column" style={{flex:2,minWidth:0,padding:3*scale,alignItems:'center',justifyContent:'center'}}>
+    <View testID="artwork-column" onLayout={e=>{const {width,height}=e.nativeEvent.layout;setArtSize(old=>old.width===width&&old.height===height?old:{width,height});}} style={{flex:2,minWidth:0,padding:3*scale,alignItems:'center',justifyContent:'center'}}>
       {artwork&&failedArt!==artwork?<Image accessibilityLabel="Daily artwork" source={{uri:'file://'+encodeURI(artwork)}}
         onError={()=>setFailedArt(artwork)} resizeMode="contain" style={{width:'100%',height:'100%'}}/>:
-        <TouchableOpacity onPress={onSettings} accessibilityLabel="Artwork settings">
-          <Text style={font(12,'#555')}>Artwork</Text>
-        </TouchableOpacity>}
+        <View testID="rocky-sign" style={{width:rockySize,height:rockySize,position:'relative'}}>
+          <Image accessibilityLabel="Rocky holding a blank sign" source={require('../assets/pretty/rocky-sign.png')} resizeMode="contain" style={{width:'100%',height:'100%'}}/>
+          <View pointerEvents="none" style={{position:'absolute',left:'20%',top:'57%',width:'60%',height:'25%',alignItems:'center',justifyContent:'center'}}>
+            <Text testID="rocky-phrase" numberOfLines={3} adjustsFontSizeToFit style={{fontFamily:FONT,fontWeight:'600',fontSize:rockySize*.10,textAlign:'center',color:'#000',includeFontPadding:false}}>{rockyPhrase(now)}</Text>
+          </View>
+        </View>}
     </View>
   </View>;
 }

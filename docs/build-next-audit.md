@@ -10,3 +10,5 @@ Follow-up: weather now falls back to an allowlisted native HTTPS bridge after tr
 Palette correction: the former four native pen colors were superseded by the Manta's 16-level grayscale support. Use 16 evenly spaced RGB target shades; exact panel luminance is not asserted. Original approved SVGs remain untouched. Generated placeholder now uses 16-level quantization.
 
 Latest UI refinements: selected-date calendar section title now ends with Events, matching the Notes heading below. All-day and alternating task backgrounds now use the lightest nonwhite grayscale target (#EEEEEE).
+
+Rocky: original supplied blank-sign PNG preserved as a 240px 16-level raster inside an SVG wrapper; generated at build time. Phrase is a separate native Text element, selected pseudorandomly by local date from the four approved strings. Rocky is one rotating artwork entry, and is visible by default when no local artwork is present. Section renamed Amaze! Amaze! Amaze!; header Edit opens existing settings, Stardust icon retains close. Dedicated edit screen and automatic weather location remain separate pending development.

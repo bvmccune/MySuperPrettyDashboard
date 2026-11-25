@@ -220,3 +220,11 @@ test('16-level grayscale targets are evenly spaced and UI colors are members',()
  expect(GRAYSCALE.map(c=>parseInt(c.slice(1,3),16))).toEqual(Array.from({length:16},(_,i)=>i*17));
  for(const color of [INK,PAPER,DARK_GRAY,LIGHT_GRAY])expect(GRAYSCALE).toContain(color);
 });
+
+import {rockyPhrase,ROCKY_PHRASES} from './prettyRocky';
+test('Rocky phrases remain stable through the local day and use only the approved collection',()=>{
+ expect(rockyPhrase(new Date(2026,10,25,1))).toBe(rockyPhrase(new Date(2026,10,25,23)));
+ const values=new Set(Array.from({length:60},(_,i)=>rockyPhrase(new Date(2026,10,25+i))));
+ expect(values.size).toBe(4);
+ expect([...values].every(v=>ROCKY_PHRASES.includes(v))).toBe(true);
+});

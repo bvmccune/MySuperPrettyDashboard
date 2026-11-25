@@ -528,10 +528,10 @@ export function PrettyHome({config,nonce,onSettings}:{
               style={{width:CIRCLE*s,height:CIRCLE*s,alignItems:'center',justifyContent:'center'}}>
               <Glyph name="stardust" size={CIRCLE*s*120/113}/>
             </TouchableOpacity>
-            <Txt size={21*s} bold lines={1} style={{marginLeft:6*s,flexShrink:1}}>Complications</Txt>
+            <Txt size={21*s} bold lines={1} style={{marginLeft:6*s,flexShrink:1}}>Amaze! Amaze! Amaze!</Txt>
             <View style={{flex:1}}/>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close dashboard" onPress={close}
-              style={{padding:8*s}}><Txt size={12.8*s}>Close</Txt></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Edit complications" onPress={onSettings}
+              style={{padding:8*s}}><Txt size={12.8*s}>Edit</Txt></TouchableOpacity>
           </View>
           <PrettySummaryPanel events={agenda} hasCalendar={!!calendar.snapshot} calendarCached={calendar.status==='cached'}
             weather={weather} now={now} scale={s}
