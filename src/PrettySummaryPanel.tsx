@@ -72,7 +72,7 @@ export function gaugeFraction(current:number,low:number,high:number){
 }
 export function gaugePoint(fraction:number){
  const angle=(145+250*Math.max(0,Math.min(1,fraction)))*Math.PI/180;
- return {x:.5+.38*Math.cos(angle),y:.45+.38*Math.sin(angle)};
+ return {x:.5+.39*Math.cos(angle),y:.48+.39*Math.sin(angle)};
 }
 export function TemperatureGauge({size,current,low,high}:{size:number;current?:number;low?:number;high?:number}){
  const valid=Number.isFinite(current)&&Number.isFinite(low)&&Number.isFinite(high);
@@ -84,10 +84,10 @@ export function TemperatureGauge({size,current,low,high}:{size:number;current?:n
  return <View testID="temperature-gauge" accessible accessibilityLabel={'Current '+label(current)+', low '+label(low)+', high '+label(high)} style={{width:size,height:size,position:'relative'}}>
    <Image source={require('../assets/pretty/temperature-gauge.png')} resizeMode="contain" style={{width:size,height:size}}/>
    {valid&&<View testID="temperature-marker" style={{position:'absolute',left:marker.x*size-dot/2,top:marker.y*size-dot/2,width:dot,height:dot,borderRadius:dot/2,borderColor:'#FFFFFF',borderWidth:size*.018,backgroundColor:'#000000'}}/>}
-   <View style={{position:'absolute',left:size*.19,top:size*.245,width:size*.62,height:size*.40,alignItems:'center',justifyContent:'center'}}>
+   <View style={{position:'absolute',left:size*.19,top:size*.29,width:size*.62,height:size*.38,alignItems:'center',justifyContent:'center'}}>
      <Text adjustsFontSizeToFit numberOfLines={1} style={{...baseText,fontSize:size*.34,fontWeight:'600'}}>{label(current)}</Text>
    </View>
-   <Text numberOfLines={1} adjustsFontSizeToFit style={{...baseText,position:'absolute',left:size*.015,top:size*.77,width:size*.35,fontSize:size*.18}}>{label(low)}</Text>
-   <Text numberOfLines={1} adjustsFontSizeToFit style={{...baseText,position:'absolute',right:size*.015,top:size*.77,width:size*.35,fontSize:size*.18}}>{label(high)}</Text>
+   <Text numberOfLines={1} adjustsFontSizeToFit style={{...baseText,position:'absolute',left:size*.015,bottom:size*.045,width:size*.35,fontSize:size*.17}}>{label(low)}</Text>
+   <Text numberOfLines={1} adjustsFontSizeToFit style={{...baseText,position:'absolute',right:size*.015,bottom:size*.045,width:size*.35,fontSize:size*.17}}>{label(high)}</Text>
  </View>;
 }

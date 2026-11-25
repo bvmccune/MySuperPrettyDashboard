@@ -235,7 +235,7 @@ test('visible row shading uses the next darker level after Manta rejected #EEEEE
 
 test('continuous gauge geometry aligns low, midpoint and high to the same circular arc',()=>{
  const low=gaugePoint(0),middle=gaugePoint(.5),high=gaugePoint(1);
- expect(low.x).toBeCloseTo(.18872,4);expect(high.x).toBeCloseTo(.81128,4);
- expect(low.y).toBeCloseTo(high.y,6);expect(middle.x).toBeCloseTo(.5,6);expect(middle.y).toBeCloseTo(.07,6);
- for(const p of [low,middle,high,gaugePoint(.25),gaugePoint(.75)])expect(Math.hypot(p.x-.5,p.y-.45)).toBeCloseTo(.38,6);
+ expect(low.x).toBeCloseTo(.18053,4);expect(high.x).toBeCloseTo(.81947,4);
+ expect(low.y).toBeCloseTo(high.y,6);expect(middle.x).toBeCloseTo(.5,6);expect(middle.y).toBeCloseTo(.09,6);
+ for(const p of [low,middle,high,gaugePoint(.25),gaugePoint(.75)])expect(Math.hypot(p.x-.5,p.y-.48)).toBeCloseTo(.39,6);
 });

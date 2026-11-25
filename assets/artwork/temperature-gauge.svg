@@ -2,5 +2,5 @@
   <title>Temperature range gauge</title>
   <desc>Continuous 250-degree circular arc; live values and indicator are drawn separately.</desc>
   <rect width="100" height="100" fill="#FFFFFF"/>
-  <path d="M 18.872222 66.795905 A 38 38 0 1 1 81.127778 66.795905" fill="none" stroke="#999999" stroke-width="9" stroke-linecap="round"/>
+  <path d="M 18.053070 70.369481 A 39 39 0 1 1 81.946930 70.369481" fill="none" stroke="#999999" stroke-width="9" stroke-linecap="round"/>
 </svg>
