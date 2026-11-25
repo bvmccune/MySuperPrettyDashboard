@@ -23,7 +23,7 @@ import {
   addCalendarDays,agendaFromFeed,eventTimeRange,eventDuration,
   currentCalendar,loadCalendarCache,refreshCalendar,
 } from './prettyCalendar';
-import {AgendaRow,hasTimeConflict} from './PrettyAgenda';
+import {AgendaRow,Conflict,HomeAgendaList,hasTimeConflict} from './PrettyAgenda';
 import {PrettyNoteCreate} from './PrettyNoteCreate';
 import {PrettyScreenHeader} from './PrettyScreen';
 import {scanKeywords,KeywordHit} from './scanner';
@@ -118,9 +118,9 @@ function IconTap({icon,label,onPress,size=27}:{
   </TouchableOpacity>;
 }
 const CIRCLE=48;
-function SectionTitle({icon,label,scale,action,actionLabel,extra}:{
+function SectionTitle({icon,label,scale,action,actionLabel,extra,actionAccessibilityLabel}:{
   icon:IconName;label:string;scale:number;action?:()=>void;
-  actionLabel?:string;extra?:string;
+  actionLabel?:string;extra?:string;actionAccessibilityLabel?:string;
 }){
   const circle=CIRCLE*scale,fs=21*scale;
   return <View style={{height:53*scale,flexDirection:'row',alignItems:'center',minWidth:0}}>
@@ -128,10 +128,13 @@ function SectionTitle({icon,label,scale,action,actionLabel,extra}:{
       <Glyph name={icon} size={circle*120/113}/>
     </View>
     <Txt size={fs} bold lines={1} style={{flexShrink:1}}>{label}</Txt>
-    {!!extra&&<Txt size={13*scale} bold style={{marginLeft:4*scale}}>{extra}</Txt>}
+    {!!extra&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={extra+' additional events'}
+      onPress={action} style={{paddingHorizontal:4*scale,paddingVertical:8*scale}}>
+      <Txt size={14*scale} bold>{extra}</Txt>
+    </TouchableOpacity>}
     <View style={{flex:1}}/>
     {!!action&&<TouchableOpacity accessibilityRole="button"
-      accessibilityLabel={actionLabel+' '+label} onPress={action}
+      accessibilityLabel={actionAccessibilityLabel??actionLabel+' '+label} onPress={action}
       hitSlop={{top:8,bottom:8,left:7,right:7}} style={{marginLeft:7*scale}}>
       <Txt size={12.8*scale} muted>{actionLabel}</Txt>
     </TouchableOpacity>}
@@ -170,14 +173,6 @@ function dueShort(due:string):string{
   const pieces=due.slice(0,10).split('-');
   return pieces.length===3?Number(pieces[1])+'/'+Number(pieces[2]):due;
 }
-function overlapIcon(scale:number){
-  return <View style={{height:14*scale,width:21*scale,marginRight:5*scale,justifyContent:'center'}}>
-    <View style={{height:12*scale,width:12*scale,borderWidth:1.5,
-      backgroundColor:'#111',borderColor:'#111',borderRadius:100,position:'absolute',left:0}}/>
-    <View style={{height:12*scale,width:12*scale,borderWidth:1.5,
-      backgroundColor:'#111',borderColor:'#111',borderRadius:100,position:'absolute',left:7*scale}}/>
-  </View>;
-}
 
 export function PrettyHome({config,nonce,onSettings}:{
   config:DashboardConfig|null;nonce:number;onSettings:()=>void;
@@ -205,6 +200,7 @@ export function PrettyHome({config,nonce,onSettings}:{
   const [selectedEvent,setSelectedEvent]=useState<AgendaEvent|null>(null);
   const [returnToAgenda,setReturnToAgenda]=useState(false);
   const [agendaVisit,setAgendaVisit]=useState(0);
+  const [refreshTick,setRefreshTick]=useState(0);
   const [keywordHits,setKeywordHits]=useState<KeywordHit[]>([]);
   const [keywordBusy,setKeywordBusy]=useState(false);
   const [topH,setTopH]=useState(245*s);
@@ -284,7 +280,7 @@ export function PrettyHome({config,nonce,onSettings}:{
   },[refresh,nonce]);
 
   useEffect(()=>{
-    const items=[...pinned.map(p=>p.path),...recent.slice(0,20)];
+    const items=[...pinned.map(p=>p.path),...favorites.map(p=>p.path),...recent.slice(0,20)];
     const dirs=[...new Set(items.map(p=>p.substring(0,p.lastIndexOf('/'))))];
     let live=true;
     Promise.all(dirs.map(async d=>{
@@ -297,7 +293,7 @@ export function PrettyHome({config,nonce,onSettings}:{
       setFileInfo(next);
     }).catch(()=>{});
     return()=>{live=false;};
-  },[pinned,recent,nonce]);
+  },[pinned,favorites,recent,nonce,refreshTick]);
 
   useEffect(()=>{
     if(overlay!=='keywords')return;
@@ -321,8 +317,9 @@ export function PrettyHome({config,nonce,onSettings}:{
     return {label,date,key,today:key===dateKey(now),hasNotes:createdDays.has(key)};
   });
   const openTodayAgenda=()=>{
-    const today=dateKey(new Date());
-    setNow(new Date());setAgendaStart(today);setAgendaVisit(v=>v+1);setOverlay('agenda');
+    const current=new Date(),today=dateKey(current);
+    setNow(current);setAgendaStart(today);setAgendaVisit(v=>v+1);setOverlay('agenda');
+    refreshCalendar().then(setCalendar).catch(()=>{});
   };
   const openEvent=(event:AgendaEvent,fromAgenda=false)=>{
     setSelectedEvent(event);setReturnToAgenda(fromAgenda);setOverlay('event');
@@ -339,11 +336,10 @@ export function PrettyHome({config,nonce,onSettings}:{
     favorites:()=>setOverlay('favorites'),
     search:()=>launchApp(APPS.search),
     keywords:()=>setOverlay('keywords'),
-    'last-note':close,
     todo:()=>launchApp(APPS.todo),
     'new-note':()=>setOverlay('new-note'),
     'quick-access':()=>onSettings(),
-    refresh,settings:onSettings,
+    refresh:()=>{setRefreshTick(v=>v+1);refresh();},settings:onSettings,
   };
   const shortcuts=(prefs?.shortcuts??DEFAULT_PRETTY.shortcuts).slice(0,4)
     .map((id,i)=>{
@@ -365,10 +361,8 @@ export function PrettyHome({config,nonce,onSettings}:{
     }
     return count;
   };
-  const eventChars=Math.max(12,Math.floor((width/2-154*s)/(body*.57)));
   const taskChars=Math.max(12,Math.floor((width/2-104*s)/(body*.57)));
   const taskMax=fitRows(activeTasks.map(t=>t.title),Math.max(0,topH-54*s),38*s,taskChars);
-  const eventsMax=fitRows(events.map(e=>e.summary),Math.max(0,topH-54*s),34*s,eventChars);
   const listRule={borderBottomWidth:.6,borderBottomColor:'#bbb'};
 
   const rowFile=(path:string,i:number,stamp?:number)=>(
@@ -479,17 +473,17 @@ export function PrettyHome({config,nonce,onSettings}:{
       <View onLayout={e=>setTopH(e.nativeEvent.layout.height)}
         style={{flex:1,minHeight:0,flexDirection:'row',borderBottomWidth:1,borderColor:RULE}}>
         <View style={[styles.cell,{paddingRight:5*s}]}>
-          <SectionTitle icon="lizard" label={dayLabel(selectedDay)+' Events'}
-            extra={events.length>eventsMax?'+'+(events.length-eventsMax):undefined}
-            scale={s} actionLabel="View all" action={()=>{
-              setAgendaStart(selectedDay);setAgendaVisit(v=>v+1);setOverlay('agenda');
-            }}/>
-          {!calendar.snapshot?<TouchableOpacity onPress={onSettings}>
-            <Txt size={body} muted>Connect the existing calendar feed in Settings.</Txt>
-          </TouchableOpacity>:events.length?
-            events.slice(0,eventsMax).map(event=><AgendaRow key={event.key} event={event}
-              allEvents={events} scale={s} onPress={()=>openEvent(event)}/>)
-          :<Txt size={body} muted>{calendar.status==='cached'?'No events in saved snapshot.':'No events on this day.'}</Txt>}
+          <HomeAgendaList key={selectedDay+':'+width+':'+fontBoost+':'+(calendar.snapshot?.fetchedAt??0)}
+            events={events} scale={s} fontBoost={fontBoost} initialHeight={Math.max(0,topH-53*s)}
+            header={hidden=><SectionTitle icon="lizard" label={dayLabel(selectedDay)}
+              extra={hidden>0?'+'+hidden:undefined} scale={s} actionLabel="View all"
+              actionAccessibilityLabel="View all events" action={()=>{
+                setAgendaStart(selectedDay);setAgendaVisit(v=>v+1);setOverlay('agenda');
+              }}/>}
+            onEvent={event=>openEvent(event)}
+            empty={!calendar.snapshot?<TouchableOpacity onPress={onSettings}>
+              <Txt size={body} muted>Connect the existing calendar feed in Settings.</Txt>
+            </TouchableOpacity>:<Txt size={body} muted>{calendar.status==='cached'?'No events in saved snapshot.':'No events in current feed for this day.'}</Txt>}/>
         </View>
         <View style={[styles.splitter,{marginHorizontal:7*s,marginVertical:9*s}]}/>
         <View style={[styles.cell,{paddingLeft:4*s}]}>
@@ -592,7 +586,7 @@ export function PrettyHome({config,nonce,onSettings}:{
                   </View>
                   {hasTimeConflict(selectedEvent,agenda)&&<View style={{flexDirection:'row',
                     alignItems:'center',marginTop:15*s}}>
-                    {overlapIcon(s)}<Txt size={16*s}>Overlaps another appointment</Txt>
+                    <Conflict scale={s}/><Txt size={16*s} style={{marginLeft:7*s}}>Overlaps another appointment</Txt>
                   </View>}
                 </View>
                 <Txt muted size={14*s} style={{marginTop:16*s}}>
@@ -605,11 +599,11 @@ export function PrettyHome({config,nonce,onSettings}:{
                   justifyContent:'space-between',marginBottom:10*s}}>
                   <IconTap icon="back" label="Previous seven days" size={22*s}
                     onPress={()=>setAgendaStart(addCalendarDays(agendaStart,-7))}/>
-                  <Txt size={17*s} bold>{dayLabel(agendaStart)} – {dayLabel(addCalendarDays(agendaStart,6))}</Txt>
-                  <TouchableOpacity onPress={()=>{setAgendaStart(dateKey(new Date()));setAgendaVisit(v=>v+1);}}>
+                  <Txt size={19*s} bold>{dayLabel(agendaStart)} – {dayLabel(addCalendarDays(agendaStart,6))}</Txt>
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel="Today" onPress={()=>{setAgendaStart(dateKey(new Date()));setAgendaVisit(v=>v+1);}}>
                     <Txt size={16*s} bold>Today</Txt>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={()=>setAgendaStart(addCalendarDays(agendaStart,7))}
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel="Next seven days" onPress={()=>setAgendaStart(addCalendarDays(agendaStart,7))}
                     style={{paddingHorizontal:10*s}}>
                     <Txt size={23*s}>›</Txt>
                   </TouchableOpacity>
@@ -619,9 +613,6 @@ export function PrettyHome({config,nonce,onSettings}:{
                     {Array.from({length:7},(_,i)=>addCalendarDays(agendaStart,i)).map(day=>{
                       const dayEvents=agenda.filter(e=>e.startDay<=day&&day<e.endDayExclusive);
                       const allDay=dayEvents.filter(e=>e.all_day),timed=dayEvents.filter(e=>!e.all_day);
-                      const coverageStart=agenda.length?agenda.map(e=>e.startDay).sort()[0]:null;
-                      const coverageEnd=agenda.length?agenda.map(e=>e.endDayExclusive).sort().slice(-1)[0]:null;
-                      const outside=!!coverageStart&&!!coverageEnd&&(day<coverageStart||day>=coverageEnd);
                       return <View key={day} style={{width:'49%',padding:11*s,
                         marginBottom:11*s,borderWidth:1,borderColor:'#bbb',borderRadius:0}}>
                         <View style={{paddingBottom:6*s,borderBottomWidth:1,borderColor:RULE,
@@ -631,12 +622,12 @@ export function PrettyHome({config,nonce,onSettings}:{
                         {allDay.length>0&&<View style={{backgroundColor:'#e8e8e8',
                           paddingHorizontal:5*s,marginTop:6*s}}>
                           {allDay.map(e=><AgendaRow key={e.key} event={e} allEvents={dayEvents}
-                            scale={s*.9} showSelect onPress={()=>openEvent(e,true)}/>)}
+                            scale={s} fontBoost={fontBoost} showSelect onPress={()=>openEvent(e,true)}/>)}
                         </View>}
                         {timed.map(e=><AgendaRow key={e.key} event={e} allEvents={dayEvents}
-                          scale={s*.9} showSelect onPress={()=>openEvent(e,true)}/>)}
+                          scale={s} fontBoost={fontBoost} showSelect onPress={()=>openEvent(e,true)}/>)}
                         {!dayEvents.length&&<Txt size={14*s} muted style={{marginTop:9*s}}>
-                          {outside?'Outside the feed’s available dates':'No events'}
+                          No events in current feed
                         </Txt>}
                       </View>;
                     })}

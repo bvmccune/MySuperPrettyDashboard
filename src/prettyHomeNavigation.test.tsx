@@ -60,6 +60,8 @@ import {setRoute,getRoute} from './route';
 import {DEFAULT_PRETTY,loadPrettyPrefs,PrettyPrefs} from './prettyPrefs';
 import {PrettyHome} from './PrettyHome';
 import {PrettySettings} from './PrettySettings';
+import {HomeAgendaList} from './PrettyAgenda';
+import {agendaFromFeed,normalizeFeed,dateKey,dayLabel,addCalendarDays,loadCalendarCache} from './prettyCalendar';
 
 const native=NativeModules.DashboardNative;
 const load=loadPrettyPrefs as jest.MockedFunction<typeof loadPrettyPrefs>;
@@ -144,4 +146,55 @@ it('shows native-style New Note controls and passes selected orientation and tem
   expect(PluginFileAPI.createNote).toHaveBeenCalledWith({notePath:'/storage/emulated/0/Note/Test-native.note',
     template:'style_5mm_grid',mode:1,isPortrait:false});
   expect(onClose).toHaveBeenCalled();
+});
+
+it('calculates +N from measured rows and includes conflicts with events omitted from Home',async()=>{
+  const at=(h:number,m=0)=>new Date(2026,10,26,h,m).toISOString();
+  const rows=agendaFromFeed(normalizeFeed({events:[
+    {summary:'A',start:at(9),end:at(10),all_day:false,calendar:'Work'},
+    {summary:'B long title',start:at(9,30),end:at(10,30),all_day:false,calendar:'Work'},
+    {summary:'C',start:at(11),end:at(12),all_day:false,calendar:'Work'},
+  ]}));
+  const onEvent=jest.fn();
+  await act(async()=>{app=create(<HomeAgendaList events={rows} scale={1} fontBoost={1} initialHeight={60}
+    header={n=>React.createElement('Text',{},'+'+n)} onEvent={onEvent} empty={null}/>);});
+  await act(async()=>{
+    const nodes=app!.root.findAll(node=>typeof node.type==='string'&&String(node.props.testID).startsWith('measure-event-'));
+    expect(nodes).toHaveLength(2);
+    nodes.forEach((node,i)=>node.props.onLayout({nativeEvent:{layout:{height:i===0?34:55}}}));
+  });
+  expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children==='+2')).toBe(true);
+  const body=app!.root.findByProps({testID:'home-agenda-body'});
+  const buttons=body.findAllByType('TouchableOpacity' as any);
+  const visible=buttons[buttons.length-1];
+  expect(visible.props.accessibilityLabel).toContain('A.');
+  expect(visible.props.accessibilityLabel).toContain('Conflicts with another appointment');
+  await act(async()=>{visible.props.onPress();});
+  expect(onEvent).toHaveBeenCalledWith(rows[0]);
+});
+it('calendar shortcut opens today; selecting an event opens detail without changing Home day',async()=>{
+  const today=new Date(),todayKey=dateKey(today);
+  const start=new Date(today.getFullYear(),today.getMonth(),today.getDate(),9);
+  const end=new Date(start.getTime()+3600000);
+  const sample={summary:'Calendar acceptance fixture',start:start.toISOString(),end:end.toISOString(),all_day:false,calendar:'Work'};
+  native.readPrivateCalendarSnapshot.mockResolvedValueOnce(JSON.stringify({schema:1,fetchedAt:Date.now(),feed:{events:[sample]}}));
+  await loadCalendarCache();
+  load.mockResolvedValue(DEFAULT_PRETTY);
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+  const touch=(label:string)=>app!.root.findAllByType('TouchableOpacity' as any).find(n=>n.props.accessibilityLabel===label)!;
+  const day=new Date(today);day.setDate(today.getDate()+(today.getDay()===0?-1:1));
+  await act(async()=>{touch('Select '+day.toDateString()).props.onPress();});
+  const selectedHeading=dayLabel(dateKey(day))+' Notes';
+  expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedHeading)).toBe(true);
+  await act(async()=>{touch('Calendar').props.onPress();});
+  expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===dayLabel(todayKey)+' – '+dayLabel(addCalendarDays(todayKey,6)))).toBe(true);
+  await act(async()=>{touch('Previous seven days').props.onPress();});
+  await act(async()=>{touch('Today').props.onPress();});
+  const event=app!.root.findAllByType('TouchableOpacity' as any).find(n=>String(n.props.accessibilityLabel).includes('Calendar acceptance fixture')&&String(n.props.accessibilityLabel).includes('Select for event details'))!;
+  expect(event).toBeTruthy();
+  await act(async()=>{event.props.onPress();});
+  expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children==='Event details')).toBe(true);
+  expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedHeading)).toBe(true);
+  await act(async()=>{touch('Back').props.onPress();});
+  expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children==='Seven-day agenda')).toBe(true);
 });

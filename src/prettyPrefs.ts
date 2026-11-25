@@ -10,7 +10,7 @@ const {DashboardNative} = NativeModules;
 const PREFS = '/storage/emulated/0/MyStyle/Plugins/MySuperPrettyDashboard/pretty-prefs.json';
 
 export type PrettyAction = 'calendar' | 'files' | 'favorites' | 'search' | 'keywords'
-  | 'last-note' | 'todo' | 'new-note' | 'quick-access' | 'refresh' | 'settings';
+  | 'todo' | 'new-note' | 'quick-access' | 'refresh' | 'settings';
 export type BubbleSpot = 'top-left' | 'top-right' | 'middle-left' | 'middle-right' | 'bottom-left' | 'bottom-right';
 export type PrettySize = 'normal' | 'large' | 'extra';
 
@@ -26,7 +26,6 @@ export const ACTIONS: {key: PrettyAction; name: string; icon: string}[] = [
   {key:'favorites', name:'Favorites', icon:'favorites'},
   {key:'search', name:'Search', icon:'search'},
   {key:'keywords', name:'Keywords', icon:'keywords'},
-  {key:'last-note', name:'Last opened note', icon:'last-note'},
   {key:'todo', name:'To-do', icon:'todo'},
   {key:'new-note', name:'New note', icon:'new-note'},
   {key:'quick-access', name:'Quick access', icon:'quick'},

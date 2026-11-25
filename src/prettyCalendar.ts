@@ -112,10 +112,10 @@ function parseAgendaEvent(event: FeedEvent, i: number): AgendaEvent | null {
   } else {
     startMillis = numericDate(event.start);
     endMillis = numericDate(event.end);
-    if (!Number.isFinite(startMillis) || !Number.isFinite(endMillis) || endMillis <= startMillis) return null;
+    if (!Number.isFinite(startMillis) || !Number.isFinite(endMillis) || endMillis < startMillis) return null;
     startDay = localDayOf(startMillis);
     // End is exclusive. Exact midnight belongs to the previous day only.
-    endDayExclusive = addCalendarDays(localDayOf(endMillis - 1), 1);
+    endDayExclusive = addCalendarDays(localDayOf(endMillis === startMillis ? startMillis : endMillis - 1), 1);
   }
   const normalized: FeedEvent = {summary:title, start:event.start, end:event.end,
     all_day:event.all_day, calendar:event.calendar};
@@ -187,10 +187,22 @@ export function eventTime(event:AgendaEvent):string {
   if(event.all_day)return 'All day';
   return new Date(event.startMillis).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
 }
+/** Match the approved compact mockup: no :00, lower-case am/pm, one
+ * meridiem when both endpoints share it, both when crossing noon/midnight. */
+export function compactEventTime(ms:number,showPeriod=true):string {
+  const d=new Date(ms),hours=d.getHours(),minutes=d.getMinutes();
+  return String(hours%12||12)+(minutes?':'+String(minutes).padStart(2,'0'):'')+
+    (showPeriod?(hours<12?' am':' pm'):'');
+}
 export function eventTimeRange(event:AgendaEvent):string {
   if(event.all_day)return 'All day';
-  const form=(ms:number)=>new Date(ms).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-  return form(event.startMillis)+' – '+form(event.endMillis);
+  if(event.startMillis===event.endMillis)return compactEventTime(event.startMillis);
+  const samePeriod=(new Date(event.startMillis).getHours()<12)===(new Date(event.endMillis).getHours()<12);
+  return compactEventTime(event.startMillis,!samePeriod)+'–'+compactEventTime(event.endMillis);
+}
+export function compactEventRange(event:AgendaEvent):string {
+  const time=eventTimeRange(event);
+  return event.all_day||event.startMillis===event.endMillis?time:time+' '+eventDuration(event);
 }
 export function eventDuration(event:AgendaEvent):string {
   if(event.all_day)return 'All day';

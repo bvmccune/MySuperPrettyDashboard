@@ -20,7 +20,7 @@ import {
   eventDuration, eventTimeRange, loadCalendarCache, normalizeFeed,
   refreshCalendar, sevenDayKeys,
 } from './prettyCalendar';
-import {compactEventRange, hasTimeConflict} from './PrettyAgenda';
+import {compactEventRange, hasTimeConflict, fitAgendaRows} from './PrettyAgenda';
 
 const event = (summary:string,start:string,end:string,all_day=false,calendar='Work') =>
   ({summary,start,end,all_day,calendar});
@@ -128,5 +128,31 @@ describe('Pretty Calendar — user-approved read-only agenda',()=>{
     expect(result.snapshot?.feed.events[0].summary).toBe('New meeting');
     expect(result.snapshot?.feed.updated_at).toBe('update1');
     expect(api.savePrivateCalendarSnapshot).toHaveBeenCalledTimes(1);
+  });
+});
+
+ describe('Calendar mockup acceptance rules',()=>{
+  const at=(h:number,m=0)=>new Date(2026,10,26,h,m).toISOString();
+  const row=(start:string,end:string)=>agendaFromFeed(feed([event('Example',start,end)]))[0];
+  test('exact compact time and duration labels, including noon, midnight and point events',()=>{
+    expect(compactEventRange(row(at(11),at(11,30)))).toBe('11–11:30 am 30m');
+    expect(compactEventRange(row(at(13),at(14)))).toBe('1–2 pm 1h');
+    expect(compactEventRange(row(at(11,30),at(13)))).toBe('11:30 am–1 pm 1h 30m');
+    expect(compactEventRange(row(at(0),at(1)))).toBe('12–1 am 1h');
+    expect(compactEventRange(row(at(10),at(10)))).toBe('10 am');
+    expect(compactEventRange(agendaFromFeed(feed([event('PTO','2026-11-26','2026-11-27',true)]))[0])).toBe('All day');
+  });
+  test('point events do not create conflicts and are not dropped at midnight',()=>{
+    const rows=agendaFromFeed(feed([event('Reminder',at(10),at(10)),event('Meeting',at(9),at(11)),event('Midnight',at(0),at(0))]));
+    expect(rows).toHaveLength(3);
+    expect(rows.every(e=>!hasTimeConflict(e,rows))).toBe(true);
+    expect(rows[0].startDay).toBe('2026-11-26');
+    expect(rows[0].endDayExclusive).toBe('2026-11-27');
+  });
+  test('overflow uses actual measured heights, not the number of characters',()=>{
+    expect(fitAgendaRows([34,53,34,74],121)).toBe(3);
+    expect(fitAgendaRows([34,53,34,74],120)).toBe(2);
+    expect(fitAgendaRows([34,53],20)).toBe(0);
+    expect(fitAgendaRows([34,53],87)).toBe(2);
   });
 });

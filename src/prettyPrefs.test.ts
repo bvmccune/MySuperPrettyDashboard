@@ -7,6 +7,9 @@ describe('Manta-specific settings migration',()=>{
     expect(result.shortcuts).toEqual(['refresh','settings','calendar','search']);
     expect(result.size).toBe('normal');
     expect(ACTIONS.map(a=>a.key)).not.toContain('stars');
+    expect(ACTIONS.map(a=>a.key)).not.toContain('last-note');
+    expect(ACTIONS.map(a=>a.key)).not.toContain('cloud-sync');
+    expect(ACTIONS.map(a=>a.key)).not.toContain('last-saved-note');
     expect(ACTIONS.find(a=>a.key==='files')?.name).toBe('Notes folder');
   });
   it('migrates the six-button layout without losing Quick Access',()=>{
