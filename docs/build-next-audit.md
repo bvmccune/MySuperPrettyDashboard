@@ -19,3 +19,5 @@ Rocky replaces the smiley only in the no-meetings state: card flex 1, Rocky flex
 Gauge refinement: replace 65 overlapping segment Views with a mathematically drawn continuous 250-degree SVG arc, compiled to opaque RGB PNG. The current value, low/high labels and indicator remain native live UI. Geometry tested at endpoints, midpoint and intermediate points. No new native dependency or tracing.
 
 Gauge proportions: restore build 62's square layout and original centerline geometry (radius 39%, center at 50%/48%, sweep 250 degrees); keep clean continuous vector stroke and lower endpoint labels. No vertical compression.
+
+Gauge visual correction: supersede the square design with a 100:125 portrait canvas and a genuinely taller elliptical centerline (37:49 radii). Fit the available lower weather area without distorting the image; retain lower labels and live marker. Physical acceptance still pending.

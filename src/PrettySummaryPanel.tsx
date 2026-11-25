@@ -35,7 +35,7 @@ export function PrettySummaryPanel({events,hasCalendar,calendarCached,weather,no
         {weatherSize.width>0&&weatherSize.height>0&&<WeatherIcon condition={expired?'unavailable':condition.condition} hail={condition.hail} isDay={snap?weatherIsDay(snap,now.getTime()):true} dark={false} size={Math.max(1,Math.min(weatherSize.width-4*scale,weatherSize.height/2-4*scale))}/>}
       </View>
       <View style={{flex:1,width:'100%',alignItems:'center',justifyContent:'center'}}>
-        <TemperatureGauge size={Math.max(1,Math.min(weatherSize.width-2*scale,weatherSize.height/2-2*scale))}
+        <TemperatureGauge size={Math.max(1,Math.min(weatherSize.width-2*scale,(weatherSize.height/2-2*scale-(stale?12*scale:0))/1.25))}
           current={expired?undefined:snap?.current} low={expired?undefined:day?.low} high={expired?undefined:day?.high}/>
         {stale&&<Text style={font(9)}>Cached</Text>}
       </View>
@@ -64,7 +64,7 @@ export function RockySign({scale}:{scale:number}){
   </View>;
 }
 
-/** Analytic circular geometry shared with assets/artwork/temperature-gauge.svg.
+/** Analytic elliptical geometry shared with assets/artwork/temperature-gauge.svg.
  * A single continuous arc is rasterized at build time; no tracing, overlapping
  * dots, native SVG dependency, or runtime image tint. Values remain live. */
 export function gaugeFraction(current:number,low:number,high:number){
@@ -72,7 +72,7 @@ export function gaugeFraction(current:number,low:number,high:number){
 }
 export function gaugePoint(fraction:number){
  const angle=(145+250*Math.max(0,Math.min(1,fraction)))*Math.PI/180;
- return {x:.5+.39*Math.cos(angle),y:.48+.39*Math.sin(angle)};
+ return {x:.5+.37*Math.cos(angle),y:.55+.49*Math.sin(angle)};
 }
 export function TemperatureGauge({size,current,low,high}:{size:number;current?:number;low?:number;high?:number}){
  const valid=Number.isFinite(current)&&Number.isFinite(low)&&Number.isFinite(high);
@@ -81,13 +81,13 @@ export function TemperatureGauge({size,current,low,high}:{size:number;current?:n
  const dot=size*.14;
  const baseText={fontFamily:FONT,color:'#000000',textAlign:'center' as const,includeFontPadding:false};
  if(size<=1)return <View/>;
- return <View testID="temperature-gauge" accessible accessibilityLabel={'Current '+label(current)+', low '+label(low)+', high '+label(high)} style={{width:size,height:size,position:'relative'}}>
-   <Image source={require('../assets/pretty/temperature-gauge.png')} resizeMode="contain" style={{width:size,height:size}}/>
+ return <View testID="temperature-gauge" accessible accessibilityLabel={'Current '+label(current)+', low '+label(low)+', high '+label(high)} style={{width:size,height:size*1.25,position:'relative'}}>
+   <Image source={require('../assets/pretty/temperature-gauge.png')} resizeMode="contain" style={{width:size,height:size*1.25}}/>
    {valid&&<View testID="temperature-marker" style={{position:'absolute',left:marker.x*size-dot/2,top:marker.y*size-dot/2,width:dot,height:dot,borderRadius:dot/2,borderColor:'#FFFFFF',borderWidth:size*.018,backgroundColor:'#000000'}}/>}
-   <View style={{position:'absolute',left:size*.19,top:size*.29,width:size*.62,height:size*.38,alignItems:'center',justifyContent:'center'}}>
+   <View style={{position:'absolute',left:size*.19,top:size*.34,width:size*.62,height:size*.47,alignItems:'center',justifyContent:'center'}}>
      <Text adjustsFontSizeToFit numberOfLines={1} style={{...baseText,fontSize:size*.34,fontWeight:'600'}}>{label(current)}</Text>
    </View>
-   <Text numberOfLines={1} adjustsFontSizeToFit style={{...baseText,position:'absolute',left:size*.015,bottom:size*.045,width:size*.35,fontSize:size*.17}}>{label(low)}</Text>
-   <Text numberOfLines={1} adjustsFontSizeToFit style={{...baseText,position:'absolute',right:size*.015,bottom:size*.045,width:size*.35,fontSize:size*.17}}>{label(high)}</Text>
+   <Text numberOfLines={1} adjustsFontSizeToFit style={{...baseText,position:'absolute',left:size*.015,top:size*1.02,width:size*.35,fontSize:size*.18}}>{label(low)}</Text>
+   <Text numberOfLines={1} adjustsFontSizeToFit style={{...baseText,position:'absolute',right:size*.015,top:size*1.02,width:size*.35,fontSize:size*.18}}>{label(high)}</Text>
  </View>;
 }

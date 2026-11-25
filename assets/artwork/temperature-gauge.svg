@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
-  <title>Temperature range gauge</title>
-  <desc>Continuous 250-degree circular arc; live values and indicator are drawn separately.</desc>
-  <rect width="100" height="100" fill="#FFFFFF"/>
-  <path d="M 18.053070 70.369481 A 39 39 0 1 1 81.946930 70.369481" fill="none" stroke="#999999" stroke-width="9" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125" width="100" height="125">
+  <title>Tall temperature range gauge</title>
+  <desc>Continuous 250-degree elliptical arc. Live values and marker rendered separately.</desc>
+  <rect width="100" height="125" fill="#FFFFFF"/>
+  <path d="M 19.691374 83.105245 A 37 49 0 1 1 80.308626 83.105245" fill="none" stroke="#999999" stroke-width="9" stroke-linecap="round"/>
 </svg>
