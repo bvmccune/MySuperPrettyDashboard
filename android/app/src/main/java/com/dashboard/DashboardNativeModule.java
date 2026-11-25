@@ -93,7 +93,8 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
                 java.net.URL url = new java.net.URL(address);
                 String host = url.getHost();
                 boolean allowed = ("api.open-meteo.com".equalsIgnoreCase(host) && "/v1/forecast".equals(url.getPath()))
-                    || ("geocoding-api.open-meteo.com".equalsIgnoreCase(host) && "/v1/search".equals(url.getPath()));
+                    || ("geocoding-api.open-meteo.com".equalsIgnoreCase(host) && "/v1/search".equals(url.getPath()))
+                    || ("ipapi.co".equalsIgnoreCase(host) && "/json/".equals(url.getPath()) && url.getQuery() == null);
                 if (!allowed || !"https".equals(url.getProtocol()) || url.getUserInfo() != null
                     || (url.getPort() != -1 && url.getPort() != 443) || url.getRef() != null) {
                     throw new java.io.IOException("Weather endpoint is not allowed");
@@ -106,7 +107,7 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
                 connection.setRequestProperty("Accept", "application/json");
                 int status = connection.getResponseCode();
                 if (status < 200 || status >= 300) {
-                    promise.reject("WEATHER_HTTP", "Open-Meteo HTTP " + status);
+                    promise.reject("WEATHER_HTTP", "Weather/location HTTP " + status);
                     return;
                 }
                 try (java.io.InputStream in = connection.getInputStream();

@@ -30,7 +30,7 @@ import {PrettyFitList} from './PrettyFitList';
 import {INK,PAPER,DARK_GRAY,LIGHT_GRAY} from './prettyPalette';
 import {scanKeywords,KeywordHit} from './scanner';
 import {PrettySummaryPanel} from './PrettySummaryPanel';
-import {WeatherResult,refreshWeather,WEATHER_REFRESH_MS,DEFAULT_WEATHER_LOCATION,locationKey} from './prettyWeather';
+import {WeatherResult,refreshAutomaticWeather,WEATHER_REFRESH_MS} from './prettyWeather';
 import {BUILD_LABEL} from './prettyBuild';
 
 const {DashboardNative}=NativeModules;
@@ -227,18 +227,15 @@ export function PrettyHome({config,nonce,onSettings}:{
   },[config,nonce]);
 
   // Weather has its own lifecycle: preference changes must not reset the selected calendar day.
-  const weatherLocation=prefs?.weatherLocation??DEFAULT_WEATHER_LOCATION;
-  const weatherKey=locationKey(weatherLocation);
   useEffect(()=>{
     if(!prefs)return;
     let live=true;
-    setWeather(previous=>previous.snapshot&&locationKey(previous.snapshot.location)===weatherKey?previous:{snapshot:null,status:'loading'});
-    const update=(force=false)=>{refreshWeather(weatherLocation,force).then(result=>{if(live)setWeather(result);}).catch(()=>{});};
+    const update=(force=false)=>{refreshAutomaticWeather(force).then(result=>{if(live)setWeather(result);}).catch(()=>{});};
     update(refreshTick>0);
     const timer=setInterval(()=>{if(AppState.currentState==='active')update();},WEATHER_REFRESH_MS);
-    const wake=AppState.addEventListener('change',state=>{if(state==='active')update();});
+    const wake=AppState.addEventListener('change',state=>{if(state==='active')update(true);});
     return()=>{live=false;clearInterval(timer);wake.remove();};
-  },[prefs!==null,weatherKey,refreshTick,nonce]);
+  },[prefs!==null,refreshTick,nonce]);
   const scanCreated=useCallback(async()=>{
     const queue=[NOTE_ROOT],seen=new Set<string>(),notes:CreatedNote[]=[];
     while(queue.length&&seen.size<250){
@@ -351,7 +348,7 @@ export function PrettyHome({config,nonce,onSettings}:{
   };
   const close=()=>{setOverlay(null);leavePlugin();};
   const refreshAll=()=>{setRefreshTick(v=>v+1);refresh();};
-  const listRule={borderBottomWidth:.6,borderBottomColor:DARK_GRAY};
+  const listRule={borderTopWidth:.6,borderTopColor:DARK_GRAY};
   const rowLine=body*1.28;
   const rowMin=38*s;
   const rowMax=Math.max(rowMin,rowLine*3+14*s);
@@ -535,7 +532,7 @@ export function PrettyHome({config,nonce,onSettings}:{
           </View>
           <PrettySummaryPanel events={agenda} hasCalendar={!!calendar.snapshot} calendarCached={calendar.status==='cached'}
             weather={weather} now={now} scale={s}
-            onSettings={onSettings} refreshTick={refreshTick+nonce}/>
+            onSettings={onSettings}/>
         </View>
       </View>
     </View>

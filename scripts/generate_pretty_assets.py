@@ -109,9 +109,18 @@ for name in sorted(weather_names):
     rendered=cairosvg.svg2png(bytestring=svg,output_width=240,output_height=240)
     mask=Image.open(BytesIO(rendered)).convert('RGBA').getchannel('A')
     assert mask.getextrema()==(0,255), f'Invalid transparent mask: {name}'
-    mono=Image.new('RGBA',(240,240),(0,0,0,0))
-    mono.putalpha(mask)
-    mono.save(OUT/('weather-'+name+'.png'))
+    # Opaque pre-rendered images avoid the Manta runtime tint/alpha artefact.
+    bounds=mask.getbbox()
+    assert bounds and bounds[2]>bounds[0] and bounds[3]>bounds[1], name
+    crop=mask.crop(bounds)
+    crop.thumbnail((216,216),Image.Resampling.LANCZOS)
+    fitted=Image.new('L',(240,240),0)
+    fitted.paste(crop,((240-crop.width)//2,(240-crop.height)//2))
+    for suffix,fg,bg in [('',0,255),('-dark',255,0)]:
+        mono=Image.new('L',(240,240),bg)
+        mono.paste(fg,(0,0,240,240),fitted)
+        assert mono.getextrema()==(0,255), name
+        mono.convert('RGB').save(OUT/('weather-'+name+suffix+'.png'))
 print('Weather Iconic:',len(weather_names),'licensed monochrome assets')
 
 # Preserve the supplied blank-sign SVG wrapper; render to a native image at build time.

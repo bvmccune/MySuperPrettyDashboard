@@ -1,10 +1,6 @@
-/** Approved Rocky phrases. A date-seeded pseudorandom draw stays stable throughout the day. */
+/** Approved Rocky phrases; choose randomly when the Free Rest of Day illustration mounts. */
 export const ROCKY_PHRASES=['Fist my bump.','Words of encouragement.','Words of GREAT encouragement!','Is perfect!'] as const;
-export function rockyPhrase(date:Date):typeof ROCKY_PHRASES[number]{
-  const day=Math.floor(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate())/86400000);
-  let n=(day+0x9e3779b9)|0;
-  n=Math.imul(n^(n>>>16),0x21f0aaad);
-  n=Math.imul(n^(n>>>15),0x735a2d97);
-  n=(n^(n>>>15))>>>0;
-  return ROCKY_PHRASES[n%ROCKY_PHRASES.length];
+export function rockyPhrase(random:()=>number=Math.random):typeof ROCKY_PHRASES[number]{
+ const index=Math.max(0,Math.min(ROCKY_PHRASES.length-1,Math.floor(random()*ROCKY_PHRASES.length)));
+ return ROCKY_PHRASES[index];
 }

@@ -3,4 +3,4 @@ export const GRAYSCALE=['#000000','#111111','#222222','#333333','#444444','#5555
 export const INK=GRAYSCALE[0];
 export const PAPER=GRAYSCALE[15];
 export const DARK_GRAY=GRAYSCALE[9];
-export const LIGHT_GRAY=GRAYSCALE[14];
+export const LIGHT_GRAY=GRAYSCALE[13];

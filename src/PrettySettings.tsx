@@ -15,8 +15,7 @@ import {CalendarResult, currentCalendar, loadCalendarCache, refreshCalendar, con
 import {openFile, openFolder} from './open';
 import {PrettyScreenHeader, SCREEN_BODY} from './PrettyScreen';
 import {WeatherIcon} from './WeatherIcon';
-import {WeatherLocation,searchWeatherLocations,refreshWeather,DEFAULT_WEATHER_LOCATION} from './prettyWeather';
-import {ARTWORK_DIR} from './PrettySummaryPanel';
+import {refreshAutomaticWeather,readAutomaticLocation,WeatherLocation} from './prettyWeather';
 
 const {DashboardNative} = NativeModules;
 const BASE = '/storage/emulated/0';
@@ -57,8 +56,7 @@ export function PrettySettings(): React.JSX.Element {
   const [calendarState,setCalendarState] = useState<CalendarResult>(()=>currentCalendar());
   const [calendarConfigured,setCalendarConfigured] = useState(false);
   const [calendarSourceInput,setCalendarSourceInput] = useState('');
-  const [locationQuery,setLocationQuery]=useState('');
-  const [locations,setLocations]=useState<WeatherLocation[]>([]);
+  const [detectedLocation,setDetectedLocation]=useState<WeatherLocation|null>(null);
   // Serialize writes: rapid edits must never allow an older save to replace
   // newer settings. Done waits for disk persistence and verifies the read-back.
   const saveQueue = useRef<Promise<boolean>>(Promise.resolve(true));
@@ -70,6 +68,7 @@ export function PrettySettings(): React.JSX.Element {
       const cfg=await loadConfig();
       const next=await loadPrettyPrefs(cfg);
       if(live){setLegacy(cfg);setPrefs(next);latestPrefs.current=next;}
+      readAutomaticLocation().then(location=>{if(live)setDetectedLocation(location);}).catch(()=>{});
       const ok=await hasSupernoteLogin().catch(()=>false);
       if(live)setConnected(ok);
       const cached=await loadCalendarCache();
@@ -242,16 +241,10 @@ export function PrettySettings(): React.JSX.Element {
           <TextLine faint>Privacy: Confirm your employer permits this existing calendar feed. Anyone with access to the endpoint may be able to retrieve the work event titles if it is not protected by authentication.</TextLine>
         </Group>
         <Group title="Weather and availability">
-          <TextLine>Weather location: {prefs.weatherLocation?.name??DEFAULT_WEATHER_LOCATION.name}</TextLine>
-          <TextLine faint>Open-Meteo · current temperature and local daily high/low in °F. Sun and moon artwork follows sunrise and sunset at the selected city. No GPS required.</TextLine>
-          <TextInput style={styles.input} value={locationQuery} onChangeText={setLocationQuery} placeholder="City or ZIP code"/>
-          <Action disabled={busy} onPress={()=>attempt(async()=>{const results=await searchWeatherLocations(locationQuery);setLocations(results);setStatus(results.length?'Choose the matching city.':'No cities found.');})}>Find location</Action>
-          {locations.map((location,i)=><Action key={i} small disabled={busy} onPress={()=>{if(!prefs)return;save({...prefs,weatherLocation:location});setLocations([]);setLocationQuery('');setStatus('Weather location saved: '+location.name);}}>{location.name}</Action>)}
-          <Action disabled={busy} onPress={()=>attempt(async()=>{const result=await refreshWeather(prefs.weatherLocation??DEFAULT_WEATHER_LOCATION,true);setStatus(result.error?'Weather refresh: '+result.error:'Weather updated.');})}>Refresh weather now</Action>
-          <TextLine faint>Availability shows the current and next calendar states for today, using timed events only. It does not use working hours.</TextLine>
-          <TextLine bold>Rotating artwork</TextLine>
-          <TextLine faint>Copy your PNG, JPEG or WebP illustrations into MyStyle/Plugins/MySuperPrettyDashboard/artwork. One illustration is selected per day. With a single file, it stays fixed. A file named free-state.png, free-state.jpg or free-state.webp is reserved for the Free Rest of Day state; until then a smiley is shown.</TextLine>
-          <Action disabled={busy} onPress={()=>attempt(async()=>{await DashboardNative.writeFile(ARTWORK_DIR+'/.keep','');setStatus('Artwork folder is ready. Copy your possum image there.');})}>Create artwork folder</Action>
+          <TextLine>Weather location: {detectedLocation?.name??'Automatic — not detected yet'}</TextLine>
+          <TextLine faint>Approximate location is detected automatically from your public internet IP via ipapi.co, with no ZIP or GPS required. Open-Meteo supplies current temperature and local daily high/low in °F. VPNs and some networks may resolve to a nearby or different city.</TextLine>
+          <Action disabled={busy} onPress={()=>attempt(async()=>{const result=await refreshAutomaticWeather(true);setDetectedLocation(await readAutomaticLocation());setStatus(result.error?'Weather refresh: '+result.error:'Weather updated.');})}>Refresh weather and location</Action>
+          <TextLine faint>Availability shows today's current and next timed calendar states. Rocky appears when no meetings remain; the possum is bundled into the dashboard.</TextLine>
           <TouchableOpacity accessibilityRole="link" onPress={()=>Linking.openURL('https://open-meteo.com/').catch(()=>setStatus('Weather data: https://open-meteo.com/'))}><Text style={{fontFamily:FONT,fontSize:18,color:'#111',textDecorationLine:'underline'}}>Weather data by Open-Meteo (CC BY 4.0)</Text></TouchableOpacity>
         </Group>
         <Group title="Supernote To-do · your existing list">

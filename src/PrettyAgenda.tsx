@@ -29,8 +29,8 @@ export function AgendaRow({event,onPress,allEvents=[],scale=1,fontBoost=1,showSe
     event.summary+'. '+compactEventRange(event)+(overlapping?'. Conflicts with another appointment':'')+
     (showSelect?'. Select for event details':'')}
     onPress={onPress} style={{flexDirection:'row',alignItems:'center',flexShrink:0,
-      paddingVertical:5*scale,paddingHorizontal:2*scale,minHeight:34*scale,borderBottomWidth:.6,
-      borderBottomColor:DARK_GRAY,backgroundColor:event.all_day?LIGHT_GRAY:PAPER}}>
+      paddingVertical:5*scale,paddingHorizontal:2*scale,minHeight:34*scale,borderTopWidth:.6,
+      borderTopColor:DARK_GRAY,backgroundColor:event.all_day?LIGHT_GRAY:PAPER}}>
     <Image source={require('../assets/pretty/calendar-dot.png')} resizeMode="contain"
       style={{width:20*scale,height:20*scale,marginRight:5*scale}}/>
     <Text numberOfLines={showSelect?undefined:3} ellipsizeMode="tail" style={{

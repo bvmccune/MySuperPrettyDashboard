@@ -222,9 +222,13 @@ test('16-level grayscale targets are evenly spaced and UI colors are members',()
 });
 
 import {rockyPhrase,ROCKY_PHRASES} from './prettyRocky';
-test('Rocky phrases remain stable through the local day and use only the approved collection',()=>{
- expect(rockyPhrase(new Date(2026,10,25,1))).toBe(rockyPhrase(new Date(2026,10,25,23)));
- const values=new Set(Array.from({length:60},(_,i)=>rockyPhrase(new Date(2026,10,25+i))));
- expect(values.size).toBe(4);
- expect([...values].every(v=>ROCKY_PHRASES.includes(v))).toBe(true);
+test('all four Rocky phrases are selected by the random draw',()=>{
+ expect([0,.25,.5,.75].map(n=>rockyPhrase(()=>n))).toEqual([...ROCKY_PHRASES]);
 });
+import {normalizeAutomaticLocation} from './prettyWeather';
+test('automatic location uses detected city and coordinates, excludes IP, rejects errors',()=>{
+ expect(normalizeAutomaticLocation({ip:'192.0.2.1',city:'Example',region:'State',country_code:'US',latitude:35,longitude:-80})).toEqual({name:'Example, State, US',latitude:35,longitude:-80});
+ expect(()=>normalizeAutomaticLocation({error:true,city:'Example',latitude:35,longitude:-80})).toThrow();
+ expect(()=>normalizeAutomaticLocation({city:'Example',latitude:91,longitude:-80})).toThrow();
+});
+test('visible row shading uses the next darker level after Manta rejected #EEEEEE',()=>expect(LIGHT_GRAY).toBe('#DDDDDD'));

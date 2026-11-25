@@ -55,7 +55,7 @@ function validSnapshot(x:any,l:WeatherLocation):x is WeatherSnapshot{
 }
 let permitted=false;
 export async function getWeatherJson(url:string){
- if(!permitted){const k='plugin.permission.INTERNET';let p=await PluginManager.hasPermission(k);if(p!==1&&p!==2)p=await PluginManager.requestPermission(k,'Retrieve weather for your selected city.');if(p!==1&&p!==2)throw new Error('Weather internet permission denied');permitted=true;}
+ if(!permitted){const k='plugin.permission.INTERNET';let p=await PluginManager.hasPermission(k);if(p!==1&&p!==2)p=await PluginManager.requestPermission(k,'Detect approximate internet location and retrieve local weather.');if(p!==1&&p!==2)throw new Error('Weather internet permission denied');permitted=true;}
  let last:unknown;
  for(let attempt=0;attempt<2;attempt++){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
@@ -64,7 +64,7 @@ export async function getWeatherJson(url:string){
   finally{clearTimeout(timer);}
  }
  const error=last as any;
- const host=url.startsWith('https://geocoding-api.open-meteo.com/')?'geocoding-api.open-meteo.com':'api.open-meteo.com';
+ const host=url.startsWith('https://ipapi.co/')?'ipapi.co':url.startsWith('https://geocoding-api.open-meteo.com/')?'geocoding-api.open-meteo.com':'api.open-meteo.com';
  const detail=error?.name==='AbortError'?'Request timed out':String(error?.message||'Network request failed');
  if(!/^Weather HTTP 4/.test(detail)&&typeof DashboardNative?.fetchOpenMeteoJson==='function'){
   try{return JSON.parse(await DashboardNative.fetchOpenMeteoJson(url));}
@@ -90,4 +90,39 @@ export async function searchWeatherLocations(query:string):Promise<WeatherLocati
  const q=query.trim();if(q.length<2)throw new Error('Enter a city or ZIP code');
  const data=await getWeatherJson('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=8&language=en&format=json');
  return (Array.isArray(data?.results)?data.results:[]).map((r:any)=>({name:[r.name,r.admin1,r.country_code].filter(Boolean).join(', '),latitude:r.latitude,longitude:r.longitude})).filter(validWeatherLocation);
+}
+
+/** Automatic public-IP geolocation. Store only city and coordinates, never the IP itself.
+ * Legacy manually configured Atlanta/city preferences are not used by this path. */
+const AUTO_LOCATION='/storage/emulated/0/MyStyle/Plugins/MySuperPrettyDashboard/weather-auto-location.json';
+let automaticLocation:WeatherLocation|null=null, detectedAt=0;
+let autoPending:Promise<WeatherResult>|null=null;
+export function normalizeAutomaticLocation(raw:any):WeatherLocation{
+ const location={name:[raw?.city,raw?.region,raw?.country_code??raw?.country].filter((v:any)=>typeof v==='string'&&v.trim()).join(', '),latitude:raw?.latitude,longitude:raw?.longitude};
+ if(raw?.error||typeof raw?.city!=='string'||!validWeatherLocation(location))throw new Error('Automatic location unavailable');
+ return location;
+}
+export async function readAutomaticLocation():Promise<WeatherLocation|null>{
+ if(automaticLocation)return automaticLocation;
+ try{const value=JSON.parse(await DashboardNative.readTextFile(AUTO_LOCATION)||'null');if(validWeatherLocation(value)){automaticLocation={name:value.name,latitude:value.latitude,longitude:value.longitude};return automaticLocation;}}catch{}
+ return null;
+}
+export function refreshAutomaticWeather(force=false):Promise<WeatherResult>{
+ if(autoPending)return autoPending;
+ autoPending=(async():Promise<WeatherResult>=>{
+  const last=await readAutomaticLocation();
+  let location=last,locationError:string|undefined;
+  if(force||!location||Date.now()-detectedAt>=WEATHER_REFRESH_MS){
+   try{
+    location=normalizeAutomaticLocation(await getWeatherJson('https://ipapi.co/json/'));
+    automaticLocation=location;detectedAt=Date.now();
+    try{await DashboardNative.writeFile(AUTO_LOCATION,JSON.stringify(location));}catch{}
+   }catch(e:any){locationError=String(e?.message||'Automatic location unavailable');}
+  }
+  if(!location)return {snapshot:null,status:'unavailable',error:locationError||'Automatic location unavailable'};
+  const weather=await refreshWeather(location,force);
+  if(locationError)return {...weather,status:weather.snapshot?'cached':'unavailable',error:'Location not verified: '+locationError+(weather.error?'; '+weather.error:'')};
+  return weather;
+ })().finally(()=>{autoPending=null;});
+ return autoPending;
 }

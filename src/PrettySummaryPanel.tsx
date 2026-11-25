@@ -1,49 +1,26 @@
 /** Approved 40 / 20 / 40 arrangement in the former ShortCats section. */
-import React,{useEffect,useState} from 'react';
-import {Image,NativeModules,Text,TouchableOpacity,View} from 'react-native';
+import React,{useState} from 'react';
+import {Image,Text,TouchableOpacity,View} from 'react-native';
 import {AgendaEvent} from './prettyCalendar';
 import {availability,minuteLabel,AvailabilityBox} from './prettyAvailability';
 import {WeatherResult,weatherCondition,weatherDay,weatherIsDay} from './prettyWeather';
 import {WeatherIcon} from './WeatherIcon';
 import {rockyPhrase} from './prettyRocky';
-const {DashboardNative}=NativeModules;
-export const ARTWORK_DIR='/storage/emulated/0/MyStyle/Plugins/MySuperPrettyDashboard/artwork';
 const FONT='GoogleSansFlex';
-export function PrettySummaryPanel({events,hasCalendar,calendarCached,weather,now,scale,onSettings,refreshTick}:{
-  events:AgendaEvent[];hasCalendar:boolean;calendarCached:boolean;weather:WeatherResult;now:Date;scale:number;onSettings:()=>void;refreshTick:number;
+export function PrettySummaryPanel({events,hasCalendar,calendarCached,weather,now,scale,onSettings}:{
+  events:AgendaEvent[];hasCalendar:boolean;calendarCached:boolean;weather:WeatherResult;now:Date;scale:number;onSettings:()=>void;
 }):React.JSX.Element{
-  const [art,setArt]=useState<string[]>([]);
-  const [freeArt,setFreeArt]=useState('');
-  const [freeArtFailed,setFreeArtFailed]=useState(false);
-  const [failedArt,setFailedArt]=useState('');
-  useEffect(()=>{
-    let live=true;
-    Promise.resolve().then(()=>DashboardNative.listDir(ARTWORK_DIR)).then((items:any[])=>{
-      if(live){
-        const images=(items||[]).filter(e=>!e.isDir&&/\.(png|jpe?g|webp)$/i.test(e.name)&&typeof e.path==='string');
-        const reserved=(name:string)=>/^free-state\.(png|jpe?g|webp)$/i.test(name);
-        setArt(images.filter(e=>!reserved(e.name)).map(e=>e.path).sort());
-        setFreeArt(images.filter(e=>reserved(e.name)).map(e=>e.path).sort()[0]||'');
-        setFreeArtFailed(false);setFailedArt('');
-      }
-    }).catch(()=>{if(live){setArt([]);setFreeArt('');}});
-    return()=>{live=false;};
-  },[refreshTick]);
-  const dayNumber=Math.floor(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())/86400000);
-  const rotationIndex=((dayNumber%(art.length+1))+(art.length+1))%(art.length+1);
-  const artwork=rotationIndex>0?art[rotationIndex-1]:'';
   const states=hasCalendar?availability(events,now):[{kind:'unavailable'},{kind:'unavailable'}] as [AvailabilityBox,AvailabilityBox];
   const [weatherSize,setWeatherSize]=useState({width:0,height:0});
-  const [artSize,setArtSize]=useState({width:0,height:0});
-  const rockySize=Math.max(0,Math.min(artSize.width-6*scale,artSize.height-6*scale));
   const snap=weather.snapshot,day=snap?weatherDay(snap,now.getTime()):null;
   const condition:{condition:string;hail?:boolean}=snap?weatherCondition(snap.code,snap.wind):{condition:'unavailable'};
   const expired=!!snap&&now.getTime()-snap.observedAt>2*3600000;
+  const stale=weather.status==='cached'||expired;
   const font=(size:number,color='#000',bold=false)=>({fontFamily:FONT,fontSize:size*scale,color,fontWeight:bold?'600' as const:'400' as const,includeFontPadding:false,textAlign:'center' as const});
   return <View style={{flex:1,flexDirection:'row',minHeight:0,paddingBottom:3*scale}}>
     <View testID="availability-column" style={{flex:2,minWidth:0,paddingHorizontal:3*scale,justifyContent:'center'}}>
-      {states.map((state,i)=>state.kind==='art'?<View key={i} accessibilityLabel="No remaining meetings" style={{flex:1,alignItems:'center',justifyContent:'center'}}>{freeArt&&!freeArtFailed?<Image accessibilityLabel="Free rest of day artwork" source={{uri:'file://'+encodeURI(freeArt)}} resizeMode="contain" onError={()=>setFreeArtFailed(true)} style={{width:'100%',height:'100%'}}/>:<Text style={font(45)}>☺</Text>}</View>:
-        <View key={i} style={{flex:1,minHeight:0,marginTop:3*scale,borderRadius:9*scale,borderColor:'#000',borderWidth:1,
+      {states.map((state,i)=>state.kind==='art'?<RockySign key={i} scale={scale}/>:
+        <View key={i} testID={'availability-'+state.kind} style={{flex:1,minHeight:0,marginTop:3*scale,borderRadius:9*scale,borderColor:'#000',borderWidth:1,
           backgroundColor:state.kind==='busy'?'#000':'#fff',alignItems:'center',justifyContent:'center'}}>
           {state.kind==='rest'?<><Text style={font(16,'#000',true)}>FREE</Text><Text style={font(11)}>REST OF DAY</Text></>:
             state.kind==='unavailable'?<Text style={font(13)}>Unavailable</Text>:state.left?<><Text style={font(22,'#fff',true)}>{minuteLabel(state.minutes??0)}</Text><Text style={font(12,'#fff')}>LEFT</Text></>:
@@ -55,24 +32,35 @@ export function PrettySummaryPanel({events,hasCalendar,calendarCached,weather,no
       onLayout={e=>{const {width,height}=e.nativeEvent.layout;setWeatherSize(old=>old.width===width&&old.height===height?old:{width,height});}}
       style={{flex:1,minWidth:0,alignItems:'center',justifyContent:'center',paddingHorizontal:1*scale}}>
       <View style={{flex:1,width:'100%',alignItems:'center',justifyContent:'center'}}>
-        <WeatherIcon condition={expired?'unavailable':condition.condition} hail={condition.hail} isDay={snap?weatherIsDay(snap,now.getTime()):true} dark={false} size={Math.max(1,Math.min(weatherSize.width-4*scale,weatherSize.height/2-4*scale))}/>
+        {weatherSize.width>0&&weatherSize.height>0&&<WeatherIcon condition={expired?'unavailable':condition.condition} hail={condition.hail} isDay={snap?weatherIsDay(snap,now.getTime()):true} dark={false} size={Math.max(1,Math.min(weatherSize.width-4*scale,weatherSize.height/2-4*scale))}/>}
       </View>
       <View style={{flex:1,width:'100%',alignItems:'center',justifyContent:'center'}}>
         <TemperatureGauge size={Math.max(1,Math.min(weatherSize.width-2*scale,weatherSize.height/2-2*scale))}
-          current={expired?undefined:snap?.current} low={day?.low} high={day?.high}/>
-        {(weather.status==='cached'||expired)&&<Text style={font(9)}>Cached</Text>}
+          current={expired?undefined:snap?.current} low={expired?undefined:day?.low} high={expired?undefined:day?.high}/>
+        {stale&&<Text style={font(9)}>Cached</Text>}
       </View>
     </TouchableOpacity>
-    <View testID="artwork-column" onLayout={e=>{const {width,height}=e.nativeEvent.layout;setArtSize(old=>old.width===width&&old.height===height?old:{width,height});}} style={{flex:2,minWidth:0,padding:3*scale,alignItems:'center',justifyContent:'center'}}>
-      {artwork&&failedArt!==artwork?<Image accessibilityLabel="Daily artwork" source={{uri:'file://'+encodeURI(artwork)}}
-        onError={()=>setFailedArt(artwork)} resizeMode="contain" style={{width:'100%',height:'100%'}}/>:
-        <View testID="rocky-sign" style={{width:rockySize,height:rockySize,position:'relative'}}>
-          <Image accessibilityLabel="Rocky holding a blank sign" source={require('../assets/pretty/rocky-sign.png')} resizeMode="contain" style={{width:'100%',height:'100%'}}/>
-          <View pointerEvents="none" style={{position:'absolute',left:'20%',top:'57%',width:'60%',height:'25%',alignItems:'center',justifyContent:'center'}}>
-            <Text testID="rocky-phrase" numberOfLines={3} adjustsFontSizeToFit style={{fontFamily:FONT,fontWeight:'600',fontSize:rockySize*.10,textAlign:'center',color:'#000',includeFontPadding:false}}>{rockyPhrase(now)}</Text>
-          </View>
-        </View>}
+    <View testID="artwork-column" style={{flex:2,minWidth:0,padding:3*scale,alignItems:'center',justifyContent:'center'}}>
+      <Image accessibilityLabel="I am good kitty — possum artwork by Lindsay Scanlan" source={require('../assets/artwork/possum.jpg')} resizeMode="contain" style={{width:'100%',height:'100%'}}/>
     </View>
+  </View>;
+}
+
+/** Original image sign occupies x=33..208 and y=7..89 of the square.
+ * Keep text inside its clear interior; Rocky uses two of the three height units.
+ * A random phrase is chosen when this state becomes visible, not on a timer. */
+export function RockySign({scale}:{scale:number}){
+  const [bounds,setBounds]=useState({width:0,height:0});
+  const [phrase]=useState(()=>rockyPhrase());
+  const width=Math.max(0,Math.min(bounds.width-4*scale,(bounds.height-2*scale)*1.18));
+  const height=width/1.18;
+  return <View testID="rocky-free-art" onLayout={e=>{const {width,height}=e.nativeEvent.layout;setBounds(old=>old.width===width&&old.height===height?old:{width,height});}} style={{flex:2,minHeight:0,alignItems:'center',justifyContent:'center'}}>
+    {width>0&&<View testID="rocky-sign" style={{width,height,position:'relative'}}>
+      <Image accessibilityLabel="Rocky holding a blank sign" source={require('../assets/pretty/rocky-sign.png')} resizeMode="stretch" style={{width:'100%',height:'100%'}}/>
+      <View pointerEvents="none" style={{position:'absolute',left:'17%',top:'5%',width:'66%',height:'28%',alignItems:'center',justifyContent:'center'}}>
+        <Text testID="rocky-phrase" numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.5} style={{fontFamily:FONT,fontWeight:'600',fontSize:Math.min(width*.105,height*.14),textAlign:'center',color:'#000',includeFontPadding:false}}>{phrase}</Text>
+      </View>
+    </View>}
   </View>;
 }
 
