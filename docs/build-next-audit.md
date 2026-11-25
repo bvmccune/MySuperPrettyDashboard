@@ -23,3 +23,15 @@ Gauge proportions: restore build 62's square layout and original centerline geom
 Gauge visual correction: supersede the square design with a 100:125 portrait canvas and a genuinely taller elliptical centerline (37:49 radii). Fit the available lower weather area without distorting the image; retain lower labels and live marker. Physical acceptance still pending.
 
 FINAL gauge correction (supersedes the experimental portrait and earlier square variants): use the user-provided screen photo as the proportion reference. Equal circular radii (40% of square), 250-degree sweep, uniform 10.5% stroke, rounded ends, large centered current temperature, smaller bold low/high labels immediately below and inside the endpoints, 11.5% live marker. No ellipse, vertical stretching, traced pixels, or extraneous spacing. Render the mathematically constructed SVG at 400x400; fit without distortion. No other dashboard design changes.
+
+## Current acceptance checklist — build 62 follow-up
+All previous 58–62 changes remain in history; compare against dev-build-62, not an old screenshot. Latest user-approved corrections take precedence. Source audit:
+- #DDDDDD all-day and alternating To-do backgrounds (next darker target after #EEEEEE disappeared on device).
+- Rocky replaces smiley, only in free-rest-of-day + art state; 1:2 vertical split within availability column. Original square image fits without stretching body. Text overlays upper sign interior, up to 3 lines; choose one of exactly four approved phrases randomly on appearance.
+- Possum fixed bundled JPEG, right-hand 40% column. No artwork-folder UI, filesystem image selection, or daily rotation.
+- Weather Iconic pre-rendered opaque monochrome PNGs, no runtime tint, sunrise/sunset variants retained.
+- Automatic approximate IP location, no manual ZIP/city input; Open-Meteo uses detected coordinates, not legacy Atlanta. Last detected location retained with cached label if detection fails; accuracy, connectivity and local forecast values need device verification.
+- Continuous geometric circular gauge, approved original square proportions, live marker and temperatures. Do not change aspect ratio based on distorted chat SVG previews.
+- List row separators above items on dashboard (Events, To-do, daily/recent Notes, Quick access).
+- Preserve v62 Events/Notes headings, header order, build label, Amaze title/Edit, 40/20/40 layout, existing Worker and settings safeguards.
+No new design inputs required. Source audit does not establish successful Android build or Manta acceptance. Final physical tests: shade visibility; all four Rocky phrases/sign fit; possum renders; weather icon and detected city/current/high/low; top separators; gauge shape; settings persistence and calendar/navigation regressions. The GitHub connector confirms the possum blob exists but cannot decode binary JPEG; actual rendering remains a required acceptance check.

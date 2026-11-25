@@ -52,13 +52,14 @@ export function PrettySummaryPanel({events,hasCalendar,calendarCached,weather,no
 export function RockySign({scale}:{scale:number}){
   const [bounds,setBounds]=useState({width:0,height:0});
   const [phrase]=useState(()=>rockyPhrase());
-  const width=Math.max(0,Math.min(bounds.width-4*scale,(bounds.height-2*scale)*1.18));
-  const height=width/1.18;
+  // Fit the supplied square artwork without stretching Rocky's body.
+  const width=Math.max(0,Math.min(bounds.width-4*scale,bounds.height-2*scale));
+  const height=width;
   return <View testID="rocky-free-art" onLayout={e=>{const {width,height}=e.nativeEvent.layout;setBounds(old=>old.width===width&&old.height===height?old:{width,height});}} style={{flex:2,minHeight:0,alignItems:'center',justifyContent:'center'}}>
     {width>0&&<View testID="rocky-sign" style={{width,height,position:'relative'}}>
-      <Image accessibilityLabel="Rocky holding a blank sign" source={require('../assets/pretty/rocky-sign.png')} resizeMode="stretch" style={{width:'100%',height:'100%'}}/>
+      <Image accessibilityLabel="Rocky holding a blank sign" source={require('../assets/pretty/rocky-sign.png')} resizeMode="contain" style={{width:'100%',height:'100%'}}/>
       <View pointerEvents="none" style={{position:'absolute',left:'17%',top:'5%',width:'66%',height:'28%',alignItems:'center',justifyContent:'center'}}>
-        <Text testID="rocky-phrase" numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.5} style={{fontFamily:FONT,fontWeight:'600',fontSize:Math.min(width*.105,height*.14),textAlign:'center',color:'#000',includeFontPadding:false}}>{phrase}</Text>
+        <Text testID="rocky-phrase" numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.5} style={{fontFamily:FONT,fontWeight:'600',fontSize:Math.min(width*.105,height*.14),textAlign:'center',color:'#000',includeFontPadding:false}}>{phrase}</Text>
       </View>
     </View>}
   </View>;
