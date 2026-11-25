@@ -84,7 +84,7 @@ for dest,src in aliases.items():
 empty=re.sub(r'(id="charge-fill"[^>]*?width=")[^"]+(")',r'\g<1>0\2',originals['battery.svg'])
 cairosvg.svg2png(bytestring=empty.encode(),write_to=str(OUT/'battery.png'),output_width=272,output_height=176)
 # Preserve the original placeholder in the approved archive. Quantize only
-# its rendered copy to four native pen-palette approximations. Composite
+# its rendered copy to 16 evenly spaced grayscale levels. Composite
 # transparency on white first, so it never becomes a dark fringe.
 from PIL import Image
 from io import BytesIO
@@ -92,7 +92,7 @@ cat=Image.open(BytesIO(base64.b64decode(originals['cats-placeholder.png']))).con
 white=Image.new('RGBA',cat.size,(255,255,255,255))
 white.alpha_composite(cat)
 gray=white.convert('L')
-lut=[0 if v<40 else 157 if v<120 else 201 if v<220 else 255 for v in range(256)]
+lut=[min(15,(v+8)//17)*17 for v in range(256)]
 gray.point(lut).convert('RGB').save(OUT/'cats-placeholder.png')
 shutil.copyfile(OUT/'stardust.png',OUT.parent/'icon.png')
 print('Verified and rasterized all 22 approved SVGs')

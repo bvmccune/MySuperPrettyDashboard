@@ -213,3 +213,10 @@ describe('availability and weather acceptance',()=>{
     expect(weatherCondition(0,28).condition).toBe('windy');expect(weatherCondition(99).hail).toBe(true);expect(weatherCondition(-1).condition).toBe('unavailable');
   });
 });
+
+import {GRAYSCALE,INK,PAPER,DARK_GRAY,LIGHT_GRAY} from './prettyPalette';
+test('16-level grayscale targets are evenly spaced and UI colors are members',()=>{
+ expect(GRAYSCALE).toHaveLength(16);
+ expect(GRAYSCALE.map(c=>parseInt(c.slice(1,3),16))).toEqual(Array.from({length:16},(_,i)=>i*17));
+ for(const color of [INK,PAPER,DARK_GRAY,LIGHT_GRAY])expect(GRAYSCALE).toContain(color);
+});
