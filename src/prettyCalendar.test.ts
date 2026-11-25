@@ -156,3 +156,34 @@ describe('Pretty Calendar — user-approved read-only agenda',()=>{
     expect(fitAgendaRows([34,53],87)).toBe(2);
   });
 });
+
+// Include weather/availability acceptance tests in the existing CI test entry.
+import './weatherIconMapping.test';
+import {availability,DEFAULT_WORK_HOURS,minuteLabel} from './prettyAvailability';
+import {normalizeWeather,weatherDay,weatherIsDay,weatherCondition,weatherForecastUrl,DEFAULT_WEATHER_LOCATION} from './prettyWeather';
+
+describe('availability and weather acceptance',()=>{
+  test('overlapping appointments merge; current day counts only remaining work hours',()=>{
+    const t=(hour:number,minute=0)=>new Date(2026,10,25,hour,minute).toISOString();
+    const agenda=agendaFromFeed(feed([event('A',t(9),t(11)),event('B',t(10),t(12)),event('C',t(15),t(16)),event('D',t(16,30),t(18)),event('Holiday','2026-11-25','2026-11-26',true)]));
+    const totals=availability('2026-11-25',agenda,DEFAULT_WORK_HOURS,new Date(2026,10,25,10,30));
+    expect(totals).toEqual({free:210,busy:180,remaining:true});
+    expect(availability('2026-11-25',agenda,DEFAULT_WORK_HOURS,new Date(2026,10,24)).busy).toBe(270);
+    expect(availability('2026-11-25',agenda,DEFAULT_WORK_HOURS,new Date(2026,10,25,18))).toEqual({free:0,busy:0,remaining:true});
+    expect(minuteLabel(210)).toBe('3h 30m');
+  });
+  test('daily high and low follow location day and sunset changes icons independently of theme',()=>{
+    const midnight=1795582800,sunrise=midnight+7*3600,sunset=midnight+17*3600;
+    const raw={current:{temperature_2m:60,weather_code:0,time:sunrise,is_day:1,wind_speed_10m:5},daily:{time:[midnight,midnight+86400],temperature_2m_max:[65,70],temperature_2m_min:[40,45],sunrise:[sunrise,sunrise+86400],sunset:[sunset,sunset+86400]}};
+    const s=normalizeWeather(raw,DEFAULT_WEATHER_LOCATION,sunrise*1000);
+    expect(s.current).toBe(60);expect(weatherDay(s,sunrise*1000)?.high).toBe(65);expect(weatherDay(s,sunrise*1000)?.low).toBe(40);
+    expect(weatherIsDay(s,sunrise*1000-1)).toBe(false);expect(weatherIsDay(s,sunrise*1000)).toBe(true);expect(weatherIsDay(s,sunset*1000)).toBe(false);
+    expect(weatherDay(s,(midnight+86400)*1000)?.high).toBe(70);
+    expect(weatherForecastUrl(DEFAULT_WEATHER_LOCATION)).toContain('temperature_unit=fahrenheit');
+    expect(()=>normalizeWeather({...raw,daily:{...raw.daily,temperature_2m_min:[80,45]}},DEFAULT_WEATHER_LOCATION)).toThrow();
+  });
+  test('all WMO weather codes have a recognized mapping',()=>{
+    for(const code of [0,1,2,3,45,48,51,53,55,56,57,61,63,65,66,67,71,73,75,77,80,81,82,85,86,95,96,99])expect(weatherCondition(code).condition).not.toBe('unavailable');
+    expect(weatherCondition(0,28).condition).toBe('windy');expect(weatherCondition(99).hail).toBe(true);expect(weatherCondition(-1).condition).toBe('unavailable');
+  });
+});

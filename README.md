@@ -74,3 +74,6 @@ installer; copying alone does not activate the plugin.
 
 SuperDashboard is a personal project built by a Supernote user, for Supernote users. If it saves you a
 few taps every day, a small contribution is appreciated: https://ko-fi.com/agp42
+
+## Weather artwork attribution
+[Weather Iconic](https://github.com/konradmichalik/weather-iconic) by Konrad Michalik and contributors ([author-requested link](https://github.com/jackd248/weather-iconic/)), licensed under [CC BY-SA 3.0 US](https://creativecommons.org/licenses/by-sa/3.0/us/). Original SVGs and monochrome adaptations retain this license. See [attribution](assets/weather-iconic/ATTRIBUTION.md) and [full license](assets/weather-iconic/LICENSE).

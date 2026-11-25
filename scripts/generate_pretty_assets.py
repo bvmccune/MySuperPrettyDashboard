@@ -96,3 +96,20 @@ lut=[0 if v<40 else 157 if v<120 else 201 if v<220 else 255 for v in range(256)]
 gray.point(lut).convert('RGB').save(OUT/'cats-placeholder.png')
 shutil.copyfile(OUT/'stardust.png',OUT.parent/'icon.png')
 print('Verified and rasterized all 22 approved SVGs')
+
+# Weather Iconic: preserve original SVG geometry and render transparent monochrome masks.
+weather_source=Path(__file__).resolve().parents[1]/'assets'/'weather-iconic'
+weather_map=json.loads((weather_source/'mapping.json').read_text(encoding='utf-8'))
+assert len(weather_map['conditions'])==16
+weather_names=set(weather_map['conditions'].values())|set(weather_map['variants'].values())
+assert weather_names=={p.stem for p in (weather_source/'svg').glob('*.svg')}
+assert (weather_source/'LICENSE').is_file()
+for name in sorted(weather_names):
+    svg=(weather_source/'svg'/(name+'.svg')).read_bytes()
+    rendered=cairosvg.svg2png(bytestring=svg,output_width=240,output_height=240)
+    mask=Image.open(BytesIO(rendered)).convert('RGBA').getchannel('A')
+    assert mask.getextrema()==(0,255), f'Invalid transparent mask: {name}'
+    mono=Image.new('RGBA',(240,240),(0,0,0,0))
+    mono.putalpha(mask)
+    mono.save(OUT/('weather-'+name+'.png'))
+print('Weather Iconic:',len(weather_names),'licensed monochrome assets')

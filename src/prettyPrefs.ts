@@ -5,6 +5,8 @@
  */
 import {NativeModules} from 'react-native';
 import {ShortcutItem, DashboardConfig} from './config';
+import {WeatherLocation, DEFAULT_WEATHER_LOCATION, validWeatherLocation} from './prettyWeather';
+import {WorkHours, DEFAULT_WORK_HOURS, validWorkHours} from './prettyAvailability';
 
 const {DashboardNative} = NativeModules;
 const PREFS = '/storage/emulated/0/MyStyle/Plugins/MySuperPrettyDashboard/pretty-prefs.json';
@@ -19,6 +21,8 @@ export interface PrettyPrefs {
   favorites: ShortcutItem[];
   shortcuts: PrettyAction[];
   size: PrettySize;
+  weatherLocation: WeatherLocation;
+  workHours: WorkHours;
 }
 export const ACTIONS: {key: PrettyAction; name: string; icon: string}[] = [
   {key:'calendar', name:'Calendar', icon:'calendar'},
@@ -37,6 +41,8 @@ export const DEFAULT_PRETTY: PrettyPrefs = {
   favorites: [],
   shortcuts: ['refresh','settings','calendar','search'],
   size: 'normal',
+  weatherLocation: DEFAULT_WEATHER_LOCATION,
+  workHours: DEFAULT_WORK_HOURS,
 };
 
 function validPin(raw: any): raw is ShortcutItem {
@@ -61,6 +67,8 @@ export function normalPretty(raw: any): PrettyPrefs {
     favorites: (Array.isArray(raw?.favorites) ? raw.favorites.filter(validPin) : []).slice(0,30),
     shortcuts,
     size: ['normal','large','extra'].includes(raw?.size) ? raw.size : 'normal',
+    weatherLocation: validWeatherLocation(raw?.weatherLocation) ? raw.weatherLocation : DEFAULT_WEATHER_LOCATION,
+    workHours: validWorkHours(raw?.workHours) ? raw.workHours : DEFAULT_WORK_HOURS,
   };
 }
 export async function loadPrettyPrefs(legacy?: DashboardConfig | null): Promise<PrettyPrefs> {

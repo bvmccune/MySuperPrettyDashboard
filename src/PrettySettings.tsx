@@ -3,7 +3,7 @@
  * Native Supernote To-do remains authoritative; this screen only connects it.
  */
 import React, {useEffect, useRef, useState} from 'react';
-import {NativeModules, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
+import {Linking, NativeModules, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {DashboardConfig, loadConfig, ShortcutItem} from './config';
 import {loadPrettyPrefs, PrettyPrefs, savePrettyPrefs} from './prettyPrefs';
 import {
@@ -14,6 +14,10 @@ import {setRoute} from './route';
 import {CalendarResult, currentCalendar, loadCalendarCache, refreshCalendar, configureCalendarSource, isCalendarSourceConfigured} from './prettyCalendar';
 import {openFile, openFolder} from './open';
 import {PrettyScreenHeader, SCREEN_BODY} from './PrettyScreen';
+import {WeatherIcon} from './WeatherIcon';
+import {WeatherLocation,searchWeatherLocations,refreshWeather,DEFAULT_WEATHER_LOCATION} from './prettyWeather';
+import {DEFAULT_WORK_HOURS,validWorkHours} from './prettyAvailability';
+import {ARTWORK_DIR} from './PrettySummaryPanel';
 
 const {DashboardNative} = NativeModules;
 const BASE = '/storage/emulated/0';
@@ -54,6 +58,10 @@ export function PrettySettings(): React.JSX.Element {
   const [calendarState,setCalendarState] = useState<CalendarResult>(()=>currentCalendar());
   const [calendarConfigured,setCalendarConfigured] = useState(false);
   const [calendarSourceInput,setCalendarSourceInput] = useState('');
+  const [locationQuery,setLocationQuery]=useState('');
+  const [locations,setLocations]=useState<WeatherLocation[]>([]);
+  const [workStart,setWorkStart]=useState(DEFAULT_WORK_HOURS.start);
+  const [workEnd,setWorkEnd]=useState(DEFAULT_WORK_HOURS.end);
   // Serialize writes: rapid edits must never allow an older save to replace
   // newer settings. Done waits for disk persistence and verifies the read-back.
   const saveQueue = useRef<Promise<boolean>>(Promise.resolve(true));
@@ -64,7 +72,7 @@ export function PrettySettings(): React.JSX.Element {
     (async()=>{
       const cfg=await loadConfig();
       const next=await loadPrettyPrefs(cfg);
-      if(live){setLegacy(cfg);setPrefs(next);latestPrefs.current=next;}
+      if(live){setLegacy(cfg);setPrefs(next);latestPrefs.current=next;setWorkStart(next.workHours?.start??DEFAULT_WORK_HOURS.start);setWorkEnd(next.workHours?.end??DEFAULT_WORK_HOURS.end);}
       const ok=await hasSupernoteLogin().catch(()=>false);
       if(live)setConnected(ok);
       const cached=await loadCalendarCache();
@@ -236,6 +244,25 @@ export function PrettySettings(): React.JSX.Element {
           <Action filled disabled={busy} onPress={syncCalendar}>Refresh Pretty Calendar now</Action>
           <TextLine faint>Privacy: Confirm your employer permits this existing calendar feed. Anyone with access to the endpoint may be able to retrieve the work event titles if it is not protected by authentication.</TextLine>
         </Group>
+        <Group title="Weather and availability">
+          <TextLine>Weather location: {prefs.weatherLocation?.name??DEFAULT_WEATHER_LOCATION.name}</TextLine>
+          <TextLine faint>Open-Meteo · current temperature and local daily high/low in °F. Sun and moon artwork follows sunrise and sunset at the selected city. No GPS required.</TextLine>
+          <TextInput style={styles.input} value={locationQuery} onChangeText={setLocationQuery} placeholder="City or ZIP code"/>
+          <Action disabled={busy} onPress={()=>attempt(async()=>{const results=await searchWeatherLocations(locationQuery);setLocations(results);setStatus(results.length?'Choose the matching city.':'No cities found.');})}>Find location</Action>
+          {locations.map((location,i)=><Action key={i} small disabled={busy} onPress={()=>{if(!prefs)return;save({...prefs,weatherLocation:location});setLocations([]);setLocationQuery('');setStatus('Weather location saved: '+location.name);}}>{location.name}</Action>)}
+          <Action disabled={busy} onPress={()=>attempt(async()=>{const result=await refreshWeather(prefs.weatherLocation??DEFAULT_WEATHER_LOCATION,true);setStatus(result.error?'Weather refresh: '+result.error:'Weather updated.');})}>Refresh weather now</Action>
+          <TextLine bold>Free / busy work hours (24-hour clock)</TextLine>
+          <TextLine faint>Today counts remaining work hours; other selected dates use the full configured workday. Timed calendar events are merged to avoid double counting. All-day entries are excluded because the feed has no availability flag.</TextLine>
+          <View style={{flexDirection:'row',alignItems:'center'}}>
+            <View style={{flex:1,marginRight:12}}><TextLine>Start</TextLine><TextInput value={workStart} onChangeText={setWorkStart} style={[styles.input,{minWidth:0}]} placeholder="09:00"/></View>
+            <View style={{flex:1}}><TextLine>End</TextLine><TextInput value={workEnd} onChangeText={setWorkEnd} style={[styles.input,{minWidth:0}]} placeholder="17:00"/></View>
+          </View>
+          <Action disabled={busy} onPress={()=>{const hours={start:workStart.trim(),end:workEnd.trim()};if(!validWorkHours(hours)){setStatus('Enter valid HH:MM times; end must be after start.');return;}save({...prefs,workHours:hours});setStatus('Work hours saved.');}}>Save work hours</Action>
+          <TextLine bold>Rotating artwork</TextLine>
+          <TextLine faint>Copy your PNG, JPEG or WebP illustrations into MyStyle/Plugins/MySuperPrettyDashboard/artwork. One illustration is selected per day. With a single file, it stays fixed.</TextLine>
+          <Action disabled={busy} onPress={()=>attempt(async()=>{await DashboardNative.writeFile(ARTWORK_DIR+'/.keep','');setStatus('Artwork folder is ready. Copy your possum image there.');})}>Create artwork folder</Action>
+          <TouchableOpacity accessibilityRole="link" onPress={()=>Linking.openURL('https://open-meteo.com/').catch(()=>setStatus('Weather data: https://open-meteo.com/'))}><Text style={{fontFamily:FONT,fontSize:18,color:'#111',textDecorationLine:'underline'}}>Weather data by Open-Meteo (CC BY 4.0)</Text></TouchableOpacity>
+        </Group>
         <Group title="Supernote To-do · your existing list">
           <TextLine faint>This reads your actual Supernote To-do items through Supernote Cloud. It does not create a second list. Ensure To-do cloud sync is enabled on the device.</TextLine>
           <TextLine faint>The connection uses Supernote's unofficial cloud API. The account password and verification code are never saved; the session is encrypted on this device. Supernote sessions expire after approximately 30 days.</TextLine>
@@ -300,6 +327,20 @@ export function PrettySettings(): React.JSX.Element {
         <Group title="Dashboard navigation">
           <TextLine faint>No floating button will appear over Supernote. The Stardust star in the lower-right section closes the dashboard, returning to the note beneath it. Calendar resets to today and opens the dashboard's read-only agenda; no native Calendar event records are created.</TextLine>
           <TextLine faint>For launching the dashboard elsewhere, add the Plugins tool to your native notebook toolbar. A direct sidebar gesture or dedicated plugin Quick Access entry is not publicly documented.</TextLine>
+        </Group>
+        <Group title="Attribution">
+          <View style={{flexDirection:'row',alignItems:'center'}}>
+            <WeatherIcon condition="sunny" dark={false} size={36}/>
+            <View style={{flex:1}}>
+              <TextLine>Weather Iconic — Konrad Michalik and contributors</TextLine>
+              <TouchableOpacity accessibilityRole="link" onPress={()=>Linking.openURL('https://github.com/jackd248/weather-iconic/').catch(()=>setStatus('Weather Iconic: https://github.com/jackd248/weather-iconic/'))}>
+                <Text style={{fontFamily:FONT,fontSize:18,color:'#111',textDecorationLine:'underline'}}>https://github.com/jackd248/weather-iconic/</Text>
+              </TouchableOpacity>
+              <TouchableOpacity accessibilityRole="link" onPress={()=>Linking.openURL('https://creativecommons.org/licenses/by-sa/3.0/us/').catch(()=>setStatus('License: https://creativecommons.org/licenses/by-sa/3.0/us/'))}>
+                <Text style={{fontFamily:FONT,fontSize:18,color:'#111',textDecorationLine:'underline'}}>CC BY-SA 3.0 US — monochrome raster adaptations</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </Group>
         <TextLine faint>MySuperPrettyDashboard · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Search, Calendar, and To-do remain available from Home. Your original SuperDashboard settings remain separate.</TextLine>
       </ScrollView>

@@ -725,6 +725,8 @@ main() {
 
     local outputs_dir
     outputs_dir="$(ensure_build_outputs_directory "$project_root")"
+    mkdir -p "$gen_dir/licenses/weather-iconic"
+    cp -R "$project_root/assets/weather-iconic/." "$gen_dir/licenses/weather-iconic/"
     local zip_path="$outputs_dir/${PACKAGE_NAME}.zip"
     if new_zip_package "$gen_dir" "$zip_path"; then
         rename_to_snplg_file "$zip_path" "$PACKAGE_NAME" >/dev/null

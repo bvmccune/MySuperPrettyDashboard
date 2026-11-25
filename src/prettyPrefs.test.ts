@@ -1,3 +1,4 @@
+jest.mock('sn-plugin-lib',()=>({PluginManager:{}}));
 jest.mock('react-native',()=>({NativeModules:{DashboardNative:{}}}));
 import {ACTIONS,DEFAULT_PRETTY,normalPretty} from './prettyPrefs';
 
@@ -29,4 +30,11 @@ describe('Manta-specific settings migration',()=>{
     expect(p.shortcuts).toHaveLength(4);
     expect(p.shortcuts).not.toContain('fake');
   });
+});
+
+ it('migrates weather and working hours without altering existing preferences',()=>{
+  const prefs=normalPretty({size:'large',weatherLocation:{name:'Custom',latitude:40,longitude:-75},workHours:{start:'08:30',end:'16:30'}});
+  expect(prefs.weatherLocation.name).toBe('Custom');expect(prefs.workHours).toEqual({start:'08:30',end:'16:30'});
+  expect(normalPretty({workHours:{start:'17:00',end:'09:00'}}).workHours).toEqual(DEFAULT_PRETTY.workHours);
+  expect(normalPretty({weatherLocation:{name:'Invalid',latitude:200,longitude:0}}).weatherLocation).toEqual(DEFAULT_PRETTY.weatherLocation);
 });

@@ -29,6 +29,9 @@ import {PrettyScreenHeader} from './PrettyScreen';
 import {PrettyFitList} from './PrettyFitList';
 import {INK,PAPER,DARK_GRAY,LIGHT_GRAY} from './prettyPalette';
 import {scanKeywords,KeywordHit} from './scanner';
+import {PrettySummaryPanel} from './PrettySummaryPanel';
+import {WeatherResult,refreshWeather,WEATHER_REFRESH_MS,DEFAULT_WEATHER_LOCATION,locationKey} from './prettyWeather';
+import {DEFAULT_WORK_HOURS} from './prettyAvailability';
 
 const {DashboardNative}=NativeModules;
 const NOTE_ROOT='/storage/emulated/0/Note';
@@ -199,6 +202,7 @@ export function PrettyHome({config,nonce,onSettings}:{
   const [createdNotes,setCreatedNotes]=useState<CreatedNote[]>([]);
   const [createdDays,setCreatedDays]=useState<Set<string>>(new Set());
   const [calendar,setCalendar]=useState<CalendarResult>(()=>currentCalendar());
+  const [weather,setWeather]=useState<WeatherResult>({snapshot:null,status:'loading'});
   const [overlay,setOverlay]=useState<Overlay>(null);
   const [selectedEvent,setSelectedEvent]=useState<AgendaEvent|null>(null);
   const [returnToAgenda,setReturnToAgenda]=useState(false);
@@ -222,6 +226,19 @@ export function PrettyHome({config,nonce,onSettings}:{
     return ()=>{live=false;};
   },[config,nonce]);
 
+  // Weather has its own lifecycle: preference changes must not reset the selected calendar day.
+  const weatherLocation=prefs?.weatherLocation??DEFAULT_WEATHER_LOCATION;
+  const weatherKey=locationKey(weatherLocation);
+  useEffect(()=>{
+    if(!prefs)return;
+    let live=true;
+    setWeather(previous=>previous.snapshot&&locationKey(previous.snapshot.location)===weatherKey?previous:{snapshot:null,status:'loading'});
+    const update=(force=false)=>{refreshWeather(weatherLocation,force).then(result=>{if(live)setWeather(result);}).catch(()=>{});};
+    update(refreshTick>0);
+    const timer=setInterval(()=>{if(AppState.currentState==='active')update();},WEATHER_REFRESH_MS);
+    const wake=AppState.addEventListener('change',state=>{if(state==='active')update();});
+    return()=>{live=false;clearInterval(timer);wake.remove();};
+  },[prefs!==null,weatherKey,refreshTick,nonce]);
   const scanCreated=useCallback(async()=>{
     const queue=[NOTE_ROOT],seen=new Set<string>(),notes:CreatedNote[]=[];
     while(queue.length&&seen.size<250){
@@ -515,10 +532,9 @@ export function PrettyHome({config,nonce,onSettings}:{
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close dashboard" onPress={close}
               style={{padding:8*s}}><Txt size={12.8*s}>Close</Txt></TouchableOpacity>
           </View>
-          <View style={{flex:1,minHeight:0,alignItems:'center',justifyContent:'center',padding:4*s}}>
-            <Image accessibilityLabel="Temporary illustration of the cats" source={require('../assets/pretty/cats-placeholder.png')}
-              resizeMode="contain" style={{width:'100%',height:'100%'}}/>
-          </View>
+          <PrettySummaryPanel events={agenda} selectedDay={selectedDay} hasCalendar={!!calendar.snapshot}
+            hours={prefs?.workHours??DEFAULT_WORK_HOURS} weather={weather} now={now} scale={s}
+            onSettings={onSettings} refreshTick={refreshTick+nonce}/>
         </View>
       </View>
     </View>

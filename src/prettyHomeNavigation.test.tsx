@@ -22,6 +22,7 @@ jest.mock('react-native',()=>{
     View:'View',Text:'Text',TouchableOpacity:'TouchableOpacity',ScrollView:'ScrollView',
     Image:'Image',Modal:'Modal',TextInput:'TextInput',
     StyleSheet:{create:(styles:any)=>styles},
+    useColorScheme:()=> 'light',
     useWindowDimensions:()=>({width:760,height:950}),
   };
 });
