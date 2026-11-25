@@ -470,7 +470,7 @@ export function PrettyHome({config,nonce,onSettings}:{
         <View style={[styles.cell,{paddingRight:5*s}]}>
           <HomeAgendaList key={selectedDay+':'+width+':'+fontBoost+':'+(calendar.snapshot?.fetchedAt??0)}
             events={events} scale={s} fontBoost={fontBoost} initialHeight={Math.max(0,topH-53*s)}
-            header={hidden=><SectionTitle icon="lizard" label={dayLabel(selectedDay)}
+            header={hidden=><SectionTitle icon="lizard" label={dayLabel(selectedDay)+' Events'}
               extra={hidden>0?'+'+hidden:undefined} scale={s} actionLabel="View all" calendarAction={openTodayAgenda}
               actionAccessibilityLabel="View all events" action={()=>{
                 setAgendaStart(selectedDay);setAgendaVisit(v=>v+1);setOverlay('agenda');

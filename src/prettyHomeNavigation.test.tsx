@@ -187,7 +187,9 @@ it('calendar shortcut opens today; selecting an event opens detail without chang
   const day=new Date(today);day.setDate(today.getDate()+(today.getDay()===0?-1:1));
   await act(async()=>{touch('Select '+day.toDateString()).props.onPress();});
   const selectedHeading=dayLabel(dateKey(day))+' Notes';
+  const selectedEventHeading=dayLabel(dateKey(day))+' Events';
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedHeading)).toBe(true);
+  expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedEventHeading)).toBe(true);
   await act(async()=>{touch('Calendar').props.onPress();});
   // React represents the two JSX date expressions and intervening text as
   // separate children. Compare the visible text, not their array identity.
@@ -206,6 +208,7 @@ it('calendar shortcut opens today; selecting an event opens detail without chang
   await act(async()=>{event.props.onPress();});
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children==='Event details')).toBe(true);
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedHeading)).toBe(true);
+  expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedEventHeading)).toBe(true);
   await act(async()=>{touch('Back').props.onPress();});
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children==='Seven-day agenda')).toBe(true);
 });

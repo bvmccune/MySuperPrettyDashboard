@@ -8,3 +8,5 @@ TRMNL source port: strict overlap merge; touching intervals remain separate; com
 Follow-up: weather now falls back to an allowlisted native HTTPS bridge after transport failures. It never bypasses TLS or sends the query to another provider; native errors avoid URL/coordinate logging. The transport fallback is covered by a mocked regression test, but actual network behavior still needs device validation. Reserve free-state.png/jpg/webp in the artwork directory for the final Free Rest of Day art, excluded from the daily rotation. The temporary smiley remains when the file is missing or unreadable.
 
 Palette correction: the former four native pen colors were superseded by the Manta's 16-level grayscale support. Use 16 evenly spaced RGB target shades; exact panel luminance is not asserted. Original approved SVGs remain untouched. Generated placeholder now uses 16-level quantization.
+
+Latest UI refinements: selected-date calendar section title now ends with Events, matching the Notes heading below. All-day and alternating task backgrounds now use the lightest nonwhite grayscale target (#EEEEEE).
