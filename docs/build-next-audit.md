@@ -21,3 +21,5 @@ Gauge refinement: replace 65 overlapping segment Views with a mathematically dra
 Gauge proportions: restore build 62's square layout and original centerline geometry (radius 39%, center at 50%/48%, sweep 250 degrees); keep clean continuous vector stroke and lower endpoint labels. No vertical compression.
 
 Gauge visual correction: supersede the square design with a 100:125 portrait canvas and a genuinely taller elliptical centerline (37:49 radii). Fit the available lower weather area without distorting the image; retain lower labels and live marker. Physical acceptance still pending.
+
+FINAL gauge correction (supersedes the experimental portrait and earlier square variants): use the user-provided screen photo as the proportion reference. Equal circular radii (40% of square), 250-degree sweep, uniform 10.5% stroke, rounded ends, large centered current temperature, smaller bold low/high labels immediately below and inside the endpoints, 11.5% live marker. No ellipse, vertical stretching, traced pixels, or extraneous spacing. Render the mathematically constructed SVG at 400x400; fit without distortion. No other dashboard design changes.

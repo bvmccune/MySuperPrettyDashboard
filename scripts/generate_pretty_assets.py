@@ -127,7 +127,7 @@ print('Weather Iconic:',len(weather_names),'licensed monochrome assets')
 cairosvg.svg2png(url=str(ROOT/'assets'/'artwork'/'rocky-sign.svg'),write_to=str(OUT/'rocky-sign.png'),output_width=240,output_height=240)
 
 # Clean geometric temperature gauge, independent of weather icons and artwork.
-cairosvg.svg2png(url=str(ROOT/'assets'/'artwork'/'temperature-gauge.svg'),write_to=str(OUT/'temperature-gauge.png'),output_width=400,output_height=500)
+cairosvg.svg2png(url=str(ROOT/'assets'/'artwork'/'temperature-gauge.svg'),write_to=str(OUT/'temperature-gauge.png'),output_width=400,output_height=400)
 with Image.open(OUT/'temperature-gauge.png') as gauge:
     gauge.convert('RGB').save(OUT/'temperature-gauge-rgb.png')
 (OUT/'temperature-gauge-rgb.png').replace(OUT/'temperature-gauge.png')

@@ -233,9 +233,10 @@ test('automatic location uses detected city and coordinates, excludes IP, reject
 });
 test('visible row shading uses the next darker level after Manta rejected #EEEEEE',()=>expect(LIGHT_GRAY).toBe('#DDDDDD'));
 
-test('tall gauge geometry aligns low, midpoint and high to the same elliptical arc',()=>{
+test('reference gauge is circular, with symmetric endpoints and a marker on the exact arc',()=>{
  const low=gaugePoint(0),middle=gaugePoint(.5),high=gaugePoint(1);
- expect(low.x).toBeCloseTo(.19691,4);expect(high.x).toBeCloseTo(.80309,4);
- expect(low.y).toBeCloseTo(high.y,6);expect(middle.x).toBeCloseTo(.5,6);expect(middle.y).toBeCloseTo(.06,6);
- for(const p of [low,middle,high,gaugePoint(.25),gaugePoint(.75)])expect(Math.hypot((p.x-.5)/.37,(p.y-.55)/.49)).toBeCloseTo(1,6);
+ expect(low.x).toBeCloseTo(.172339,6);expect(high.x).toBeCloseTo(.827661,6);
+ expect(low.y).toBeCloseTo(.729431,6);expect(high.y).toBeCloseTo(low.y,6);
+ expect(middle.x).toBeCloseTo(.5,6);expect(middle.y).toBeCloseTo(.1,6);
+ for(const p of [low,middle,high,gaugePoint(.25),gaugePoint(.75)])expect(Math.hypot(p.x-.5,p.y-.5)).toBeCloseTo(.4,6);
 });
