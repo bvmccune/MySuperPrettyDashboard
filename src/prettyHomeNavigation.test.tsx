@@ -25,7 +25,12 @@ jest.mock('react-native',()=>{
     useWindowDimensions:()=>({width:760,height:950}),
   };
 });
-jest.mock('sn-plugin-lib',()=>({PluginManager:{},PluginCommAPI:{},PluginFileAPI:{}}));
+jest.mock('sn-plugin-lib',()=>({PluginManager:{},
+  PluginCommAPI:{getNoteSystemTemplates:jest.fn(async()=>[
+    {name:'style_white',vUri:'white'},{name:'style_list_format',vUri:'list'},
+    {name:'style_arabic_line_ruling',vUri:'arabic'},{name:'style_task_list',vUri:'task'},
+    {name:'style_5mm_grid',vUri:'grid'},
+  ])},PluginFileAPI:{createNote:jest.fn(async()=>({success:true,result:true}))}}));
 jest.mock('./config',()=>({loadConfig:jest.fn(async()=>({zones:[]}))}));
 jest.mock('./perf',()=>({markOpen:jest.fn(),ready:jest.fn()}));
 jest.mock('./bubble',()=>({leavePlugin:jest.fn()}));
@@ -49,6 +54,8 @@ import React from 'react';
 import {act,create,ReactTestRenderer} from 'react-test-renderer';
 import {NativeModules} from 'react-native';
 import App from '../App';
+import {PrettyNoteCreate,defaultNoteName,templateLabel} from './PrettyNoteCreate';
+import {PluginFileAPI} from 'sn-plugin-lib';
 import {setRoute,getRoute} from './route';
 import {DEFAULT_PRETTY,loadPrettyPrefs,PrettyPrefs} from './prettyPrefs';
 import {PrettyHome} from './PrettyHome';
@@ -64,7 +71,7 @@ let pending:Array<(items:any[])=>void>;
 
 function doneButton(){
   return app!.root.findAllByType('TouchableOpacity' as any).find(node=>
-    node.findAllByType('Text' as any).some(t=>t.props.children==='Done · Save and return'))!;
+    node.props.accessibilityLabel==='Done · Save and return')!;
 }
 
 beforeEach(()=>{
@@ -118,4 +125,23 @@ it('keeps Settings open and displays an error when read-back fails verification'
   expect(getRoute()).toBe('config');
   expect(app!.root.findAllByType('Text' as any).some(t=>
     String(t.props.children).includes('Settings save failed: Saved settings differ'))).toBe(true);
+});
+
+it('shows native-style New Note controls and passes selected orientation and template to the SDK',async()=>{
+  const onClose=jest.fn();
+  await act(async()=>{app=create(<PrettyNoteCreate onClose={onClose}/>);});
+  const touch=(label:string)=>app!.root.findAllByType('TouchableOpacity' as any).find(node=>
+    node.props.accessibilityLabel===label||node.findAllByType('Text' as any).some(t=>t.props.children===label))!;
+  expect(defaultNoteName(new Date(2026,10,25,3,5,46))).toBe('20261125_030546');
+  expect(templateLabel('style_arabic_line_ruling')).toBe('Arabic lined ruling');
+  expect(touch('Cancel')).toBeTruthy();
+  expect(touch('Create')).toBeTruthy();
+  await act(async()=>{touch('View All ›').props.onPress();});
+  await act(async()=>{touch('5 mm grid').props.onPress();});
+  await act(async()=>{touch('Horizontal').props.onPress();});
+  await act(async()=>{app!.root.findByType('TextInput' as any).props.onChangeText('Test-native');});
+  await act(async()=>{await touch('Create').props.onPress();});
+  expect(PluginFileAPI.createNote).toHaveBeenCalledWith({notePath:'/storage/emulated/0/Note/Test-native.note',
+    template:'style_5mm_grid',mode:1,isPortrait:false});
+  expect(onClose).toHaveBeenCalled();
 });

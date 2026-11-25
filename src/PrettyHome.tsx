@@ -25,6 +25,7 @@ import {
 } from './prettyCalendar';
 import {AgendaRow,hasTimeConflict} from './PrettyAgenda';
 import {PrettyNoteCreate} from './PrettyNoteCreate';
+import {PrettyScreenHeader} from './PrettyScreen';
 import {scanKeywords,KeywordHit} from './scanner';
 
 const {DashboardNative}=NativeModules;
@@ -527,13 +528,15 @@ export function PrettyHome({config,nonce,onSettings}:{
         <View style={[styles.cell,{paddingLeft:4*s}]}>
           <SectionTitle icon="chicken" label="ShortCats" scale={s} actionLabel="Edit" action={onSettings}/>
           <View style={{flex:1,flexDirection:'row',minHeight:0}}>
-            <View style={{flex:1,flexDirection:'row',flexWrap:'wrap',alignContent:'stretch',paddingBottom:4*s}}>
+            <View style={{flex:1,justifyContent:'center',alignItems:'center',minHeight:0}}>
+              <View style={{width:'100%',maxWidth:144*s,height:Math.max(0,Math.min(104*s,bottomH-57*s)),flexDirection:'row',flexWrap:'wrap'}}>
               {shortcuts.map(item=><View key={item.key} style={{width:'50%',height:'50%',padding:3*s}}>
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel={item.name} onPress={item.onPress}
                   style={{flex:1,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#111',borderRadius:6*s}}>
-                  <Glyph name={item.icon} size={32*s}/>
+                  <Glyph name={item.icon} size={Math.min(32*s,Math.max(14*s,(bottomH-57*s)/2-10*s))}/>
                 </TouchableOpacity>
               </View>)}
+              </View>
             </View>
             <View style={{width:.6,backgroundColor:'#aaa',marginHorizontal:5*s,marginVertical:4*s}}/>
             <View style={{flex:1.05,alignItems:'center',justifyContent:'center',minWidth:0}}>
@@ -545,30 +548,21 @@ export function PrettyHome({config,nonce,onSettings}:{
       </View>
     </View>
 
-    <Modal transparent animationType="none" visible={overlay!==null}
+    <Modal transparent={false} animationType="none" visible={overlay!==null}
       onRequestClose={()=>setOverlay(overlay==='event'&&returnToAgenda?'agenda':null)}>
-      <View style={styles.shade}>
-        <View style={[styles.sheet,{margin:19*s,padding:19*s,
-          flex:overlay==='event'?undefined:1,
-          height:overlay==='event'?Math.min(530*s,height-100*s):undefined}]}>
-          {overlay!=='new-note'&&<View style={{flexDirection:'row',alignItems:'center',marginBottom:13*s}}>
-            <IconTap icon="back" label="Back" size={25*s}
-              onPress={()=>setOverlay(overlay==='event'&&returnToAgenda?'agenda':null)}/>
-            <Txt size={26*s} bold style={{marginLeft:9*s,flex:1}}>
-              {overlay==='agenda'?'Calendar · seven-day agenda':
-                overlay==='event'?'Event details':
-                overlay==='keywords'?'Keywords':
-                overlay==='favorites'?'Favorites':'Recent notes'}
-            </Txt>
-            {overlay==='favorites'&&<TouchableOpacity onPress={()=>{setOverlay(null);onSettings();}}>
-              <Txt size={14*s} muted>Edit</Txt>
-            </TouchableOpacity>}
-          </View>}
-          {overlay==='new-note'?<PrettyNoteCreate onClose={()=>setOverlay(null)}/>:
-            overlay==='event'&&selectedEvent?
+      <View style={styles.screen}>
+          {overlay==='new-note'?<PrettyNoteCreate onClose={()=>setOverlay(null)}/>:<>
+            <PrettyScreenHeader
+              title={overlay==='agenda'?'Seven-day agenda':overlay==='event'?'Event details':
+                overlay==='keywords'?'Keywords':overlay==='favorites'?'Favorites':'Recent notes'}
+              left={{label:overlay==='event'&&returnToAgenda?'Back':'Close',
+                onPress:()=>setOverlay(overlay==='event'&&returnToAgenda?'agenda':null)}}
+              right={overlay==='favorites'?{label:'Edit',onPress:()=>{setOverlay(null);onSettings();}}:undefined}/>
+            <View style={{flex:1,paddingHorizontal:19*s,paddingTop:15*s,paddingBottom:12*s}}>
+            {overlay==='event'&&selectedEvent?
               <ScrollView style={{flex:1}}>
                 <View style={{padding:17*s,borderWidth:1,borderColor:'#aaa',
-                  borderRadius:8*s,marginTop:8*s}}>
+                  borderRadius:0,marginTop:8*s}}>
                   <Txt size={14*s} muted>Read-only calendar event</Txt>
                   <Txt size={30*s} bold style={{marginTop:10*s,marginBottom:18*s}}>
                     {selectedEvent.summary}
@@ -629,7 +623,7 @@ export function PrettyHome({config,nonce,onSettings}:{
                       const coverageEnd=agenda.length?agenda.map(e=>e.endDayExclusive).sort().slice(-1)[0]:null;
                       const outside=!!coverageStart&&!!coverageEnd&&(day<coverageStart||day>=coverageEnd);
                       return <View key={day} style={{width:'49%',padding:11*s,
-                        marginBottom:11*s,borderWidth:1,borderColor:'#bbb',borderRadius:7*s}}>
+                        marginBottom:11*s,borderWidth:1,borderColor:'#bbb',borderRadius:0}}>
                         <View style={{paddingBottom:6*s,borderBottomWidth:1,borderColor:RULE,
                             flexDirection:'row',justifyContent:'space-between'}}>
                           <Txt size={21*s} bold>{dayLabel(day)}</Txt>
@@ -673,7 +667,8 @@ export function PrettyHome({config,nonce,onSettings}:{
                   <Txt size={body} muted>No favorites yet. Use Edit to pin files and folders.</Txt>}
               </ScrollView>:
             <ScrollView>{recent.map((p,i)=>rowFile(p,i,fileInfo[p]?.mtime))}</ScrollView>}
-        </View>
+            </View>
+          </>}
       </View>
     </Modal>
   </View>;
@@ -681,6 +676,5 @@ export function PrettyHome({config,nonce,onSettings}:{
 const styles=StyleSheet.create({
   cell:{flex:1,minWidth:0,minHeight:0,overflow:'hidden'},
   splitter:{width:1,backgroundColor:'#888'},
-  shade:{flex:1,backgroundColor:'#00000055',justifyContent:'center'},
-  sheet:{flex:1,backgroundColor:'#fff',borderColor:'#aaa',borderWidth:1,borderRadius:8},
+  screen:{flex:1,backgroundColor:'#fff'},
 });

@@ -13,6 +13,7 @@ import {
 import {setRoute} from './route';
 import {CalendarResult, currentCalendar, loadCalendarCache, refreshCalendar, configureCalendarSource, isCalendarSourceConfigured} from './prettyCalendar';
 import {openFile, openFolder} from './open';
+import {PrettyScreenHeader, SCREEN_BODY} from './PrettyScreen';
 
 const {DashboardNative} = NativeModules;
 const BASE = '/storage/emulated/0';
@@ -20,12 +21,12 @@ const ROOTS = [BASE + '/Note',BASE + '/Document',BASE + '/MyStyle'];
 type FileEntry = {name:string; path:string;isDir:boolean;mtime:number};
 const FONT = 'GoogleSansFlex';
 function TextLine({children, big=false, faint=false, bold=false}: {children:React.ReactNode;big?:boolean;faint?:boolean;bold?:boolean}) {
-  return <Text style={{fontFamily:FONT,fontSize:big?23:17,color:faint?'#666':'#111',fontWeight:bold?'600':'400',lineHeight:big?32:25}}>{children}</Text>;
+  return <Text style={{fontFamily:FONT,fontSize:big?26:SCREEN_BODY,color:faint?'#555':'#111',fontWeight:bold?'600':'400',lineHeight:big?35:29}}>{children}</Text>;
 }
 function Action({children,onPress,filled=false,small=false,disabled=false}: {children:React.ReactNode;onPress:()=>void;filled?:boolean;small?:boolean;disabled?:boolean}) {
   return <TouchableOpacity onPress={onPress} disabled={disabled}
-    style={{paddingVertical:small?7:11,paddingHorizontal:small?10:15,borderRadius:7,borderWidth:1,borderColor:'#777',backgroundColor:filled?'#111':'#fff',opacity:disabled ? 0.5 : 1,alignSelf:'flex-start',marginRight:8,marginVertical:3}}>
-    <Text style={{color:filled?'#fff':'#111',fontFamily:FONT,fontSize:small?15:17}}>{children}</Text>
+    style={{paddingVertical:small?7:11,paddingHorizontal:small?10:15,borderRadius:0,borderWidth:1,borderColor:'#777',backgroundColor:filled?'#111':'#fff',opacity:disabled ? 0.5 : 1,alignSelf:'flex-start',marginRight:8,marginVertical:3}}>
+    <Text style={{color:filled?'#fff':'#111',fontFamily:FONT,fontSize:small?18:20}}>{children}</Text>
   </TouchableOpacity>;
 }
 function Divider() {return <View style={{height:1,backgroundColor:'#bbb',marginVertical:13}}/>;}
@@ -179,10 +180,15 @@ export function PrettySettings(): React.JSX.Element {
     setStatus('Disconnected. No To-do task copy is stored in this dashboard.');
   });
 
-  if(!prefs||!legacy)return <View style={{flex:1,padding:30,backgroundColor:'white'}}><TextLine>Loading MySuperPrettyDashboard settings…</TextLine></View>;
+  if(!prefs||!legacy)return <View style={styles.screen}>
+    <PrettyScreenHeader title="Settings"/>
+    <View style={styles.root}><TextLine>{status||'Loading MySuperPrettyDashboard settings…'}</TextLine></View>
+  </View>;
   if(picker)return (
-    <View style={styles.root}>
-      <View style={styles.top}><Action onPress={()=>setPicker(null)}>‹ Back</Action><TextLine big>Choose {picker==='quick'?'Quick access':'favorite'} items</TextLine></View>
+    <View style={styles.screen}>
+      <PrettyScreenHeader title={picker==='quick'?'Quick access':'Favorites'}
+        left={{label:'Back',onPress:()=>setPicker(null)}}/>
+      <View style={styles.root}>
       <View style={{flexDirection:'row',flexWrap:'wrap',marginBottom:10}}>
         {ROOTS.map(root=><Action key={root} small onPress={()=>setDir(root)}>{root.split('/').pop()}</Action>)}
         <Action small onPress={()=>{const p=dir.split('/');if(p.length>4)setDir(p.slice(0,-1).join('/'));}}>Up one folder</Action>
@@ -197,17 +203,17 @@ export function PrettySettings(): React.JSX.Element {
         </TouchableOpacity>)}
         {!entries.length && <TextLine faint>No available files here.</TextLine>}
       </ScrollView>
+      </View>
     </View>
   );
 
   return (
-    <View style={styles.root}>
-      <View style={styles.top}>
-        <TextLine big>MySuperPrettyDashboard settings</TextLine>
-        <View style={{flex:1}}/>
-        <Action filled disabled={busy} onPress={saveAndExit}>Done · Save and return</Action>
-      </View>
-      <ScrollView style={{flex:1}}>
+    <View style={styles.screen}>
+      <PrettyScreenHeader title="Settings"
+        left={{label:'Close',onPress:saveAndExit,disabled:busy}}
+        right={{label:'Done',onPress:saveAndExit,disabled:busy,accessibilityLabel:'Done · Save and return'}}/>
+      <View style={styles.root}>
+      <ScrollView style={{flex:1}} keyboardShouldPersistTaps="handled">
         <Group title="Pretty Calendar · read-only events">
           <TextLine faint>Uses your existing TRMNL Pretty Calendar Cloudflare feed directly. No additional calendars, accounts, sign-ins or native Calendar event records are created.</TextLine>
           <TextLine faint>One-time setup: paste your existing Cloudflare Worker /calendar URL. It will be stored encrypted on this Manta, not in the public GitHub repository.</TextLine>
@@ -316,14 +322,15 @@ export function PrettySettings(): React.JSX.Element {
         </Group>
         <TextLine faint>MySuperPrettyDashboard · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Native Files and To-do shortcuts remain available. Your original SuperDashboard settings remain separate.</TextLine>
       </ScrollView>
-      {!!status&&<View style={styles.status}><TextLine>{status}</TextLine><Action small onPress={()=>setStatus('')}>Close</Action></View>}
+      {!!status&&<View style={styles.status}><View style={{flex:1}}><TextLine>{status}</TextLine></View><Action small onPress={()=>setStatus('')}>Dismiss</Action></View>}
+      </View>
     </View>
   );
 }
 const styles=StyleSheet.create({
   root:{flex:1,backgroundColor:'#fff',paddingHorizontal:25,paddingTop:15,paddingBottom:13},
-  top:{flexDirection:'row',alignItems:'center',borderBottomColor:'#bbb',borderBottomWidth:1,paddingBottom:12,marginBottom:10},
-  input:{borderWidth:1,borderColor:'#999',borderRadius:5,backgroundColor:'#fff',fontFamily:FONT,fontSize:18,color:'#111',paddingHorizontal:12,paddingVertical:11,marginVertical:7,minWidth:320},
+  screen:{flex:1,backgroundColor:'#fff'},
+  input:{borderWidth:1,borderColor:'#999',borderRadius:0,backgroundColor:'#fff',fontFamily:FONT,fontSize:21,color:'#111',paddingHorizontal:12,paddingVertical:11,marginVertical:7,minWidth:320},
   entry:{flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:'#ddd',paddingVertical:5},
   pickRow:{paddingVertical:12,paddingHorizontal:5,borderBottomWidth:1,borderColor:'#ddd'},
   status:{flexDirection:'row',alignItems:'center',borderTopWidth:1,borderColor:'#888',paddingVertical:9,justifyContent:'space-between'},

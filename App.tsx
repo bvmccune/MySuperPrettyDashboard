@@ -5,6 +5,7 @@ import {DashboardConfig, loadConfig} from './src/config';
 import {PrettyHome} from './src/PrettyHome';
 import {getRoute, Route, setRoute} from './src/route';
 import {PrettySettings} from './src/PrettySettings';
+import {PrettyScreenHeader} from './src/PrettyScreen';
 import {markOpen, ready} from './src/perf';
 
 const {DashboardNative} = NativeModules;
@@ -14,13 +15,16 @@ function familyFor(path: string): string {
   return 'udf' + (h >>> 0).toString(36);
 }
 function DashboardError({message}:{message:string}):React.JSX.Element {
-  return <View style={{flex:1,backgroundColor:'#fff',padding:25,justifyContent:'center'}}>
+  return <View style={{flex:1,backgroundColor:'#fff'}}>
+    <PrettyScreenHeader title="Dashboard error" left={{label:'Settings',onPress:()=>setRoute('config')}}/>
+    <View style={{flex:1,padding:25,justifyContent:'center'}}>
     <Text style={{fontFamily:'GoogleSansFlex',fontSize:25,fontWeight:'600',color:'#111'}}>Dashboard could not load</Text>
     <Text style={{fontFamily:'GoogleSansFlex',fontSize:18,color:'#333',marginVertical:12}}>{message}</Text>
     <TouchableOpacity onPress={()=>setRoute('config')} accessibilityRole="button"
       style={{alignSelf:'flex-start',backgroundColor:'#111',padding:12,borderRadius:6}}>
       <Text style={{fontFamily:'GoogleSansFlex',fontSize:18,color:'#fff'}}>Return to Settings</Text>
     </TouchableOpacity>
+    </View>
   </View>;
 }
 class DashboardBoundary extends React.Component<{children:React.ReactNode},{failed:boolean}> {
