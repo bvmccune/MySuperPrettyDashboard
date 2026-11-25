@@ -250,7 +250,7 @@ export function PrettySettings(): React.JSX.Element {
           <Action disabled={busy} onPress={()=>attempt(async()=>{const result=await refreshWeather(prefs.weatherLocation??DEFAULT_WEATHER_LOCATION,true);setStatus(result.error?'Weather refresh: '+result.error:'Weather updated.');})}>Refresh weather now</Action>
           <TextLine faint>Availability shows the current and next calendar states for today, using timed events only. It does not use working hours.</TextLine>
           <TextLine bold>Rotating artwork</TextLine>
-          <TextLine faint>Copy your PNG, JPEG or WebP illustrations into MyStyle/Plugins/MySuperPrettyDashboard/artwork. One illustration is selected per day. With a single file, it stays fixed.</TextLine>
+          <TextLine faint>Copy your PNG, JPEG or WebP illustrations into MyStyle/Plugins/MySuperPrettyDashboard/artwork. One illustration is selected per day. With a single file, it stays fixed. A file named free-state.png, free-state.jpg or free-state.webp is reserved for the Free Rest of Day state; until then a smiley is shown.</TextLine>
           <Action disabled={busy} onPress={()=>attempt(async()=>{await DashboardNative.writeFile(ARTWORK_DIR+'/.keep','');setStatus('Artwork folder is ready. Copy your possum image there.');})}>Create artwork folder</Action>
           <TouchableOpacity accessibilityRole="link" onPress={()=>Linking.openURL('https://open-meteo.com/').catch(()=>setStatus('Weather data: https://open-meteo.com/'))}><Text style={{fontFamily:FONT,fontSize:18,color:'#111',textDecorationLine:'underline'}}>Weather data by Open-Meteo (CC BY 4.0)</Text></TouchableOpacity>
         </Group>

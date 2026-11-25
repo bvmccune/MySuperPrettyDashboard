@@ -12,12 +12,20 @@ export function PrettySummaryPanel({events,hasCalendar,calendarCached,weather,no
   events:AgendaEvent[];hasCalendar:boolean;calendarCached:boolean;weather:WeatherResult;now:Date;scale:number;onSettings:()=>void;refreshTick:number;
 }):React.JSX.Element{
   const [art,setArt]=useState<string[]>([]);
+  const [freeArt,setFreeArt]=useState('');
+  const [freeArtFailed,setFreeArtFailed]=useState(false);
   const [failedArt,setFailedArt]=useState('');
   useEffect(()=>{
     let live=true;
     Promise.resolve().then(()=>DashboardNative.listDir(ARTWORK_DIR)).then((items:any[])=>{
-      if(live){setArt((items||[]).filter(e=>!e.isDir&&/\.(png|jpe?g|webp)$/i.test(e.name)&&typeof e.path==='string').map(e=>e.path).sort());setFailedArt('');}
-    }).catch(()=>{if(live)setArt([]);});
+      if(live){
+        const images=(items||[]).filter(e=>!e.isDir&&/\.(png|jpe?g|webp)$/i.test(e.name)&&typeof e.path==='string');
+        const reserved=(name:string)=>/^free-state\.(png|jpe?g|webp)$/i.test(name);
+        setArt(images.filter(e=>!reserved(e.name)).map(e=>e.path).sort());
+        setFreeArt(images.filter(e=>reserved(e.name)).map(e=>e.path).sort()[0]||'');
+        setFreeArtFailed(false);setFailedArt('');
+      }
+    }).catch(()=>{if(live){setArt([]);setFreeArt('');}});
     return()=>{live=false;};
   },[refreshTick]);
   const dayNumber=Math.floor(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())/86400000);
@@ -30,7 +38,7 @@ export function PrettySummaryPanel({events,hasCalendar,calendarCached,weather,no
   const font=(size:number,color='#000',bold=false)=>({fontFamily:FONT,fontSize:size*scale,color,fontWeight:bold?'600' as const:'400' as const,includeFontPadding:false,textAlign:'center' as const});
   return <View style={{flex:1,flexDirection:'row',minHeight:0,paddingBottom:3*scale}}>
     <View testID="availability-column" style={{flex:2,minWidth:0,paddingHorizontal:3*scale,justifyContent:'center'}}>
-      {states.map((state,i)=>state.kind==='art'?<View key={i} accessibilityLabel="No remaining meetings" style={{flex:1,alignItems:'center',justifyContent:'center'}}><Text style={font(45)}>☺</Text></View>:
+      {states.map((state,i)=>state.kind==='art'?<View key={i} accessibilityLabel="No remaining meetings" style={{flex:1,alignItems:'center',justifyContent:'center'}}>{freeArt&&!freeArtFailed?<Image accessibilityLabel="Free rest of day artwork" source={{uri:'file://'+encodeURI(freeArt)}} resizeMode="contain" onError={()=>setFreeArtFailed(true)} style={{width:'100%',height:'100%'}}/>:<Text style={font(45)}>☺</Text>}</View>:
         <View key={i} style={{flex:1,minHeight:0,marginTop:3*scale,borderRadius:9*scale,borderColor:'#000',borderWidth:1,
           backgroundColor:state.kind==='busy'?'#000':'#fff',alignItems:'center',justifyContent:'center'}}>
           {state.kind==='rest'?<><Text style={font(16,'#000',true)}>FREE</Text><Text style={font(11)}>REST OF DAY</Text></>:

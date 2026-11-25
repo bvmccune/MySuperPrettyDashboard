@@ -54,7 +54,7 @@ function validSnapshot(x:any,l:WeatherLocation):x is WeatherSnapshot{
  return x?.schema===1&&validWeatherLocation(x.location)&&locationKey(x.location)===locationKey(l)&&[x.fetchedAt,x.observedAt,x.current,x.code,x.wind].every(finite)&&typeof x.isDay==='boolean'&&Array.isArray(x.days)&&x.days.length>0&&x.days.every((d:any)=>d&&[d.start,d.sunrise,d.sunset,d.high,d.low].every(finite)&&d.high>=d.low&&d.sunset>d.sunrise);
 }
 let permitted=false;
-async function getJson(url:string){
+export async function getWeatherJson(url:string){
  if(!permitted){const k='plugin.permission.INTERNET';let p=await PluginManager.hasPermission(k);if(p!==1&&p!==2)p=await PluginManager.requestPermission(k,'Retrieve weather for your selected city.');if(p!==1&&p!==2)throw new Error('Weather internet permission denied');permitted=true;}
  let last:unknown;
  for(let attempt=0;attempt<2;attempt++){
@@ -64,7 +64,13 @@ async function getJson(url:string){
   finally{clearTimeout(timer);}
  }
  const error=last as any;
- throw new Error(new URL(url).hostname+': '+(error?.name==='AbortError'?'Request timed out':String(error?.message||'Network request failed')));
+ const host=url.startsWith('https://geocoding-api.open-meteo.com/')?'geocoding-api.open-meteo.com':'api.open-meteo.com';
+ const detail=error?.name==='AbortError'?'Request timed out':String(error?.message||'Network request failed');
+ if(!/^Weather HTTP 4/.test(detail)&&typeof DashboardNative?.fetchOpenMeteoJson==='function'){
+  try{return JSON.parse(await DashboardNative.fetchOpenMeteoJson(url));}
+  catch(e:any){throw new Error(host+': '+detail+'; '+String(e?.message||'Native HTTPS request failed'));}
+ }
+ throw new Error(host+': '+detail);
 }
 const memory=new Map<string,WeatherSnapshot>(),pending=new Map<string,Promise<WeatherResult>>();
 async function cached(l:WeatherLocation):Promise<WeatherSnapshot|null>{
@@ -76,12 +82,12 @@ export function refreshWeather(l:WeatherLocation,force=false):Promise<WeatherRes
  const request=(async():Promise<WeatherResult>=>{
  const prior=await cached(l);
  if(!force&&prior&&Date.now()-prior.fetchedAt<WEATHER_REFRESH_MS)return {snapshot:prior,status:'fresh'};
- try{const snap=normalizeWeather(await getJson(weatherForecastUrl(l)),l);memory.set(key,snap);try{await DashboardNative.writeFile(CACHE,JSON.stringify(snap));}catch{}return {snapshot:snap,status:'fresh'};}
+ try{const snap=normalizeWeather(await getWeatherJson(weatherForecastUrl(l)),l);memory.set(key,snap);try{await DashboardNative.writeFile(CACHE,JSON.stringify(snap));}catch{}return {snapshot:snap,status:'fresh'};}
  catch(e:any){return {snapshot:prior,status:prior?'cached':'unavailable',error:String(e?.message||e)};}
  })().finally(()=>pending.delete(key));pending.set(key,request);return request;
 }
 export async function searchWeatherLocations(query:string):Promise<WeatherLocation[]>{
  const q=query.trim();if(q.length<2)throw new Error('Enter a city or ZIP code');
- const data=await getJson('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=8&language=en&format=json');
+ const data=await getWeatherJson('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=8&language=en&format=json');
  return (Array.isArray(data?.results)?data.results:[]).map((r:any)=>({name:[r.name,r.admin1,r.country_code].filter(Boolean).join(', '),latitude:r.latitude,longitude:r.longitude})).filter(validWeatherLocation);
 }

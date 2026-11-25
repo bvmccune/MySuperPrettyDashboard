@@ -161,7 +161,7 @@ describe('Pretty Calendar — user-approved read-only agenda',()=>{
 import './weatherIconMapping.test';
 import {availability,minuteLabel} from './prettyAvailability';
 import {gaugeFraction} from './PrettySummaryPanel';
-import {normalizeWeather,weatherDay,weatherIsDay,weatherCondition,weatherForecastUrl,DEFAULT_WEATHER_LOCATION} from './prettyWeather';
+import {normalizeWeather,weatherDay,weatherIsDay,weatherCondition,weatherForecastUrl,DEFAULT_WEATHER_LOCATION,getWeatherJson} from './prettyWeather';
 
 describe('availability and weather acceptance',()=>{
   test('TRMNL current to next: strict overlaps, back-to-back, all-day and instant excluded',()=>{
@@ -192,6 +192,21 @@ describe('availability and weather acceptance',()=>{
     expect(weatherDay(s,(midnight+86400)*1000)?.high).toBe(70);
     expect(weatherForecastUrl(DEFAULT_WEATHER_LOCATION)).toContain('temperature_unit=fahrenheit');
     expect(()=>normalizeWeather({...raw,daily:{...raw.daily,temperature_2m_min:[80,45]}},DEFAULT_WEATHER_LOCATION)).toThrow();
+  });
+  test('Open-Meteo native fallback is used for network failures, not HTTP client errors',async()=>{
+    const native=NativeModules.DashboardNative;
+    const oldFetch=global.fetch,oldNative=native.fetchOpenMeteoJson;
+    const url=weatherForecastUrl(DEFAULT_WEATHER_LOCATION);
+    native.fetchOpenMeteoJson=jest.fn(async()=>JSON.stringify({ok:true}));
+    try{
+      global.fetch=jest.fn(async()=>{throw new Error('Network request failed');}) as any;
+      await expect(getWeatherJson(url)).resolves.toEqual({ok:true});
+      expect(native.fetchOpenMeteoJson).toHaveBeenCalledWith(url);
+      (native.fetchOpenMeteoJson as jest.Mock).mockClear();
+      global.fetch=jest.fn(async()=>({ok:false,status:400})) as any;
+      await expect(getWeatherJson(url)).rejects.toThrow('Weather HTTP 400');
+      expect(native.fetchOpenMeteoJson).not.toHaveBeenCalled();
+    }finally{global.fetch=oldFetch;native.fetchOpenMeteoJson=oldNative;}
   });
   test('all WMO weather codes have a recognized mapping',()=>{
     for(const code of [0,1,2,3,45,48,51,53,55,56,57,61,63,65,66,67,71,73,75,77,80,81,82,85,86,95,96,99])expect(weatherCondition(code).condition).not.toBe('unavailable');
