@@ -160,7 +160,7 @@ describe('Pretty Calendar — user-approved read-only agenda',()=>{
 // Include weather/availability acceptance tests in the existing CI test entry.
 import './weatherIconMapping.test';
 import {availability,minuteLabel} from './prettyAvailability';
-import {gaugeFraction} from './PrettySummaryPanel';
+import {gaugeFraction,gaugePoint} from './PrettySummaryPanel';
 import {normalizeWeather,weatherDay,weatherIsDay,weatherCondition,weatherForecastUrl,DEFAULT_WEATHER_LOCATION,getWeatherJson} from './prettyWeather';
 
 describe('availability and weather acceptance',()=>{
@@ -232,3 +232,10 @@ test('automatic location uses detected city and coordinates, excludes IP, reject
  expect(()=>normalizeAutomaticLocation({city:'Example',latitude:91,longitude:-80})).toThrow();
 });
 test('visible row shading uses the next darker level after Manta rejected #EEEEEE',()=>expect(LIGHT_GRAY).toBe('#DDDDDD'));
+
+test('continuous gauge geometry aligns low, midpoint and high to the same circular arc',()=>{
+ const low=gaugePoint(0),middle=gaugePoint(.5),high=gaugePoint(1);
+ expect(low.x).toBeCloseTo(.18872,4);expect(high.x).toBeCloseTo(.81128,4);
+ expect(low.y).toBeCloseTo(high.y,6);expect(middle.x).toBeCloseTo(.5,6);expect(middle.y).toBeCloseTo(.07,6);
+ for(const p of [low,middle,high,gaugePoint(.25),gaugePoint(.75)])expect(Math.hypot(p.x-.5,p.y-.45)).toBeCloseTo(.38,6);
+});

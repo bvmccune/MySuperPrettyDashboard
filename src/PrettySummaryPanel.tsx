@@ -64,19 +64,30 @@ export function RockySign({scale}:{scale:number}){
   </View>;
 }
 
-// Arc made of overlapping round segments; no new native SVG dependency.
-export function gaugeFraction(current:number,low:number,high:number){return high>low?Math.max(0,Math.min(1,(current-low)/(high-low))):0.5;}
-function TemperatureGauge({size,current,low,high}:{size:number;current?:number;low?:number;high?:number}){
- const valid=typeof current==='number'&&typeof low==='number'&&typeof high==='number';
- const point=(f:number)=>{const a=(145+250*f)*Math.PI/180;return {x:size*(.5+.39*Math.cos(a)),y:size*(.48+.39*Math.sin(a))};};
- const marker=point(valid?gaugeFraction(current!,low!,high!):0);
- const label=(n?:number)=>n===undefined?'—':String(Math.round(n));
- const dot=size*.105;
- return <View accessibilityLabel={'Current '+label(current)+', low '+label(low)+', high '+label(high)} style={{width:size,height:size,position:'relative'}}>
-   {Array.from({length:65},(_,i)=>{const p=point(i/64);return <View key={i} style={{position:'absolute',left:p.x-dot/2,top:p.y-dot/2,width:dot,height:dot,borderRadius:dot/2,backgroundColor:'#999'}}/>;})}
-   {valid&&<View style={{position:'absolute',left:marker.x-dot*.73,top:marker.y-dot*.73,width:dot*1.46,height:dot*1.46,borderRadius:dot,borderColor:'#fff',borderWidth:Math.max(1,size*.025),backgroundColor:'#000'}}/>}
-   <Text adjustsFontSizeToFit numberOfLines={1} style={{position:'absolute',left:size*.15,top:size*.29,width:size*.7,textAlign:'center',fontFamily:FONT,fontSize:size*.34,fontWeight:'600',color:'#000',includeFontPadding:false}}>{label(current)}</Text>
-   <Text style={{position:'absolute',left:size*.13,bottom:size*.045,fontFamily:FONT,fontSize:size*.17,color:'#000',includeFontPadding:false}}>{label(low)}</Text>
-   <Text style={{position:'absolute',right:size*.13,bottom:size*.045,fontFamily:FONT,fontSize:size*.17,color:'#000',includeFontPadding:false}}>{label(high)}</Text>
+/** Analytic circular geometry shared with assets/artwork/temperature-gauge.svg.
+ * A single continuous arc is rasterized at build time; no tracing, overlapping
+ * dots, native SVG dependency, or runtime image tint. Values remain live. */
+export function gaugeFraction(current:number,low:number,high:number){
+ return high>low?Math.max(0,Math.min(1,(current-low)/(high-low))):0.5;
+}
+export function gaugePoint(fraction:number){
+ const angle=(145+250*Math.max(0,Math.min(1,fraction)))*Math.PI/180;
+ return {x:.5+.38*Math.cos(angle),y:.45+.38*Math.sin(angle)};
+}
+export function TemperatureGauge({size,current,low,high}:{size:number;current?:number;low?:number;high?:number}){
+ const valid=Number.isFinite(current)&&Number.isFinite(low)&&Number.isFinite(high);
+ const marker=gaugePoint(valid?gaugeFraction(current!,low!,high!):0);
+ const label=(n?:number)=>Number.isFinite(n)?String(Math.round(n!)):'—';
+ const dot=size*.14;
+ const baseText={fontFamily:FONT,color:'#000000',textAlign:'center' as const,includeFontPadding:false};
+ if(size<=1)return <View/>;
+ return <View testID="temperature-gauge" accessible accessibilityLabel={'Current '+label(current)+', low '+label(low)+', high '+label(high)} style={{width:size,height:size,position:'relative'}}>
+   <Image source={require('../assets/pretty/temperature-gauge.png')} resizeMode="contain" style={{width:size,height:size}}/>
+   {valid&&<View testID="temperature-marker" style={{position:'absolute',left:marker.x*size-dot/2,top:marker.y*size-dot/2,width:dot,height:dot,borderRadius:dot/2,borderColor:'#FFFFFF',borderWidth:size*.018,backgroundColor:'#000000'}}/>}
+   <View style={{position:'absolute',left:size*.19,top:size*.245,width:size*.62,height:size*.40,alignItems:'center',justifyContent:'center'}}>
+     <Text adjustsFontSizeToFit numberOfLines={1} style={{...baseText,fontSize:size*.34,fontWeight:'600'}}>{label(current)}</Text>
+   </View>
+   <Text numberOfLines={1} adjustsFontSizeToFit style={{...baseText,position:'absolute',left:size*.015,top:size*.77,width:size*.35,fontSize:size*.18}}>{label(low)}</Text>
+   <Text numberOfLines={1} adjustsFontSizeToFit style={{...baseText,position:'absolute',right:size*.015,top:size*.77,width:size*.35,fontSize:size*.18}}>{label(high)}</Text>
  </View>;
 }
