@@ -10,7 +10,7 @@ const {DashboardNative} = NativeModules;
 const PREFS = '/storage/emulated/0/MyStyle/Plugins/MySuperPrettyDashboard/pretty-prefs.json';
 
 export type PrettyAction = 'calendar' | 'files' | 'favorites' | 'search' | 'keywords'
-  | 'last-note' | 'todo' | 'new-note' | 'quick-access';
+  | 'last-note' | 'todo' | 'new-note' | 'quick-access' | 'refresh' | 'settings';
 export type BubbleSpot = 'top-left' | 'top-right' | 'middle-left' | 'middle-right' | 'bottom-left' | 'bottom-right';
 export type PrettySize = 'normal' | 'large' | 'extra';
 
@@ -30,11 +30,13 @@ export const ACTIONS: {key: PrettyAction; name: string; icon: string}[] = [
   {key:'todo', name:'To-do', icon:'todo'},
   {key:'new-note', name:'New note', icon:'new-note'},
   {key:'quick-access', name:'Quick access', icon:'quick'},
+  {key:'refresh',name:'Refresh dashboard',icon:'refresh'},
+  {key:'settings',name:'Settings',icon:'settings'},
 ];
 export const DEFAULT_PRETTY: PrettyPrefs = {
   quick: [],
   favorites: [],
-  shortcuts: ['calendar','files','favorites','search','keywords','last-note'],
+  shortcuts: ['refresh','settings','calendar','search'],
   size: 'normal',
 };
 
@@ -44,14 +46,17 @@ function validPin(raw: any): raw is ShortcutItem {
 }
 export function normalPretty(raw: any): PrettyPrefs {
   const allowed = new Set(ACTIONS.map(a => a.key));
-  const shortcuts: PrettyAction[] = Array.isArray(raw?.shortcuts)
-    ? raw.shortcuts.map((x:any)=>x==='stars'?'keywords':x)
-        .filter((a: any): a is PrettyAction => allowed.has(a)).slice(0,6)
+  // The previous six-button layout migrates once to the mockup's four actions.
+  // Preserve four-button choices thereafter; keep Settings reachable.
+  const shortcuts: PrettyAction[] = Array.isArray(raw?.shortcuts) && raw.shortcuts.length<=4
+    ? raw.shortcuts.filter((a: any): a is PrettyAction => allowed.has(a)).slice(0,4)
     : DEFAULT_PRETTY.shortcuts.slice();
   for (const key of DEFAULT_PRETTY.shortcuts) {
-    if (shortcuts.length >= 6) break;
+    if (shortcuts.length >= 4) break;
     if (!shortcuts.includes(key)) shortcuts.push(key);
   }
+  if (!shortcuts.includes('settings') && !shortcuts.includes('quick-access'))
+    shortcuts[1]='settings';
   return {
     quick: (Array.isArray(raw?.quick) ? raw.quick.filter(validPin) : []).slice(0,30),
     favorites: (Array.isArray(raw?.favorites) ? raw.favorites.filter(validPin) : []).slice(0,30),

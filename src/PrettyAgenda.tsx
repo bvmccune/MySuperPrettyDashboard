@@ -3,18 +3,19 @@
  * Content uses the same body type scale as Quick Access and Recent Notes.
  */
 import React from 'react';
-import {Text,TouchableOpacity,View} from 'react-native';
+import {Image,Text,TouchableOpacity,View} from 'react-native';
 import {AgendaEvent,eventDuration} from './prettyCalendar';
 const FONT='GoogleSansFlex';
-export function compactEventTime(ms:number):string{
+export function compactEventTime(ms:number,showPeriod=true):string{
   const d=new Date(ms),hours=d.getHours(),minutes=d.getMinutes();
   return String(hours%12||12)+(minutes?':'+String(minutes).padStart(2,'0'):'')+
-    (hours<12?'a':'p');
+    (showPeriod?(hours<12?' am':' pm'):'');
 }
 export function compactEventRange(event:AgendaEvent):string{
   if(event.all_day)return 'All day';
-  return compactEventTime(event.startMillis)+'–'+compactEventTime(event.endMillis)+
-    ' · '+eventDuration(event);
+  const samePeriod=(new Date(event.startMillis).getHours()<12)===(new Date(event.endMillis).getHours()<12);
+  return compactEventTime(event.startMillis,!samePeriod)+'–'+compactEventTime(event.endMillis)+
+    ' '+eventDuration(event);
 }
 export function hasTimeConflict(event:AgendaEvent,others:AgendaEvent[]):boolean{
   if(event.all_day)return false;
@@ -25,13 +26,13 @@ function Conflict({scale}:{scale:number}){
   return <View accessible accessibilityLabel="Conflicting appointments"
     style={{width:21*scale,height:15*scale,marginRight:4*scale}}>
     <View style={{width:13*scale,height:13*scale,borderRadius:99,
-      borderWidth:1.5,borderColor:'#111',position:'absolute',left:0}}/>
+      backgroundColor:'#111',position:'absolute',left:0}}/>
     <View style={{width:13*scale,height:13*scale,borderRadius:99,
-      borderWidth:1.5,borderColor:'#111',position:'absolute',left:7*scale}}/>
+      backgroundColor:'#111',position:'absolute',left:7*scale}}/>
   </View>;
 }
-export function AgendaRow({event,onPress,allEvents=[],scale=1}:{
-  event:AgendaEvent;onPress:()=>void;allEvents?:AgendaEvent[];scale?:number;
+export function AgendaRow({event,onPress,allEvents=[],scale=1,showSelect=false}:{
+  event:AgendaEvent;onPress:()=>void;allEvents?:AgendaEvent[];scale?:number;showSelect?:boolean;
 }):React.JSX.Element{
   const overlapping=hasTimeConflict(event,allEvents);
   return <TouchableOpacity accessibilityRole="button" accessibilityLabel={
@@ -39,16 +40,22 @@ export function AgendaRow({event,onPress,allEvents=[],scale=1}:{
     onPress={onPress} style={{flexDirection:'row',alignItems:'center',
       paddingVertical:5*scale,minHeight:34*scale,borderBottomWidth:.45,
       borderBottomColor:'#d6d6d6'}}>
-    {overlapping&&<Conflict scale={scale}/>}
-    <Text numberOfLines={2} ellipsizeMode="tail" style={{
+    <Image source={require('../assets/pretty/calendar-dot.png')} resizeMode="contain"
+      style={{width:20*scale,height:20*scale,marginRight:5*scale}}/>
+    <Text numberOfLines={3} ellipsizeMode="tail" style={{
       fontFamily:FONT,fontSize:17.2*scale,lineHeight:21*scale,
       fontWeight:'500',color:'#111',flex:1,marginRight:8*scale,
       includeFontPadding:false}}>{event.summary}</Text>
-    <Text numberOfLines={1} style={{fontFamily:FONT,fontSize:17.2*scale,
-      fontWeight:'500',color:'#444',textAlign:'right',
-      maxWidth:182*scale,includeFontPadding:false}}>
-      {compactEventRange(event)}
-    </Text>
+    <View style={{alignItems:'flex-end',maxWidth:130*scale}}>
+      <View style={{flexDirection:'row',alignItems:'center'}}>
+        {overlapping&&<Conflict scale={scale}/>}
+        <Text style={{fontFamily:FONT,fontSize:12.5*scale,
+          fontWeight:'400',color:'#444',textAlign:'right',includeFontPadding:false}}>
+          {compactEventRange(event)}
+        </Text>
+      </View>
+      {showSelect&&<Text style={{fontFamily:FONT,fontSize:12*scale,color:'#555'}}>Select ›</Text>}
+    </View>
   </TouchableOpacity>;
 }
 export function AgendaDay({day,events,onEvent,scale=1}:{

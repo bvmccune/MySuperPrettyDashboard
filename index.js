@@ -550,7 +550,7 @@ async function handleLassoToClip(kind) {
 
 PluginManager.registerButton(1, ['NOTE', 'DOC'], {
   id: TOOLBAR_BTN,
-  name: 'SuperDashboard',
+  name: 'MySuperPrettyDashboard',
   icon: Image.resolveAssetSource(require('./assets/icon.png')).uri,
   showType: 1,
 });

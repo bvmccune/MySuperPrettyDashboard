@@ -61,3 +61,28 @@ for name, paths in icons.items():
            'stroke-linecap="round" stroke-linejoin="round">' + paths + '</g></svg>')
     cairosvg.svg2png(bytestring=svg.encode(), write_to=str(OUT / (name + ".png")))
 print("Generated", len(icons), "Supernote-style icons in", OUT)
+
+# Approved original vector set. The compressed JSON is the exact source artwork;
+# extract it before rasterizing for the React Native asset loader.
+import base64, lzma, hashlib, json, re
+source=Path(__file__).resolve().parents[1] / 'assets' / 'approved' / 'originals.json.xz'
+packed=source.read_bytes()
+assert hashlib.sha256(packed).hexdigest() == 'a6986e155f5ebc21ae54c160e6fdaeca835dad3009ed05ae5605dfcb1a1808a3', 'Approved artwork archive changed'
+originals=json.loads(lzma.decompress(packed))
+source_dir=source.parent / 'svg'
+source_dir.mkdir(parents=True,exist_ok=True)
+for filename,svg in originals.items():
+    if filename.endswith('.svg'):
+        (source_dir/filename).write_text(svg,encoding='utf-8')
+        cairosvg.svg2png(bytestring=svg.encode(),write_to=str(OUT/filename.replace('.svg','.png')),output_width=240,output_height=240)
+assert len(list(source_dir.glob('*.svg'))) == 22
+aliases={'lizard':'gecko-transparent','plants':'plant','rocks':'crystal','coffee':'coffee-circle','chicken':'mcnuggets-refined','pending':'check-circle','charging':'lightning','last-note':'stardust','favorites':'star-filled','files':'open-notebook','quick':'open-notebook','todo':'check-circle','book':'open-notebook','recent':'notebook','file':'notebook','new-note':'new-note','calendar':'calendar','keywords':'search'}
+import shutil
+for dest,src in aliases.items():
+    if dest!=src: shutil.copyfile(OUT/(src+'.png'), OUT/(dest+'.png'))
+# Use the approved battery outline; the fill is drawn dynamically from the actual level.
+empty=re.sub(r'(id="charge-fill"[^>]*?width=")[^"]+(")',r'\g<1>0\2',originals['battery.svg'])
+cairosvg.svg2png(bytestring=empty.encode(),write_to=str(OUT/'battery.png'),output_width=272,output_height=176)
+(OUT/'cats-placeholder.png').write_bytes(base64.b64decode(originals['cats-placeholder.png']))
+shutil.copyfile(OUT/'stardust.png',OUT.parent/'icon.png')
+print('Verified and rasterized all 22 approved SVGs')

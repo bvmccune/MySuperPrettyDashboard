@@ -286,8 +286,8 @@ export function PrettySettings(): React.JSX.Element {
           ))}
           <Action filled onPress={()=>{setDir(ROOTS[0]);setPicker('favorites');}}>+ Add a favorite notebook, document, or folder</Action>
         </Group>
-        <Group title="Shortcuts">
-          <TextLine faint>Choose one action for each of the six unboxed shortcuts: Calendar, Notes folder, Favorites, Search, Keywords and Last Opened Note. Last Opened Note closes the dashboard and returns to the underlying note.</TextLine>
+        <Group title="ShortCats">
+          <TextLine faint>Choose four actions for the 2 × 2 ShortCats buttons. Keep one Settings or Quick access button so you can return here. Tap the star in the header to close the dashboard.</TextLine>
           {prefs.shortcuts.map((key,i)=>{
             const item=ACTIONS.find(a=>a.key===key);
             return <View key={i} style={styles.entry}>
@@ -299,18 +299,19 @@ export function PrettySettings(): React.JSX.Element {
           {editingShortcut!==null&&<View style={{flexDirection:'row',flexWrap:'wrap',marginVertical:8}}>
             {ACTIONS.map(a=><Action key={a.key} small onPress={()=>{
               const next=[...prefs.shortcuts];next[editingShortcut]=a.key;
+              if(!next.includes('settings')&&!next.includes('quick-access')){setStatus('Keep one Settings or Quick access button.');return;}
               save({...prefs,shortcuts:next});setEditingShortcut(null);
             }}>{a.name}</Action>)}
           </View>}
         </Group>
         <Group title="Display">
-          <TextLine faint>Google Sans Flex. Standard is the preferred Manta text size; Large and Extra large are accessibility alternatives. All six content sections use the same body size and fixed equal-height bands.</TextLine>
+          <TextLine faint>Google Sans Flex. Standard is the preferred Manta text size; Large and Extra large are accessibility alternatives. The first two content bands have equal height; the ShortCats and Quick access band is shorter.</TextLine>
           <View style={{flexDirection:'row',flexWrap:'wrap',marginVertical:6}}>
             {(['normal','large','extra'] as const).map(sz=><Action key={sz} small filled={prefs.size===sz} onPress={()=>save({...prefs,size:sz})}>{sz==='normal'?'Standard':sz==='large'?'Large':'Extra large'}</Action>)}
           </View>
         </Group>
         <Group title="Dashboard navigation">
-          <TextLine faint>No floating button will appear over Supernote. Last Opened Note closes the dashboard, returning to the note beneath it. Calendar resets to today and opens the dashboard's read-only agenda; no native Calendar event records are created.</TextLine>
+          <TextLine faint>No floating button will appear over Supernote. The Stardust star closes the dashboard, returning to the note beneath it. Calendar resets to today and opens the dashboard's read-only agenda; no native Calendar event records are created.</TextLine>
           <TextLine faint>For launching the dashboard elsewhere, add the Plugins tool to your native notebook toolbar. A direct sidebar gesture or dedicated plugin Quick Access entry is not publicly documented.</TextLine>
         </Group>
         <TextLine faint>MySuperPrettyDashboard · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Native Files and To-do shortcuts remain available. Your original SuperDashboard settings remain separate.</TextLine>

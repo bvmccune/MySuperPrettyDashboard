@@ -76,7 +76,7 @@ describe('Pretty Calendar — user-approved read-only agenda',()=>{
     const f=feed([event('Core Team Huddle','2026-11-24T14:00:00Z','2026-11-24T14:30:00Z')]);
     const a=agendaFromFeed(f)[0];
     expect(eventDuration(a)).toBe('30m');
-    expect(compactEventRange(a)).toContain(' · 30m');
+    expect(compactEventRange(a)).toContain(' 30m');
     expect(compactEventRange(a)).toContain('–');
     expect(eventTimeRange(a)).toContain('–');
     expect('description' in a).toBe(false);
