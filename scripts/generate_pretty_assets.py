@@ -131,3 +131,10 @@ cairosvg.svg2png(url=str(ROOT/'assets'/'artwork'/'temperature-gauge.svg'),write_
 with Image.open(OUT/'temperature-gauge.png') as gauge:
     gauge.convert('RGB').save(OUT/'temperature-gauge-rgb.png')
 (OUT/'temperature-gauge-rgb.png').replace(OUT/'temperature-gauge.png')
+
+# Latest user-supplied revision; rasterize originals without changing geometry.
+revision=ROOT/'assets'/'approved'/'revision'
+for name in ('planned','files','keywords','stars','stardust'):
+    cairosvg.svg2png(url=str(revision/(name+'.svg')),write_to=str(OUT/(name+'.png')),output_width=240,output_height=240)
+shutil.copyfile(OUT/'planned.png',OUT/'recent.png')
+shutil.copyfile(OUT/'stardust.png',OUT.parent/'icon.png')
