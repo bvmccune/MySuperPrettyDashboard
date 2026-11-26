@@ -102,3 +102,11 @@ export async function openFileAtPage(path: string, rawPage: number): Promise<voi
 export function launchApp(component: string) {
   return go(() => DashboardNative.launchActivity(component), 'launch the app');
 }
+
+/** Linked native tasks must not use a legacy intent that can ignore page.
+ * False is handled by the caller with a direct native To-do alternative. */
+export async function openVerifiedTaskPage(path:string,page:number):Promise<boolean>{
+  if(!Number.isInteger(page)||page<0)return false;
+  if(!await openViaSdk(path,page))return false;
+  leavePlugin();return true;
+}
