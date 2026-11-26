@@ -238,3 +238,17 @@ it('schedule extends only for timed events and merges overlaps',()=>{
   const rail=scheduleBounds(day,events);
   expect(new Date(rail.start).getHours()).toBe(7);expect(new Date(rail.end).getHours()).toBe(20);expect(rail.merged).toHaveLength(2);
 });
+
+it('distinguishes true overlaps from exact back-to-back boundaries',()=>{
+  const day='2026-11-26',at=(h:number,m=0)=>new Date(2026,10,26,h,m).toISOString();
+  const events=agendaFromFeed(normalizeFeed({events:[
+    {summary:'A',start:at(11,45),end:at(12,45),all_day:false,calendar:'Work'},
+    {summary:'B',start:at(12),end:at(13),all_day:false,calendar:'Work'},
+    {summary:'C',start:at(13),end:at(14),all_day:false,calendar:'Work'},
+    {summary:'D',start:at(14),end:at(15),all_day:false,calendar:'Work'},
+  ]}));
+  const rail=scheduleBounds(day,events);
+  expect(rail.overlaps).toEqual([{start:Date.parse(at(12)),end:Date.parse(at(12,45))}]);
+  expect(rail.dividers).toEqual([Date.parse(at(13)),Date.parse(at(14))]);
+  expect(rail.merged).toHaveLength(1);
+});
