@@ -43,7 +43,7 @@ export const DEFAULT_PRETTY: PrettyPrefs = {
 };
 
 function validPin(raw: any): raw is ShortcutItem {
-  return raw && typeof raw.path === 'string' && raw.path.startsWith('/storage/') &&
+  return raw && typeof raw.path === 'string' && (raw.path.startsWith('/storage/') || raw.path==='app:calendar') &&
     typeof raw.label === 'string' && ['folder','note-last','note-page'].includes(raw.kind);
 }
 export function normalPretty(raw: any): PrettyPrefs {
