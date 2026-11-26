@@ -52,12 +52,13 @@ export function PrettyQuickEditor({prefs,onSaved,onClose}:{prefs:PrettyPrefs|nul
       <><Text style={font}>The first six links appear on the dashboard. Reorder to choose which six. Existing additional links remain saved here.</Text>
         {pins.map((p,i)=><View key={i+':'+p.path} style={{borderBottomWidth:1,borderColor:'#888',paddingVertical:14}}>
           <TextInput editable={!busy} value={p.label} onChangeText={label=>update(i,{label})} style={{...font,borderWidth:1,padding:10}}/>
-          <Text style={{...font,fontSize:14}}>{p.path==='app:calendar'?'Native Calendar':p.path}</Text>
+          <Text style={{...font,fontSize:14}}>{p.path==='app:calendar'?'Native Calendar — Today':p.path==='app:stars'?'Stars':p.path}</Text>
           <View style={{flexDirection:'row',flexWrap:'wrap'}}>{ICONS.map(icon=><TouchableOpacity key={icon.key} disabled={busy} onPress={()=>update(i,{icon:icon.key})} accessibilityLabel={icon.label} style={{padding:9,margin:3,borderWidth:quickIcon(p)===icon.key?2:1,borderColor:'#777'}}><Image source={icon.image} style={{width:24,height:24}} resizeMode="contain"/></TouchableOpacity>)}</View>
           <View style={{flexDirection:'row',flexWrap:'wrap'}}><Button title="Up" disabled={i===0||busy} onPress={()=>move(i,-1)}/><Button title="Down" disabled={i===pins.length-1||busy} onPress={()=>move(i,1)}/><Button title="Remove" disabled={busy} onPress={()=>setPins(old=>old.filter((_,j)=>j!==i))}/></View>
         </View>)}
         <Button title="Add note, document or folder" disabled={busy} onPress={()=>setDir(ROOTS[0])}/>
         <Button title="Add Calendar" disabled={busy} onPress={()=>add({kind:'note-last',path:'app:calendar',label:'Calendar',icon:'calendar'})}/>
+        <Button title="Add Stars" disabled={busy} onPress={()=>add({kind:'note-last',path:'app:stars',label:'Stars',icon:'stars'})}/>
       </>}
     </ScrollView>
   </View>;

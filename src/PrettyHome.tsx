@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import {DashboardConfig,ShortcutItem} from './config';
 import {leavePlugin} from './bubble';
-import {launchApp,openFile,openFolder,openVerifiedTaskPage} from './open';
+import {launchApp,openCalendarToday,openFile,openFolder,openVerifiedTaskPage} from './open';
 import {readRecentDetailed} from './recent';
 import {dayKey,dueBucket} from './relay';
 import {loadPrettyPrefs,PrettyPrefs,quickIcon} from './prettyPrefs';
@@ -30,7 +30,7 @@ import {PrettyNoteCreate} from './PrettyNoteCreate';
 import {PrettyScreenHeader} from './PrettyScreen';
 import {PrettyFitList} from './PrettyFitList';
 import {INK,PAPER,DARK_GRAY,LIGHT_GRAY} from './prettyPalette';
-import {scanKeywords,KeywordHit} from './scanner';
+import {scanKeywords,KeywordHit,scanStars,StarNote} from './scanner';
 import {PrettyQuickEditor} from './PrettyQuickEditor';
 import {BUILD_LABEL} from './prettyBuild';
 
@@ -44,58 +44,34 @@ const APPS={
 };
 const WEEK=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const FILE_RE=/\.(note|pdf|epub|cbz|xps|fb2)$/i;
-type IconName =
-  | 'quick'|'new-note'|'file'|'files'|'calendar'|'todo'|'list'|'recent'
-  | 'search'|'favorites'|'star'|'star-filled'|'book'|'home'|'settings'|'grid'
-  | 'last-note'|'charging'|'notebook'|'edit'|'plus'|'refresh'|'back'
-  | 'chicken'|'lizard'|'stars'|'dice'|'ramen'|'controller'|'jellyfish'
-  | 'plants'|'octopus'|'rocks'|'coffee'|'wifi'|'wifi-off'|'keywords'|'pending'|'stardust'|'battery'|'calendar-dot'|'open-notebook'|'auto-refresh';
+type IconName='new-note'|'file'|'files'|'calendar'|'recent'|'search'|'stars'|'settings'|'charging'|'notebook'|'plus'|'refresh'|'back'|'lizard'|'plants'|'rocks'|'coffee'|'wifi'|'wifi-off'|'keywords'|'battery'|'calendar-dot'|'open-notebook'|'auto-refresh';
 const IMAGES:Record<IconName,ImageSourcePropType>={
-  quick:require('../assets/pretty/quick.png'),
   'new-note':require('../assets/pretty/new-note.png'),
-  file:require('../assets/pretty/file.png'),
-  files:require('../assets/pretty/files.png'),
-  calendar:require('../assets/pretty/calendar.png'),
-  todo:require('../assets/pretty/todo.png'),
-  list:require('../assets/pretty/list.png'),
-  recent:require('../assets/pretty/recent.png'),
-  search:require('../assets/pretty/search.png'),
-  favorites:require('../assets/pretty/favorites.png'),
-  star:require('../assets/pretty/star.png'),
-  'star-filled':require('../assets/pretty/star-filled.png'),
-  book:require('../assets/pretty/book.png'),
-  home:require('../assets/pretty/home.png'),
-  settings:require('../assets/pretty/settings.png'),
-  grid:require('../assets/pretty/grid.png'),
-  'last-note':require('../assets/pretty/last-note.png'),
-  charging:require('../assets/pretty/charging.png'),
-  notebook:require('../assets/pretty/notebook.png'),
-  edit:require('../assets/pretty/edit.png'),
-  plus:require('../assets/pretty/plus.png'),
-  refresh:require('../assets/pretty/refresh.png'),
-  back:require('../assets/pretty/back.png'),
-  chicken:require('../assets/pretty/chicken.png'),
-  lizard:require('../assets/pretty/lizard.png'),
-  stars:require('../assets/pretty/stars.png'),
-  dice:require('../assets/pretty/dice.png'),
-  ramen:require('../assets/pretty/ramen.png'),
-  controller:require('../assets/pretty/controller.png'),
-  jellyfish:require('../assets/pretty/jellyfish.png'),
-  plants:require('../assets/pretty/plants.png'),
-  octopus:require('../assets/pretty/octopus.png'),
-  rocks:require('../assets/pretty/rocks.png'),
-  coffee:require('../assets/pretty/coffee.png'),
-  wifi:require('../assets/pretty/wifi.png'),
+  'file':require('../assets/pretty/file.png'),
+  'files':require('../assets/pretty/files.png'),
+  'calendar':require('../assets/pretty/calendar.png'),
+  'recent':require('../assets/pretty/recent.png'),
+  'search':require('../assets/pretty/search.png'),
+  'stars':require('../assets/pretty/stars.png'),
+  'settings':require('../assets/pretty/settings.png'),
+  'charging':require('../assets/pretty/charging.png'),
+  'notebook':require('../assets/pretty/notebook.png'),
+  'plus':require('../assets/pretty/plus.png'),
+  'refresh':require('../assets/pretty/refresh.png'),
+  'back':require('../assets/pretty/back.png'),
+  'lizard':require('../assets/pretty/lizard.png'),
+  'plants':require('../assets/pretty/plants.png'),
+  'rocks':require('../assets/pretty/rocks.png'),
+  'coffee':require('../assets/pretty/coffee.png'),
+  'wifi':require('../assets/pretty/wifi.png'),
   'wifi-off':require('../assets/pretty/wifi-off.png'),
-  keywords:require('../assets/pretty/keywords.png'),
-  pending:require('../assets/pretty/pending.png'),
-  stardust:require('../assets/pretty/stardust.png'),
-  battery:require('../assets/pretty/battery.png'),
+  'keywords':require('../assets/pretty/keywords.png'),
+  'battery':require('../assets/pretty/battery.png'),
   'calendar-dot':require('../assets/pretty/calendar-dot.png'),
-  'auto-refresh':require('../assets/pretty/auto-refresh.png'),
   'open-notebook':require('../assets/pretty/open-notebook.png'),
+  'auto-refresh':require('../assets/pretty/auto-refresh.png'),
 };
-type Overlay='favorites'|'recent'|'keywords'|'agenda'|'event'|'new-note'|'quick-edit'|'task-edit'|'task-link-help'|null;
+type Overlay='favorites'|'recent'|'stars'|'keywords'|'agenda'|'event'|'new-note'|'quick-edit'|'task-edit'|'task-link-help'|null;
 type Task=NativeTodo;
 interface CreatedNote {path:string;createdAt:number}
 interface FileInfo {mtime?:number;createdAt?:number}
@@ -219,6 +195,9 @@ export function PrettyHome({config,nonce,onSettings}:{
   const [returnToAgenda,setReturnToAgenda]=useState(false);
   const [agendaVisit,setAgendaVisit]=useState(0);
   const [refreshTick,setRefreshTick]=useState(0);
+  const [starNotes,setStarNotes]=useState<StarNote[]>([]);
+  const [starBusy,setStarBusy]=useState(false);
+  const [starStatus,setStarStatus]=useState('');
   const [keywordHits,setKeywordHits]=useState<KeywordHit[]>([]);
   const [keywordBusy,setKeywordBusy]=useState(false);
   const [topH,setTopH]=useState(245*s);
@@ -300,7 +279,7 @@ export function PrettyHome({config,nonce,onSettings}:{
   },[refresh,nonce]);
 
   useEffect(()=>{
-    const items=[...pinned.map(p=>p.path),...favorites.map(p=>p.path),...recent.slice(0,20)];
+    const items=[...pinned.map(p=>p.path),...favorites.map(p=>p.path),...recent.slice(0,20)].filter(p=>p.startsWith('/storage/'));
     const dirs=[...new Set(items.map(p=>p.substring(0,p.lastIndexOf('/'))))];
     let live=true;
     Promise.all(dirs.map(async d=>{
@@ -324,6 +303,15 @@ export function PrettyHome({config,nonce,onSettings}:{
     return()=>{live=false;};
   },[overlay,nonce]);
 
+  useEffect(()=>{
+    if(overlay!=='stars')return;
+    let live=true;setStarBusy(true);setStarStatus('');setStarNotes([]);
+    scanStars([NOTE_ROOT,'/storage/emulated/0/Document'],'off').then(result=>{
+      if(live){setStarNotes(result.notes);setStarStatus(result.truncated?'Some notebooks could not be scanned. Use native Search for all formats.':'');}
+    }).catch((error:unknown)=>{if(live)setStarStatus('Could not scan stars: '+String(error));})
+      .finally(()=>{if(live)setStarBusy(false);});
+    return()=>{live=false;};
+  },[overlay,nonce]);
   const agenda=useMemo(()=>calendar.snapshot?agendaFromFeed(calendar.snapshot.feed):[],[calendar.snapshot]);
   const events=useMemo(()=>agenda.filter(e=>e.startDay<=selectedDay&&selectedDay<e.endDayExclusive),
     [agenda,selectedDay]);
@@ -358,7 +346,8 @@ export function PrettyHome({config,nonce,onSettings}:{
   };
   const doOpenPinned=(item:ShortcutItem)=>{
     setOverlay(null);
-    if(item.path==='app:calendar')launchApp(APPS.calendar);
+    if(item.path==='app:calendar')openCalendarToday();
+    else if(item.path==='app:stars')setOverlay('stars');
     else if(item.kind==='folder')openFolder(item.path);
     else openFile(item.path,item.kind==='note-page'?item.page:0);
   };
@@ -382,7 +371,7 @@ export function PrettyHome({config,nonce,onSettings}:{
   const rowPin=(item:ShortcutItem,i:number)=>(
     <TouchableOpacity key={item.path+i} onPress={()=>doOpenPinned(item)}
       style={{minHeight:rowMin,paddingVertical:5*s,flexShrink:0,flexDirection:'row',alignItems:'center',paddingHorizontal:4*s,...listRule}}>
-      <Glyph name="star-filled" size={24*s}/>
+      <Glyph name="stars" size={24*s}/>
       <Txt lines={3} size={body} style={{flex:1,minWidth:0,marginHorizontal:7*s,lineHeight:rowLine}}>
         {item.label||fileTitle(item.path)}
       </Txt>
@@ -400,10 +389,10 @@ export function PrettyHome({config,nonce,onSettings}:{
       </TouchableOpacity>
       {!!item.link&&<TouchableOpacity disabled={taskBusy} accessibilityLabel={'Open linked note for '+item.title} onPress={()=>openTaskNote(item)} style={{padding:4*s}}><Glyph name="open-notebook" size={22*s}/></TouchableOpacity>}
       {!!item.due&&<View style={{alignItems:'flex-end',flexShrink:0}}>
-        <Txt size={secondary} muted>{dueShort(item.due)}</Txt>
-        {overdue&&<View style={{backgroundColor:INK,paddingHorizontal:5*s,paddingVertical:2*s,borderRadius:3,marginTop:3*s}}>
-          <Text style={{fontFamily:FONT,fontSize:10.5*s,color:PAPER,fontWeight:'700'}}>OVERDUE</Text>
+        {overdue&&<View style={{backgroundColor:INK,paddingHorizontal:5*s,paddingVertical:2*s,borderRadius:3,marginBottom:3*s}}>
+          <Text testID="overdue-label" style={{fontFamily:FONT,fontSize:10.5*s,color:PAPER,fontWeight:'700'}}>OVERDUE</Text>
         </View>}
+        <Txt size={secondary} muted>{dueShort(item.due)}</Txt>
       </View>}
     </View>;
   };
@@ -487,7 +476,7 @@ export function PrettyHome({config,nonce,onSettings}:{
           <HomeAgendaList key={selectedDay+':'+width+':'+fontBoost+':'+(calendar.snapshot?.fetchedAt??0)}
             day={selectedDay} events={events} scale={s} fontBoost={fontBoost} initialHeight={Math.max(0,topH-53*s)}
             header={hidden=><SectionTitle icon="coffee" label={dayLabel(selectedDay)+' Events'}
-              extra={hidden>0?'+'+hidden:undefined} scale={s} actionLabel="View all" calendarAction={()=>launchApp(APPS.calendar)}
+              extra={hidden>0?'+'+hidden:undefined} scale={s} actionLabel="View all" calendarAction={openCalendarToday}
               actionAccessibilityLabel="View all events" action={()=>{
                 setAgendaStart(selectedDay);setAgendaVisit(v=>v+1);setOverlay('agenda');
               }}/>}
@@ -551,10 +540,10 @@ export function PrettyHome({config,nonce,onSettings}:{
           </>:overlay==='new-note'?<PrettyNoteCreate onClose={()=>setOverlay(null)}/>:<>
             <PrettyScreenHeader
               title={overlay==='agenda'?'Seven-day agenda':overlay==='event'?'Event details':
-                overlay==='keywords'?'Keywords':overlay==='favorites'?'Favorites':'Recent notes'}
+                overlay==='stars'?'Stars':overlay==='keywords'?'Keywords':overlay==='favorites'?'Favorites':'Recent notes'}
               left={{label:overlay==='event'&&returnToAgenda?'Back':'Close',
                 onPress:()=>setOverlay(overlay==='event'&&returnToAgenda?'agenda':null)}}
-              right={overlay==='favorites'?{label:'Edit',onPress:()=>{setOverlay(null);onSettings();}}:undefined}/>
+              right={overlay==='stars'?{label:'Native search',onPress:()=>{setOverlay(null);launchApp(APPS.search);}}:overlay==='favorites'?{label:'Edit',onPress:()=>{setOverlay(null);onSettings();}}:undefined}/>
             <View style={{flex:1,paddingHorizontal:19*s,paddingTop:15*s,paddingBottom:12*s}}>
             {overlay==='event'&&selectedEvent?
               <ScrollView style={{flex:1}}>
@@ -643,6 +632,17 @@ export function PrettyHome({config,nonce,onSettings}:{
                   </>}
                 </ScrollView>
               </View>:
+            overlay==='stars'?
+              <ScrollView>
+                <Txt size={secondary} muted>Stars in your notebooks. For PDF stars, use Native search and select Star.</Txt>
+                {starBusy&&<Txt size={body}>Scanning notebooks…</Txt>}
+                {!!starStatus&&<Txt size={body}>{starStatus}</Txt>}
+                {!starBusy&&!starStatus&&!starNotes.length&&<Txt size={body} muted>No starred notebook pages found.</Txt>}
+                {starNotes.flatMap(note=>note.pages.map(page=><TouchableOpacity key={note.file+':'+page.page} accessibilityLabel={'Open '+fileTitle(note.file)+' page '+page.page}
+                  onPress={()=>{setOverlay(null);openFile(note.file,page.page);}} style={{paddingVertical:12*s,borderBottomWidth:1,borderColor:DARK_GRAY,flexDirection:'row',alignItems:'center'}}>
+                  <Glyph name="stars" size={24*s}/><View style={{flex:1,marginLeft:8*s}}><Txt size={body} bold>{fileTitle(note.file)}</Txt><Txt size={secondary} muted>Page {page.page} · {page.count} {page.count===1?'star':'stars'}</Txt></View>
+                </TouchableOpacity>))}
+              </ScrollView>:
             overlay==='keywords'?
               <ScrollView>
                 {keywordBusy&&<Txt size={body} muted>Scanning handwritten keywords…</Txt>}

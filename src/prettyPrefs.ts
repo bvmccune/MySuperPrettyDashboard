@@ -5,7 +5,6 @@
  */
 import {NativeModules} from 'react-native';
 import {ShortcutItem, DashboardConfig} from './config';
-import {WeatherLocation, DEFAULT_WEATHER_LOCATION, validWeatherLocation} from './prettyWeather';
 
 const {DashboardNative} = NativeModules;
 const PREFS = '/storage/emulated/0/MyStyle/Plugins/MySuperPrettyDashboard/pretty-prefs.json';
@@ -20,7 +19,7 @@ export type QuickIcon=typeof QUICK_ICONS[number];
 export type QuickPin=ShortcutItem & {icon?:QuickIcon};
 export function quickIcon(item:QuickPin):QuickIcon{
   return QUICK_ICONS.includes(item.icon as QuickIcon)?item.icon!:
-    item.path==='app:calendar'?'calendar':item.kind==='folder'?'files':'notebook';
+    item.path==='app:calendar'?'calendar':item.path==='app:stars'?'stars':item.kind==='folder'?'files':'notebook';
 }
 function normalizeQuick(item:ShortcutItem):QuickPin{
   const pin=item as QuickPin;
@@ -31,7 +30,6 @@ export interface PrettyPrefs {
   favorites: ShortcutItem[];
   shortcuts: PrettyAction[];
   size: PrettySize;
-  weatherLocation: WeatherLocation;
 }
 export const ACTIONS: {key: PrettyAction; name: string; icon: string}[] = [
   {key:'calendar', name:'Calendar', icon:'calendar'},
@@ -50,11 +48,10 @@ export const DEFAULT_PRETTY: PrettyPrefs = {
   favorites: [],
   shortcuts: ['refresh','settings','calendar','search'],
   size: 'normal',
-  weatherLocation: DEFAULT_WEATHER_LOCATION,
 };
 
 function validPin(raw: any): raw is ShortcutItem {
-  return raw && typeof raw.path === 'string' && (raw.path.startsWith('/storage/') || raw.path==='app:calendar') &&
+  return raw && typeof raw.path === 'string' && (raw.path.startsWith('/storage/') || raw.path==='app:calendar' || raw.path==='app:stars') &&
     typeof raw.label === 'string' && ['folder','note-last','note-page'].includes(raw.kind);
 }
 export function normalPretty(raw: any): PrettyPrefs {
@@ -72,10 +69,9 @@ export function normalPretty(raw: any): PrettyPrefs {
     shortcuts[1]='settings';
   return {
     quick: (Array.isArray(raw?.quick) ? raw.quick.filter(validPin).map(normalizeQuick) : []).slice(0,30),
-    favorites: (Array.isArray(raw?.favorites) ? raw.favorites.filter(validPin) : []).slice(0,30),
+    favorites: (Array.isArray(raw?.favorites) ? raw.favorites.filter((p:any)=>validPin(p)&&p.path.startsWith('/storage/')) : []).slice(0,30),
     shortcuts,
     size: ['normal','large','extra'].includes(raw?.size) ? raw.size : 'normal',
-    weatherLocation: validWeatherLocation(raw?.weatherLocation) ? raw.weatherLocation : DEFAULT_WEATHER_LOCATION,
   };
 }
 export async function loadPrettyPrefs(legacy?: DashboardConfig | null): Promise<PrettyPrefs> {

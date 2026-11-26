@@ -3,7 +3,7 @@
  * Native Supernote To-do remains authoritative; this screen only connects it.
  */
 import React, {useEffect, useRef, useState} from 'react';
-import {Linking, NativeModules, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
+import {NativeModules, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {DashboardConfig, loadConfig, ShortcutItem} from './config';
 import {loadPrettyPrefs, PrettyPrefs, savePrettyPrefs} from './prettyPrefs';
 import {
@@ -14,7 +14,6 @@ import {setRoute} from './route';
 import {CalendarResult, currentCalendar, loadCalendarCache, refreshCalendar, configureCalendarSource, isCalendarSourceConfigured} from './prettyCalendar';
 import {openFile, openFolder} from './open';
 import {PrettyScreenHeader, SCREEN_BODY} from './PrettyScreen';
-import {WeatherIcon} from './WeatherIcon';
 
 const {DashboardNative} = NativeModules;
 const BASE = '/storage/emulated/0';
@@ -286,24 +285,12 @@ export function PrettySettings(): React.JSX.Element {
           </View>
         </Group>
         <Group title="Dashboard navigation">
-          <TextLine faint>No floating button will appear over Supernote. Tap SmartyNote to return to the note beneath it. The Calendar icon opens native Calendar; View all opens the dashboard agenda.</TextLine>
+          <TextLine faint>No floating button will appear over Supernote. Tap SmartyNote to return to the note beneath it. Calendar opens native Calendar, requesting Today when an exported date handler exists. View all opens the dashboard agenda. Stars opens notebook star results with access to native Search.</TextLine>
           <TextLine faint>For launching the dashboard elsewhere, add the Plugins tool to your native notebook toolbar. A direct sidebar gesture or dedicated plugin Quick Access entry is not publicly documented.</TextLine>
         </Group>
         <Group title="Attribution">
-          <View style={{flexDirection:'row',alignItems:'center'}}>
-            <WeatherIcon condition="sunny" dark={false} size={36}/>
-            <View style={{flex:1}}>
-              <TextLine>Weather Iconic — Konrad Michalik and contributors</TextLine>
-              <TouchableOpacity accessibilityRole="link" onPress={()=>Linking.openURL('https://github.com/jackd248/weather-iconic/').catch(()=>setStatus('Weather Iconic: https://github.com/jackd248/weather-iconic/'))}>
-                <Text style={{fontFamily:FONT,fontSize:18,color:'#111',textDecorationLine:'underline'}}>https://github.com/jackd248/weather-iconic/</Text>
-              </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="link" onPress={()=>Linking.openURL('https://creativecommons.org/licenses/by-sa/3.0/us/').catch(()=>setStatus('License: https://creativecommons.org/licenses/by-sa/3.0/us/'))}>
-                <Text style={{fontFamily:FONT,fontSize:18,color:'#111',textDecorationLine:'underline'}}>CC BY-SA 3.0 US — monochrome raster adaptations</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Group>
-        <TextLine faint>SmartyNote · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Search, Calendar, and To-do remain available from Home. Your original SuperDashboard settings remain separate.</TextLine>
+          <TextLine faint>SmartyNote is based on SuperDashboard. Uses Google Sans Flex (SIL Open Font License); the original project and font licenses are included with the plugin.</TextLine>
+        </Group>      <TextLine faint>SmartyNote · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Search, Calendar, and To-do remain available from Home. Your original SuperDashboard settings remain separate.</TextLine>
       </ScrollView>
       {!!status&&<View style={styles.status}><View style={{flex:1}}><TextLine>{status}</TextLine></View><Action small onPress={()=>setStatus('')}>Dismiss</Action></View>}
       </View>

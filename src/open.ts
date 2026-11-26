@@ -110,3 +110,9 @@ export async function openVerifiedTaskPage(path:string,page:number):Promise<bool
   if(!await openViaSdk(path,page))return false;
   leavePlugin();return true;
 }
+
+/** Prefer a manifest-resolved standard Android Calendar time URI; if unavailable,
+ * launch normally. The native Today control remains the fallback. */
+export function openCalendarToday(){
+  return go(()=>DashboardNative.launchCalendarToday(),'open Calendar');
+}

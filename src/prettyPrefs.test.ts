@@ -32,11 +32,12 @@ describe('Manta-specific settings migration',()=>{
   });
 });
 
- it('retains location and removes obsolete work hours without altering other preferences',()=>{
+it('drops retired weather and work hours settings',()=>{
   const prefs=normalPretty({size:'large',weatherLocation:{name:'Custom',latitude:40,longitude:-75},workHours:{start:'08:30',end:'16:30'}});
-  expect(prefs.weatherLocation.name).toBe('Custom');expect(prefs).not.toHaveProperty('workHours');
-  expect(normalPretty({workHours:{start:'17:00',end:'09:00'}})).not.toHaveProperty('workHours');
-  expect(normalPretty({weatherLocation:{name:'Invalid',latitude:200,longitude:0}}).weatherLocation).toEqual(DEFAULT_PRETTY.weatherLocation);
+  expect(prefs.size).toBe('large');expect(prefs).not.toHaveProperty('weatherLocation');expect(prefs).not.toHaveProperty('workHours');
+});
+it('persists the Stars shortcut as a separate destination',()=>{
+  expect(normalPretty({quick:[{kind:'note-last',path:'app:stars',label:'Stars'}]}).quick).toEqual([{kind:'note-last',path:'app:stars',label:'Stars',icon:'stars'}]);
 });
 
 it('preserves Calendar link and custom icon',()=>{

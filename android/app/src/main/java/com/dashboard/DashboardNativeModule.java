@@ -369,6 +369,28 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
     }
 
     /** Launch any activity by "package/activity" component string (Apps zone). */
+    /** Ask the installed Calendar to open the current time only if it advertises
+     * the standard Calendar ACTION_VIEW time URI. Otherwise normal launch. */
+    @ReactMethod
+    public void launchCalendarToday(Promise promise) {
+        final String pkg = "com.ratta.supernote.calendar";
+        try {
+            Intent today = new Intent(Intent.ACTION_VIEW,
+                android.net.Uri.parse("content://com.android.calendar/time/" + System.currentTimeMillis()));
+            today.setPackage(pkg);
+            today.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            PackageManager pm = getReactApplicationContext().getPackageManager();
+            ResolveInfo match = pm.resolveActivity(today, PackageManager.MATCH_DEFAULT_ONLY);
+            if (match != null && match.activityInfo != null && match.activityInfo.exported
+                    && pkg.equals(match.activityInfo.packageName)) {
+                getReactApplicationContext().startActivity(today);
+                promise.resolve(true);
+                return;
+            }
+        } catch (Exception ignored) { /* Safe normal launch fallback. */ }
+        launchActivity(pkg + "/com.ratta.supernote.calendar.MainActivity", promise);
+    }
+
     @ReactMethod
     public void launchActivity(String component, Promise promise) {
         try {

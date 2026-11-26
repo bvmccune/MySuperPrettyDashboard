@@ -35,8 +35,8 @@ jest.mock('sn-plugin-lib',()=>({PluginManager:{},
 jest.mock('./config',()=>({loadConfig:jest.fn(async()=>({zones:[]}))}));
 jest.mock('./perf',()=>({markOpen:jest.fn(),ready:jest.fn()}));
 jest.mock('./bubble',()=>({leavePlugin:jest.fn()}));
-jest.mock('./open',()=>({openFile:jest.fn(),openVerifiedTaskPage:jest.fn(async()=>true),openFolder:jest.fn(),launchApp:jest.fn()}));
-jest.mock('./scanner',()=>({scanKeywords:jest.fn()}));
+jest.mock('./open',()=>({openFile:jest.fn(),openVerifiedTaskPage:jest.fn(async()=>true),openFolder:jest.fn(),launchApp:jest.fn(),openCalendarToday:jest.fn()}));
+jest.mock('./scanner',()=>({scanKeywords:jest.fn(),scanStars:jest.fn(async()=>({notes:[{file:'/storage/emulated/0/Note/Example.note',mtime:1,pages:[{page:3,count:2}]}],truncated:false,total:1}))}));
 jest.mock('./relay',()=>({dayKey:jest.fn(),dueBucket:jest.fn(()=> 'none')}));
 jest.mock('./recent',()=>({readRecentDetailed:jest.fn(async()=>({
   paths:['/storage/emulated/0/Note/Project/Example.note'],mode:'opened',
@@ -62,7 +62,7 @@ import {setRoute,getRoute} from './route';
 import {DEFAULT_PRETTY,loadPrettyPrefs,PrettyPrefs} from './prettyPrefs';
 import {PrettyHome} from './PrettyHome';
 import {PrettySettings} from './PrettySettings';
-import {launchApp} from './open';
+import {launchApp,openCalendarToday,openFile} from './open';
 import {readNativeSupernoteTasks,updateNativeTodo} from './prettyCloud';
 import {HomeAgendaList,scheduleBounds} from './PrettyAgenda';
 import {PrettyFitList} from './PrettyFitList';
@@ -194,7 +194,7 @@ it('calendar shortcut opens native calendar; dashboard agenda remains separate',
   expect(app!.root.findAllByType('Text' as any).some(n=>(Array.isArray(n.props.children)?n.props.children.join(''):n.props.children)===selectedHeading)).toBe(true);
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedEventHeading)).toBe(true);
   await act(async()=>{touch('Calendar').props.onPress();});
-  expect(launchApp).toHaveBeenCalledWith('com.ratta.supernote.calendar/com.ratta.supernote.calendar.MainActivity');
+  expect(openCalendarToday).toHaveBeenCalled();
   await act(async()=>{touch('View all events').props.onPress();});
   await act(async()=>{touch('Today').props.onPress();});
   // React represents the two JSX date expressions and intervening text as
@@ -272,4 +272,15 @@ it('routes completion and long press editing to the real-task write bridge',asyn
   expect(updateNativeTodo).toHaveBeenCalledWith('abc',{complete:true});
   expect(touch('Complete Test task')).toBeUndefined();
   read.mockResolvedValue({tasks:[],truncated:false});
+});
+
+it('opens real Stars results from a pinned Stars destination',async()=>{
+  load.mockResolvedValue({...DEFAULT_PRETTY,quick:[{kind:'note-last',path:'app:stars',label:'Stars',icon:'stars'}]});
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+  const pin=app!.root.findAllByType('TouchableOpacity' as any).find(n=>n.findAllByType('Text' as any).some(t=>t.props.children==='Stars'))!;
+  await act(async()=>{pin.props.onPress();});
+  const result=app!.root.findAllByType('TouchableOpacity' as any).find(n=>String(n.props.accessibilityLabel).includes('Open Example page 3'))!;
+  expect(result).toBeTruthy();
+  await act(async()=>{result.props.onPress();});
+  expect(openFile).toHaveBeenCalledWith('/storage/emulated/0/Note/Example.note',3);
 });
