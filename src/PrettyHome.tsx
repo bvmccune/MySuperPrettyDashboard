@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import {DashboardConfig,ShortcutItem} from './config';
 import {leavePlugin} from './bubble';
-import {launchApp,openFile,openFolder,openFileAtPage} from './open';
+import {launchApp,openFile,openFolder,openVerifiedTaskPage} from './open';
 import {readRecentDetailed} from './recent';
 import {dayKey,dueBucket} from './relay';
 import {loadPrettyPrefs,PrettyPrefs,quickIcon} from './prettyPrefs';
@@ -347,7 +347,7 @@ export function PrettyHome({config,nonce,onSettings}:{
     taskMutation.current=true;setTaskBusy(true);setMutationError('');
     try{
       const target=await resolveTaskNote(link,async dir=>DashboardNative.listDir(dir),noteStableFileId,taskPageIndex);
-      if(target){await openFileAtPage(target.path,target.page);return;}
+      if(target&&await openVerifiedTaskPage(target.path,target.page))return;
       setLinkFailure(item);setOverlay('task-link-help');
     }catch(e:any){setMutationError(String(e?.message??e));setLinkFailure(item);setOverlay('task-link-help');}
     finally{taskMutation.current=false;setTaskBusy(false);}
@@ -391,10 +391,10 @@ export function PrettyHome({config,nonce,onSettings}:{
   const rowTask=(item:Task,i:number)=>{
     const overdue=dueBucket(item.due,now)==='overdue';
     return <View key={item.id+i} style={{minHeight:rowMin,paddingVertical:5*s,flexShrink:0,flexDirection:'row',alignItems:'center',paddingHorizontal:5*s,backgroundColor:i%2===0?LIGHT_GRAY:PAPER,...listRule}}>
-      <TouchableOpacity disabled={taskBusy} accessibilityLabel={'Complete '+item.title} onPress={()=>mutateTask(item,{complete:true})} style={{padding:3*s}}>
+      <TouchableOpacity disabled={taskBusy||taskLoading} accessibilityLabel={'Complete '+item.title} onPress={()=>mutateTask(item,{complete:true})} style={{padding:3*s}}>
         <View style={{width:22*s,height:22*s,borderRadius:99,borderWidth:1.7,borderColor:INK}}/>
       </TouchableOpacity>
-      <TouchableOpacity disabled={taskBusy} onPress={()=>launchApp(APPS.todo)} onLongPress={()=>editTask(item)} accessibilityLabel={'Open task '+item.title+'; long press to edit'} style={{flex:1,minWidth:0,marginLeft:4*s,marginRight:5*s}}>
+      <TouchableOpacity disabled={taskBusy||taskLoading} onPress={()=>launchApp(APPS.todo)} onLongPress={()=>editTask(item)} accessibilityLabel={'Open task '+item.title+'; long press to edit'} style={{flex:1,minWidth:0,marginLeft:4*s,marginRight:5*s}}>
         <Txt size={body} lines={3} style={{lineHeight:rowLine}}>{item.title}</Txt>
       </TouchableOpacity>
       {!!item.link&&<TouchableOpacity disabled={taskBusy} accessibilityLabel={'Open linked note for '+item.title} onPress={()=>openTaskNote(item)} style={{padding:4*s}}><Glyph name="open-notebook" size={22*s}/></TouchableOpacity>}
