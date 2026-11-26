@@ -126,9 +126,9 @@ function IconTap({icon,label,onPress,size=27}:{
   </TouchableOpacity>;
 }
 const CIRCLE=48;
-function SectionTitle({icon,label,scale,action,actionLabel,extra,actionAccessibilityLabel,calendarAction}:{
+function SectionTitle({icon,label,scale,action,actionLabel,extra,actionAccessibilityLabel,calendarAction,aboveAction}:{
   icon:IconName;label:string;scale:number;action?:()=>void;
-  actionLabel?:string;extra?:string;actionAccessibilityLabel?:string;calendarAction?:()=>void;
+  actionLabel?:string;extra?:string;actionAccessibilityLabel?:string;calendarAction?:()=>void;aboveAction?:string;
 }){
   const circle=CIRCLE*scale,fs=21*scale;
   return <View style={{height:53*scale,flexDirection:'row',alignItems:'center',minWidth:0}}>
@@ -143,7 +143,8 @@ function SectionTitle({icon,label,scale,action,actionLabel,extra,actionAccessibi
     <View style={{flex:1}}/>
     {!!action&&<TouchableOpacity accessibilityRole="button"
       accessibilityLabel={actionAccessibilityLabel??actionLabel+' '+label} onPress={action}
-      hitSlop={{top:8,bottom:8,left:7,right:7}} style={{marginLeft:7*scale}}>
+      hitSlop={{top:8,bottom:8,left:7,right:7}} style={{marginLeft:7*scale,alignItems:'flex-end'}}>
+      {!!aboveAction&&<Txt size={12.8*scale} bold>{aboveAction}</Txt>}
       <Txt size={12.8*scale} muted>{actionLabel}</Txt>
     </TouchableOpacity>}
     {!!calendarAction&&<IconTap icon="calendar" label="Calendar" size={23*scale} onPress={calendarAction}/>}
@@ -515,7 +516,7 @@ export function PrettyHome({config,nonce,onSettings}:{
             {[0,1,2].map(row=><View key={row} style={{flex:1,flexDirection:'row',minHeight:0}}>
               {[0,1].map(col=>{const item=pinned[row*2+col];return <TouchableOpacity key={col}
                 onPress={()=>item?doOpenPinned(item):setOverlay('quick-edit')}
-                style={{flex:1,minWidth:0,margin:3*s,flexDirection:'row',alignItems:'center',paddingHorizontal:6*s}}>
+                style={{flex:1,minWidth:0,margin:3*s,borderWidth:1,borderRadius:7*s,borderColor:DARK_GRAY,flexDirection:'row',alignItems:'center',paddingHorizontal:6*s}}>
                 {!item&&<Glyph name="plus" size={18*s}/>}{!!item&&<><Glyph name={quickIcon(item)} size={24*s}/>
                 <Txt size={body} lines={3} style={{flex:1,minWidth:0,marginLeft:6*s}}>{item.label}</Txt></>}
               </TouchableOpacity>;})}
@@ -527,15 +528,12 @@ export function PrettyHome({config,nonce,onSettings}:{
           <PrettyFitList key={'merged:'+fitKey+':'+selectedDay} items={mergedNotes}
             keyOf={(item,i)=>item.path+':'+item.createdAt+':'+i}
             header={hidden=>{const visible=mergedNotes.length-hidden;const overflow=notes.length-Math.min(3,notes.length,visible);
-              return <View>
-                <SectionTitle icon="lizard" label="Recent notes" scale={s} actionLabel="View all" action={()=>setOverlay('recent')}/>
-                <TouchableOpacity onPress={()=>setOverlay('recent')} style={{alignSelf:'flex-end',paddingBottom:3*s}}>
-                  <Txt size={secondary}>{selectedDay===dateKey(now)?'Today':dayLabel(selectedDay)}{overflow>0?' +'+overflow:''}</Txt>
-                </TouchableOpacity>
-              </View>;}}
+              return <SectionTitle icon="lizard" label="Recent notes" scale={s} actionLabel="View all"
+                aboveAction={(selectedDay===dateKey(now)?'Today':dayLabel(selectedDay))+(overflow>0?' +'+overflow:'')}
+                action={()=>setOverlay('recent')}/>;}}
             renderRow={(item,i)=>item.createdAt?rowNote({path:item.path,createdAt:item.createdAt},i):
               <View style={i===Math.min(3,notes.length)&&i>0?{borderTopWidth:1.6,borderColor:INK}:undefined}>{rowFile(item.path,i,fileInfo[item.path]?.mtime)}</View>}
-            minHeight={rowMin} maxHeight={rowMax} initialHeight={middleH-72*s}
+            minHeight={rowMin} maxHeight={rowMax} initialHeight={middleH-53*s}
             empty={<Txt size={body} muted>No recent notes.</Txt>}/>
         </View>
       </View>
