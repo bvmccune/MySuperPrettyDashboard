@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - development/pretty-dashboard
+      - development/smartynote-four-quadrants
 
 permissions:
   contents: write
@@ -152,8 +153,8 @@ jobs:
               assert config.get("pluginID"), \
                   "Missing plugin ID"
 
-              assert config.get("name") == "MySuperPrettyDashboard", \
-                  "Plugin display name must be MySuperPrettyDashboard"
+              assert config.get("name") == "SmartyNote", \
+                  "Plugin display name must be SmartyNote"
 
               assert config.get("jsMainPath"), \
                   "Missing JS entry point"
