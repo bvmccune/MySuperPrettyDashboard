@@ -1,19 +1,23 @@
 import React,{useEffect,useState} from 'react';
 import {Image,NativeModules,ScrollView,Text,TextInput,TouchableOpacity,View} from 'react-native';
 import {ShortcutItem} from './config';
-import {PrettyPrefs,savePrettyPrefs,loadPrettyPrefs} from './prettyPrefs';
+import {PrettyPrefs,savePrettyPrefs,loadPrettyPrefs,QuickPin,QuickIcon,quickIcon} from './prettyPrefs';
 import {PrettyScreenHeader} from './PrettyScreen';
-type Pin=ShortcutItem & {icon?:string};
+type Pin=QuickPin;
 type Entry={path:string;name:string;isDir:boolean};
 const ROOT='/storage/emulated/0';
 const ROOTS=[ROOT+'/Note',ROOT+'/Document',ROOT+'/MyStyle'];
-const ICONS=[
+const ICONS:{key:QuickIcon;label:string;image:any}[]=[
   {key:'stars',label:'Stars',image:require('../assets/pretty/stars.png')},
   {key:'keywords',label:'Keyword',image:require('../assets/pretty/keywords.png')},
   {key:'recent',label:'Planned',image:require('../assets/pretty/recent.png')},
-  {key:'star-filled',label:'Star',image:require('../assets/pretty/star-filled.png')},
-  {key:'files',label:'Folder',image:require('../assets/pretty/files.png')},
-  {key:'notebook',label:'Note',image:require('../assets/pretty/notebook.png')},
+  {key:'refresh',label:'Refresh',image:require('../assets/pretty/refresh.png')},
+  {key:'calendar-dot',label:'Calendar Dot',image:require('../assets/pretty/calendar-dot.png')},
+  {key:'auto-refresh',label:'Auto Refresh',image:require('../assets/pretty/auto-refresh.png')},
+  {key:'new-note',label:'New Note',image:require('../assets/pretty/new-note.png')},
+  {key:'open-notebook',label:'Open Notebook',image:require('../assets/pretty/open-notebook.png')},
+  {key:'files',label:'Files',image:require('../assets/pretty/files.png')},
+  {key:'notebook',label:'Notebook',image:require('../assets/pretty/notebook.png')},
   {key:'calendar',label:'Calendar',image:require('../assets/pretty/calendar.png')},
 ];
 const font={fontFamily:'GoogleSansFlex',fontSize:20,color:'#111'};
@@ -49,7 +53,7 @@ export function PrettyQuickEditor({prefs,onSaved,onClose}:{prefs:PrettyPrefs|nul
         {pins.map((p,i)=><View key={i+':'+p.path} style={{borderBottomWidth:1,borderColor:'#888',paddingVertical:14}}>
           <TextInput editable={!busy} value={p.label} onChangeText={label=>update(i,{label})} style={{...font,borderWidth:1,padding:10}}/>
           <Text style={{...font,fontSize:14}}>{p.path==='app:calendar'?'Native Calendar':p.path}</Text>
-          <View style={{flexDirection:'row',flexWrap:'wrap'}}>{ICONS.map(icon=><TouchableOpacity key={icon.key} onPress={()=>update(i,{icon:icon.key})} accessibilityLabel={icon.label} style={{padding:9,margin:3,borderWidth:(p.icon??(p.path==='app:calendar'?'calendar':p.kind==='folder'?'files':'star-filled'))===icon.key?2:1,borderColor:'#777'}}><Image source={icon.image} style={{width:24,height:24}} resizeMode="contain"/></TouchableOpacity>)}</View>
+          <View style={{flexDirection:'row',flexWrap:'wrap'}}>{ICONS.map(icon=><TouchableOpacity key={icon.key} disabled={busy} onPress={()=>update(i,{icon:icon.key})} accessibilityLabel={icon.label} style={{padding:9,margin:3,borderWidth:quickIcon(p)===icon.key?2:1,borderColor:'#777'}}><Image source={icon.image} style={{width:24,height:24}} resizeMode="contain"/></TouchableOpacity>)}</View>
           <View style={{flexDirection:'row',flexWrap:'wrap'}}><Button title="Up" disabled={i===0||busy} onPress={()=>move(i,-1)}/><Button title="Down" disabled={i===pins.length-1||busy} onPress={()=>move(i,1)}/><Button title="Remove" disabled={busy} onPress={()=>setPins(old=>old.filter((_,j)=>j!==i))}/></View>
         </View>)}
         <Button title="Add note, document or folder" disabled={busy} onPress={()=>setDir(ROOTS[0])}/>
