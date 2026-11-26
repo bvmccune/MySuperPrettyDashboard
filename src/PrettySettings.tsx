@@ -15,7 +15,6 @@ import {CalendarResult, currentCalendar, loadCalendarCache, refreshCalendar, con
 import {openFile, openFolder} from './open';
 import {PrettyScreenHeader, SCREEN_BODY} from './PrettyScreen';
 import {WeatherIcon} from './WeatherIcon';
-import {refreshAutomaticWeather,readAutomaticLocation,WeatherLocation} from './prettyWeather';
 
 const {DashboardNative} = NativeModules;
 const BASE = '/storage/emulated/0';
@@ -56,7 +55,6 @@ export function PrettySettings(): React.JSX.Element {
   const [calendarState,setCalendarState] = useState<CalendarResult>(()=>currentCalendar());
   const [calendarConfigured,setCalendarConfigured] = useState(false);
   const [calendarSourceInput,setCalendarSourceInput] = useState('');
-  const [detectedLocation,setDetectedLocation]=useState<WeatherLocation|null>(null);
   // Serialize writes: rapid edits must never allow an older save to replace
   // newer settings. Done waits for disk persistence and verifies the read-back.
   const saveQueue = useRef<Promise<boolean>>(Promise.resolve(true));
@@ -68,7 +66,6 @@ export function PrettySettings(): React.JSX.Element {
       const cfg=await loadConfig();
       const next=await loadPrettyPrefs(cfg);
       if(live){setLegacy(cfg);setPrefs(next);latestPrefs.current=next;}
-      readAutomaticLocation().then(location=>{if(live)setDetectedLocation(location);}).catch(()=>{});
       const ok=await hasSupernoteLogin().catch(()=>false);
       if(live)setConnected(ok);
       const cached=await loadCalendarCache();
@@ -185,7 +182,7 @@ export function PrettySettings(): React.JSX.Element {
 
   if(!prefs||!legacy)return <View style={styles.screen}>
     <PrettyScreenHeader title="Settings"/>
-    <View style={styles.root}><TextLine>{status||'Loading MySuperPrettyDashboard settings…'}</TextLine></View>
+    <View style={styles.root}><TextLine>{status||'Loading SmartyNote settings…'}</TextLine></View>
   </View>;
   if(picker)return (
     <View style={styles.screen}>
@@ -240,15 +237,8 @@ export function PrettySettings(): React.JSX.Element {
           <Action filled disabled={busy} onPress={syncCalendar}>Refresh Pretty Calendar now</Action>
           <TextLine faint>Privacy: Confirm your employer permits this existing calendar feed. Anyone with access to the endpoint may be able to retrieve the work event titles if it is not protected by authentication.</TextLine>
         </Group>
-        <Group title="Weather and availability">
-          <TextLine>Weather location: {detectedLocation?.name??'Automatic — not detected yet'}</TextLine>
-          <TextLine faint>Approximate location is detected automatically from your public internet IP via ipapi.co, with no ZIP or GPS required. Open-Meteo supplies current temperature and local daily high/low in °F. VPNs and some networks may resolve to a nearby or different city.</TextLine>
-          <Action disabled={busy} onPress={()=>attempt(async()=>{const result=await refreshAutomaticWeather(true);setDetectedLocation(await readAutomaticLocation());setStatus(result.error?'Weather refresh: '+result.error:'Weather updated.');})}>Refresh weather and location</Action>
-          <TextLine faint>Availability shows today's current and next timed calendar states. Rocky appears when no meetings remain; the possum is bundled into the dashboard.</TextLine>
-          <TouchableOpacity accessibilityRole="link" onPress={()=>Linking.openURL('https://open-meteo.com/').catch(()=>setStatus('Weather data: https://open-meteo.com/'))}><Text style={{fontFamily:FONT,fontSize:18,color:'#111',textDecorationLine:'underline'}}>Weather data by Open-Meteo (CC BY 4.0)</Text></TouchableOpacity>
-        </Group>
         <Group title="Supernote To-do · your existing list">
-          <TextLine faint>This reads your actual Supernote To-do items through Supernote Cloud. It does not create a second list. Ensure To-do cloud sync is enabled on the device.</TextLine>
+          <TextLine faint>This reads and updates your actual Supernote To-do items through Supernote Cloud. It does not create a second list. Ensure To-do cloud sync is enabled on the device. Task changes are experimental and require cloud confirmation.</TextLine>
           <TextLine faint>The connection uses Supernote's unofficial cloud API. The account password and verification code are never saved; the session is encrypted on this device. Supernote sessions expire after approximately 30 days.</TextLine>
           {connected?(
             <View style={{marginTop:9}}>
@@ -272,19 +262,6 @@ export function PrettySettings(): React.JSX.Element {
             </>
           )}
         </Group>
-        <Group title="Quick access · pinned notebooks and files">
-          <TextLine faint>These are dashboard-managed links independent of native Supernote Quick Access. Home shows as many as can fit; Edit here changes their order. Each link opens the existing file or folder.</TextLine>
-          {prefs.quick.map((item,i)=>(
-            <View style={styles.entry} key={item.path}>
-              <View style={{flex:1}}><TextLine>{item.label}</TextLine><TextLine faint>{item.path}</TextLine></View>
-              <Action small onPress={()=>openPin(item)}>Test open</Action>
-              <Action small onPress={()=>movePin('quick',i,-1)}>↑</Action>
-              <Action small onPress={()=>movePin('quick',i,1)}>↓</Action>
-              <Action small onPress={()=>removePin('quick',i)}>Remove</Action>
-            </View>
-          ))}
-          <Action filled onPress={()=>{setDir(ROOTS[0]);setPicker('quick');}}>+ Pin a notebook, document, or folder</Action>
-        </Group>
         <Group title="Favorites · your dashboard links">
           <TextLine faint>These favorites are separate from Supernote's built-in starred Files. Add the notebooks, PDFs, or folders you want to find quickly; open them here in Settings. Changes save automatically; Done verifies the save.</TextLine>
           {prefs.favorites.length===0&&<TextLine faint>No favorites yet. Add one below to populate the Favorites screen.</TextLine>}
@@ -303,13 +280,13 @@ export function PrettySettings(): React.JSX.Element {
           <Action filled onPress={()=>{setDir(ROOTS[0]);setPicker('favorites');}}>+ Add a favorite notebook, document, or folder</Action>
         </Group>
         <Group title="Display">
-          <TextLine faint>Google Sans Flex. Standard is the preferred Manta text size; Large and Extra large are accessibility alternatives. The first two content bands have equal height; the illustration and Quick access band is shorter.</TextLine>
+          <TextLine faint>Google Sans Flex. Standard is the preferred Manta text size; Large and Extra large are accessibility alternatives. The two content bands have equal height.</TextLine>
           <View style={{flexDirection:'row',flexWrap:'wrap',marginVertical:6}}>
             {(['normal','large','extra'] as const).map(sz=><Action key={sz} small filled={prefs.size===sz} onPress={()=>save({...prefs,size:sz})}>{sz==='normal'?'Standard':sz==='large'?'Large':'Extra large'}</Action>)}
           </View>
         </Group>
         <Group title="Dashboard navigation">
-          <TextLine faint>No floating button will appear over Supernote. The Stardust star in the lower-right section closes the dashboard, returning to the note beneath it. Calendar resets to today and opens the dashboard's read-only agenda; no native Calendar event records are created.</TextLine>
+          <TextLine faint>No floating button will appear over Supernote. Tap SmartyNote to return to the note beneath it. The Calendar icon opens native Calendar; View all opens the dashboard agenda.</TextLine>
           <TextLine faint>For launching the dashboard elsewhere, add the Plugins tool to your native notebook toolbar. A direct sidebar gesture or dedicated plugin Quick Access entry is not publicly documented.</TextLine>
         </Group>
         <Group title="Attribution">
@@ -326,7 +303,7 @@ export function PrettySettings(): React.JSX.Element {
             </View>
           </View>
         </Group>
-        <TextLine faint>MySuperPrettyDashboard · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Search, Calendar, and To-do remain available from Home. Your original SuperDashboard settings remain separate.</TextLine>
+        <TextLine faint>SmartyNote · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Search, Calendar, and To-do remain available from Home. Your original SuperDashboard settings remain separate.</TextLine>
       </ScrollView>
       {!!status&&<View style={styles.status}><View style={{flex:1}}><TextLine>{status}</TextLine></View><Action small onPress={()=>setStatus('')}>Dismiss</Action></View>}
       </View>
