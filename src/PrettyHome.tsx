@@ -344,11 +344,6 @@ export function PrettyHome({config,nonce,onSettings}:{
     if(!link.page){setMutationError('Supernote did not supply a linked page. Open native To-do for the exact task.');return;}
     openFile(path,link.page);
   };
-  const openTodayAgenda=()=>{
-    const current=new Date(),today=dateKey(current);
-    setNow(current);setAgendaStart(today);setAgendaVisit(v=>v+1);setOverlay('agenda');
-    refreshCalendar().then(setCalendar).catch(()=>{});
-  };
   const openEvent=(event:AgendaEvent,fromAgenda=false)=>{
     setSelectedEvent(event);setReturnToAgenda(fromAgenda);setOverlay('event');
   };
