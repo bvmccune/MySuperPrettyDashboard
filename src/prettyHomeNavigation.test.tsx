@@ -35,7 +35,7 @@ jest.mock('sn-plugin-lib',()=>({PluginManager:{},
 jest.mock('./config',()=>({loadConfig:jest.fn(async()=>({zones:[]}))}));
 jest.mock('./perf',()=>({markOpen:jest.fn(),ready:jest.fn()}));
 jest.mock('./bubble',()=>({leavePlugin:jest.fn()}));
-jest.mock('./open',()=>({openFile:jest.fn(),openFileAtPage:jest.fn(),openFolder:jest.fn(),launchApp:jest.fn()}));
+jest.mock('./open',()=>({openFile:jest.fn(),openVerifiedTaskPage:jest.fn(async()=>true),openFolder:jest.fn(),launchApp:jest.fn()}));
 jest.mock('./scanner',()=>({scanKeywords:jest.fn()}));
 jest.mock('./relay',()=>({dayKey:jest.fn(),dueBucket:jest.fn(()=> 'none')}));
 jest.mock('./recent',()=>({readRecentDetailed:jest.fn(async()=>({
