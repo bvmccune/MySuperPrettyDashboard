@@ -134,7 +134,7 @@ with Image.open(OUT/'temperature-gauge.png') as gauge:
 
 # Latest user-supplied revision; rasterize originals without changing geometry.
 revision=ROOT/'assets'/'approved'/'revision'
-for name in ('planned','files','keywords','stars','stardust'):
+for name in ('planned','files','keywords','stars','stardust','jellyfish','rocks','coffee','plants','lizard'):
     cairosvg.svg2png(url=str(revision/(name+'.svg')),write_to=str(OUT/(name+'.png')),output_width=240,output_height=240)
 shutil.copyfile(OUT/'planned.png',OUT/'recent.png')
 shutil.copyfile(OUT/'stardust.png',OUT.parent/'icon.png')
