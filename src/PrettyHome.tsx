@@ -180,7 +180,7 @@ function sortTasks(data:Task[],now:Date):Task[]{
 }
 function dueShort(due:string):string{
   const pieces=due.slice(0,10).split('-');
-  return pieces.length===3?Number(pieces[1])+'/'+Number(pieces[2]):due;
+  return pieces.length===3?pieces[1]+'/'+pieces[2]:due;
 }
 
 export function PrettyHome({config,nonce,onSettings}:{
@@ -272,7 +272,7 @@ export function PrettyHome({config,nonce,onSettings}:{
       if(generation!==taskReadGeneration.current)return;
       setTasks(result.tasks);
       setTaskError(result.truncated?'Supernote returned an incomplete task list.':'');
-    }).catch(e=>{if(generation===taskReadGeneration.current)setTaskError(String(e?.message||'Supernote To-do unavailable'));})
+    }).catch(e=>{if(generation===taskReadGeneration.current){setTasks([]);setTaskError(String(e?.message||'Supernote To-do unavailable'));}})
       .finally(()=>{if(generation===taskReadGeneration.current)setTaskLoading(false);});
   },[scanCreated]);
 
@@ -398,9 +398,12 @@ export function PrettyHome({config,nonce,onSettings}:{
         <Txt size={body} lines={3} style={{lineHeight:rowLine}}>{item.title}</Txt>
       </TouchableOpacity>
       {!!item.link&&<TouchableOpacity disabled={taskBusy} accessibilityLabel={'Open linked note for '+item.title} onPress={()=>openTaskNote(item)} style={{padding:4*s}}><Glyph name="open-notebook" size={22*s}/></TouchableOpacity>}
-      {overdue?<View style={{backgroundColor:INK,paddingHorizontal:5*s,paddingVertical:3*s,borderRadius:3}}>
-        <Text style={{fontFamily:FONT,fontSize:10.5*s,color:PAPER,fontWeight:'700'}}>OVERDUE</Text>
-      </View>:item.due?<Txt size={secondary} muted>{dueShort(item.due)}</Txt>:null}
+      {!!item.due&&<View style={{alignItems:'flex-end',flexShrink:0}}>
+        <Txt size={secondary} muted>{dueShort(item.due)}</Txt>
+        {overdue&&<View style={{backgroundColor:INK,paddingHorizontal:5*s,paddingVertical:2*s,borderRadius:3,marginTop:3*s}}>
+          <Text style={{fontFamily:FONT,fontSize:10.5*s,color:PAPER,fontWeight:'700'}}>OVERDUE</Text>
+        </View>}
+      </View>}
     </View>;
   };
   const rowNote=(note:CreatedNote,i:number)=>(
