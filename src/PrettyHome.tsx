@@ -6,7 +6,7 @@
  * Calendar: owner's existing read-only feed, not native event mirroring.
  * To-do: owner's real Supernote Cloud tasks, never a second task database.
  */
-import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {
   AppState,DeviceEventEmitter,Image,ImageSourcePropType,Modal,NativeModules,
   ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View,useWindowDimensions,
@@ -203,6 +203,7 @@ export function PrettyHome({config,nonce,onSettings}:{
   const [createdDays,setCreatedDays]=useState<Set<string>>(new Set());
   const [calendar,setCalendar]=useState<CalendarResult>(()=>currentCalendar());
   const [taskBusy,setTaskBusy]=useState(false);
+  const taskMutation=useRef(false);
   const [editingTask,setEditingTask]=useState<Task|null>(null);
   const [editTitle,setEditTitle]=useState('');
   const [editDue,setEditDue]=useState('');
@@ -328,9 +329,9 @@ export function PrettyHome({config,nonce,onSettings}:{
     return {label,date,key,today:key===dateKey(now),hasNotes:createdDays.has(key)};
   });
   const mutateTask=async(item:Task,change:{complete?:true;title?:string;due?:string|null})=>{
-    if(taskBusy)return;setTaskBusy(true);setMutationError('');
+    if(taskMutation.current)return;taskMutation.current=true;setTaskBusy(true);setMutationError('');
     try{await updateNativeTodo(item.id,change);const result=await readNativeSupernoteTasks();setTasks(result.tasks);setOverlay(null);}
-    catch(e:any){setMutationError(String(e?.message??e));}finally{setTaskBusy(false);}
+    catch(e:any){setMutationError(String(e?.message??e));}finally{taskMutation.current=false;setTaskBusy(false);}
   };
   const editTask=(item:Task)=>{setEditingTask(item);setEditTitle(item.title);setEditDue(item.due??'');setMutationError('');setOverlay('task-edit');};
   const openTaskNote=(item:Task)=>{
@@ -531,10 +532,10 @@ export function PrettyHome({config,nonce,onSettings}:{
     </View>
 
     <Modal transparent={false} animationType="none" visible={overlay!==null}
-      onRequestClose={()=>setOverlay(overlay==='event'&&returnToAgenda?'agenda':null)}>
+      onRequestClose={()=>{if(!taskBusy)setOverlay(overlay==='event'&&returnToAgenda?'agenda':null);}}>
       <View style={styles.screen}>
           {overlay==='quick-edit'?<PrettyQuickEditor prefs={prefs} onSaved={next=>{setPrefs(next);setOverlay(null);}} onClose={()=>setOverlay(null)}/>:overlay==='task-edit'&&editingTask?<>
-            <PrettyScreenHeader title="Edit task" left={{label:'Cancel',onPress:()=>setOverlay(null),disabled:taskBusy}} right={{label:'Save',onPress:()=>mutateTask(editingTask,{title:editTitle,due:editDue.trim()||null}),disabled:taskBusy}}/>
+            <PrettyScreenHeader title="Edit task" left={{label:'Cancel',onPress:()=>setOverlay(null),disabled:taskBusy}} right={{label:'Save',onPress:()=>mutateTask(editingTask,{...(editTitle.trim()!==editingTask.title?{title:editTitle}:{}),...((editDue.trim()||null)!==editingTask.due?{due:editDue.trim()||null}:{})}),disabled:taskBusy}}/>
             <View style={{padding:20*s,gap:12*s}}><Txt>Task name</Txt><TextInput value={editTitle} onChangeText={setEditTitle} style={{borderWidth:1,padding:10*s,fontSize:body,color:INK}}/><Txt>Due date (YYYY-MM-DD, blank for none)</Txt><TextInput value={editDue} onChangeText={setEditDue} style={{borderWidth:1,padding:10*s,fontSize:body,color:INK}}/>{!!mutationError&&<Txt>{mutationError}</Txt>}{taskBusy&&<Txt>Saving to Supernote…</Txt>}</View>
           </>:overlay==='new-note'?<PrettyNoteCreate onClose={()=>setOverlay(null)}/>:<>
             <PrettyScreenHeader
