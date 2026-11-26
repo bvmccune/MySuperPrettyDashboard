@@ -162,8 +162,8 @@ export async function updateNativeTodo(id:string, change:{complete?:true;title?:
     if(change.due===null)patch.dueTime=0;
     else {
       if(!/^\d{4}-\d{2}-\d{2}$/.test(change.due))throw new Error('Use YYYY-MM-DD.');
-      const ms=Date.parse(change.due+'T00:00:00Z');
-      if(!Number.isFinite(ms)||new Date(ms).toISOString().slice(0,10)!==change.due)throw new Error('Invalid due date.');
+      const ms=Date.parse(change.due+'T00:00:00');
+      if(!Number.isFinite(ms)||localDate(ms)!==change.due)throw new Error('Invalid due date.');
       patch.dueTime=ms;
     }
   }
