@@ -121,17 +121,49 @@ export function scheduleBounds(day:string,events:AgendaEvent[]){
     if(last&&x.start<=last.end)last.end=Math.max(last.end,x.end);
     else merged.push({...x});
   }
-  return {start,end,merged};
+  // Sweep each distinct event boundary so conflicts retain their actual duration.
+  const edges=[...new Set(intervals.flatMap(x=>[x.start,x.end]))].sort((a,b)=>a-b);
+  const overlaps:{start:number;end:number}[]=[];
+  const dividers:number[]=[];
+  for(let i=0;i<edges.length;i++){
+    const t=edges[i],nextEdge=edges[i+1];
+    const before=intervals.filter(x=>x.start<t&&x.end>=t);
+    const after=intervals.filter(x=>x.start<=t&&x.end>t);
+    // A touching pair is not a conflict. Mark the exact shared boundary.
+    if(before.length===1&&after.length===1&&before[0]!==after[0])dividers.push(t);
+    if(nextEdge!==undefined&&after.length>=2){
+      const last=overlaps[overlaps.length-1];
+      if(last&&last.end===t)last.end=nextEdge;
+      else overlaps.push({start:t,end:nextEdge});
+    }
+  }
+  return {start,end,merged,overlaps,dividers};
 }
 function ScheduleRail({day,events,scale}:{day:string;events:AgendaEvent[];scale:number}){
-  const {start,end,merged}=scheduleBounds(day,events);
+  const {start,end,merged,overlaps,dividers}=scheduleBounds(day,events);
+  const [railHeight,setRailHeight]=useState(0);
+  const width=10*scale;
+  const pct=(t:number)=>((t-start)/(end-start)*100)+'%' as `${number}%`;
   const label=(t:number)=>new Date(t).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}).replace(':00','').toLowerCase();
   return <View accessible accessibilityLabel={'Schedule '+label(start)+' to '+label(end)}
     style={{width:31*scale,alignItems:'center',paddingVertical:3*scale,marginRight:4*scale}}>
     <Text style={{fontFamily:FONT,fontSize:9*scale,color:INK}}>{label(start)}</Text>
-    <View style={{flex:1,width:10*scale,borderWidth:1,borderColor:INK,borderRadius:2,overflow:'hidden',marginVertical:3*scale}}>
-      {merged.map((e,i)=><View key={i} style={{position:'absolute',left:0,right:0,
-        top:((e.start-start)/(end-start)*100)+'%',height:((e.end-e.start)/(end-start)*100)+'%',backgroundColor:INK}}/>)}
+    <View onLayout={e=>setRailHeight(e.nativeEvent.layout.height)}
+      style={{flex:1,width,borderWidth:1,borderColor:INK,overflow:'hidden',marginVertical:3*scale,backgroundColor:PAPER}}>
+      {merged.map((e,i)=><View key={'busy'+i} style={{position:'absolute',left:0,right:0,
+        top:pct(e.start),height:pct(start+e.end-e.start),backgroundColor:INK}}/>)}
+      {overlaps.map((e,i)=>{
+        const h=railHeight*(e.end-e.start)/(end-start);
+        const step=5*scale;
+        return <View key={'conflict'+i} accessible accessibilityLabel="Overlapping events"
+          style={{position:'absolute',left:0,right:0,top:pct(e.start),height:pct(start+e.end-e.start),overflow:'hidden',backgroundColor:INK}}>
+          {Array.from({length:Math.ceil(h/step)+4},(_,j)=><View key={j} style={{position:'absolute',
+            left:-width/2,top:(j-1)*step,width:width*2,height:1.4*scale,
+            backgroundColor:PAPER,transform:[{rotate:'-45deg'}]}}/>)}
+        </View>;
+      })}
+      {dividers.map(t=><View key={'boundary'+t} style={{position:'absolute',left:0,right:0,
+        top:pct(t),height:1.5*scale,backgroundColor:PAPER,transform:[{translateY:-.75*scale}]}}/>)}
     </View>
     <Text style={{fontFamily:FONT,fontSize:9*scale,color:INK}}>{label(end)}</Text>
   </View>;
