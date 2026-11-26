@@ -61,7 +61,8 @@ import {setRoute,getRoute} from './route';
 import {DEFAULT_PRETTY,loadPrettyPrefs,PrettyPrefs} from './prettyPrefs';
 import {PrettyHome} from './PrettyHome';
 import {PrettySettings} from './PrettySettings';
-import {HomeAgendaList} from './PrettyAgenda';
+import {launchApp} from './open';
+import {HomeAgendaList,scheduleBounds} from './PrettyAgenda';
 import {PrettyFitList} from './PrettyFitList';
 import {agendaFromFeed,normalizeFeed,dateKey,dayLabel,addCalendarDays,loadCalendarCache} from './prettyCalendar';
 
@@ -174,7 +175,7 @@ it('calculates +N from measured rows and includes conflicts with events omitted 
   await act(async()=>{visible.props.onPress();});
   expect(onEvent).toHaveBeenCalledWith(rows[0]);
 });
-it('calendar shortcut opens today; selecting an event opens detail without changing Home day',async()=>{
+it('calendar shortcut opens native calendar; dashboard agenda remains separate',async()=>{
   const today=new Date(),todayKey=dateKey(today);
   const start=new Date(today.getFullYear(),today.getMonth(),today.getDate(),9);
   const end=new Date(start.getTime()+3600000);
@@ -186,11 +187,14 @@ it('calendar shortcut opens today; selecting an event opens detail without chang
   const touch=(label:string)=>app!.root.findAllByType('TouchableOpacity' as any).find(n=>n.props.accessibilityLabel===label)!;
   const day=new Date(today);day.setDate(today.getDate()+(today.getDay()===0?-1:1));
   await act(async()=>{touch('Select '+day.toDateString()).props.onPress();});
-  const selectedHeading=dayLabel(dateKey(day))+' Notes';
+  const selectedHeading=dayLabel(dateKey(day));
   const selectedEventHeading=dayLabel(dateKey(day))+' Events';
-  expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedHeading)).toBe(true);
+  expect(app!.root.findAllByType('Text' as any).some(n=>(Array.isArray(n.props.children)?n.props.children.join(''):n.props.children)===selectedHeading)).toBe(true);
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedEventHeading)).toBe(true);
   await act(async()=>{touch('Calendar').props.onPress();});
+  expect(launchApp).toHaveBeenCalledWith('com.ratta.supernote.calendar/com.ratta.supernote.calendar.MainActivity');
+  await act(async()=>{touch('View all events').props.onPress();});
+  await act(async()=>{touch('Today').props.onPress();});
   // React represents the two JSX date expressions and intervening text as
   // separate children. Compare the visible text, not their array identity.
   const showsRange=(first:string)=>app!.root.findAllByType('Text' as any).some(n=>{
@@ -207,7 +211,7 @@ it('calendar shortcut opens today; selecting an event opens detail without chang
   expect(event).toBeTruthy();
   await act(async()=>{event.props.onPress();});
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children==='Event details')).toBe(true);
-  expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedHeading)).toBe(true);
+  expect(app!.root.findAllByType('Text' as any).some(n=>(Array.isArray(n.props.children)?n.props.children.join(''):n.props.children)===selectedHeading)).toBe(true);
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedEventHeading)).toBe(true);
   await act(async()=>{touch('Back').props.onPress();});
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children==='Seven-day agenda')).toBe(true);
@@ -226,4 +230,11 @@ it('fits complete wrapped rows after actual layout measurement',async()=>{
   expect(count('one')).toBe(2);
   expect(count('two')).toBe(2);
   expect(count('three')).toBe(1);
+});
+
+it('schedule extends only for timed events and merges overlaps',()=>{
+  const day='2026-11-26',at=(h:number)=>new Date(2026,10,26,h).toISOString();
+  const events=agendaFromFeed(normalizeFeed({events:[{summary:'Holiday',start:day,end:'2026-11-27',all_day:true,calendar:'Work'},{summary:'Early',start:at(7),end:at(9),all_day:false,calendar:'Work'},{summary:'Overlap',start:at(8),end:at(10),all_day:false,calendar:'Work'},{summary:'Late',start:at(18),end:at(20),all_day:false,calendar:'Work'}]}));
+  const rail=scheduleBounds(day,events);
+  expect(new Date(rail.start).getHours()).toBe(7);expect(new Date(rail.end).getHours()).toBe(20);expect(rail.merged).toHaveLength(2);
 });
