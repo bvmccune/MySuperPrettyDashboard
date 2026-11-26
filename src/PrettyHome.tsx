@@ -13,11 +13,13 @@ import {
 } from 'react-native';
 import {DashboardConfig,ShortcutItem} from './config';
 import {leavePlugin} from './bubble';
-import {launchApp,openFile,openFolder} from './open';
+import {launchApp,openFile,openFolder,openFileAtPage} from './open';
 import {readRecentDetailed} from './recent';
 import {dayKey,dueBucket} from './relay';
 import {loadPrettyPrefs,PrettyPrefs,quickIcon} from './prettyPrefs';
 import {readNativeSupernoteTasks,updateNativeTodo,NativeTodo} from './prettyCloud';
+import {noteStableFileId,taskPageIndex} from './notepage';
+import {resolveTaskNote} from './prettyTaskLink';
 import {
   AgendaEvent,CalendarResult,CALENDAR_REFRESH_MS,dateKey,dayLabel,
   addCalendarDays,agendaFromFeed,eventTimeRange,eventDuration,
@@ -93,7 +95,7 @@ const IMAGES:Record<IconName,ImageSourcePropType>={
   'auto-refresh':require('../assets/pretty/auto-refresh.png'),
   'open-notebook':require('../assets/pretty/open-notebook.png'),
 };
-type Overlay='favorites'|'recent'|'keywords'|'agenda'|'event'|'new-note'|'quick-edit'|'task-edit'|null;
+type Overlay='favorites'|'recent'|'keywords'|'agenda'|'event'|'new-note'|'quick-edit'|'task-edit'|'task-link-help'|null;
 type Task=NativeTodo;
 interface CreatedNote {path:string;createdAt:number}
 interface FileInfo {mtime?:number;createdAt?:number}
@@ -206,6 +208,7 @@ export function PrettyHome({config,nonce,onSettings}:{
   const [taskBusy,setTaskBusy]=useState(false);
   const taskMutation=useRef(false);
   const [editingTask,setEditingTask]=useState<Task|null>(null);
+  const [linkFailure,setLinkFailure]=useState<Task|null>(null);
   const [editTitle,setEditTitle]=useState('');
   const [editDue,setEditDue]=useState('');
   const [mutationError,setMutationError]=useState('');
@@ -335,16 +338,15 @@ export function PrettyHome({config,nonce,onSettings}:{
     catch(e:any){setMutationError(String(e?.message??e));}finally{taskMutation.current=false;setTaskBusy(false);}
   };
   const editTask=(item:Task)=>{setEditingTask(item);setEditTitle(item.title);setEditDue(item.due??'');setMutationError('');setOverlay('task-edit');};
-  const openTaskNote=(item:Task)=>{
-    const link=item.link;if(!link)return;
-    const all=[...new Set([...createdNotes.map(n=>n.path),...recent])];
-    const name=link.name.replace(/\.note$/i,'');
-    const direct=link.path&&all.includes(link.path)?link.path:undefined;
-    const matches=all.filter(p=>/\.note$/i.test(p)&&fileTitle(p)===name);
-    const path=direct??(matches.length===1?matches[0]:undefined);
-    if(!path){setMutationError('Linked notebook could not be uniquely identified. Open native To-do to jump to the task.');return;}
-    if(!link.page){setMutationError('Supernote did not supply a linked page. Open native To-do for the exact task.');return;}
-    openFile(path,link.page);
+  const openTaskNote=async(item:Task)=>{
+    const link=item.link;if(!link||taskMutation.current)return;
+    taskMutation.current=true;setTaskBusy(true);setMutationError('');
+    try{
+      const target=await resolveTaskNote(link,async dir=>DashboardNative.listDir(dir),noteStableFileId,taskPageIndex);
+      if(target){await openFileAtPage(target.path,target.page);return;}
+      setLinkFailure(item);setOverlay('task-link-help');
+    }catch(e:any){setMutationError(String(e?.message??e));setLinkFailure(item);setOverlay('task-link-help');}
+    finally{taskMutation.current=false;setTaskBusy(false);}
   };
   const openEvent=(event:AgendaEvent,fromAgenda=false)=>{
     setSelectedEvent(event);setReturnToAgenda(fromAgenda);setOverlay('event');
@@ -391,7 +393,7 @@ export function PrettyHome({config,nonce,onSettings}:{
       <TouchableOpacity disabled={taskBusy} onPress={()=>launchApp(APPS.todo)} onLongPress={()=>editTask(item)} accessibilityLabel={'Open task '+item.title+'; long press to edit'} style={{flex:1,minWidth:0,marginLeft:4*s,marginRight:5*s}}>
         <Txt size={body} lines={3} style={{lineHeight:rowLine}}>{item.title}</Txt>
       </TouchableOpacity>
-      {!!item.link&&<TouchableOpacity accessibilityLabel={'Open linked note for '+item.title} onPress={()=>openTaskNote(item)} style={{padding:4*s}}><Glyph name="notebook" size={22*s}/></TouchableOpacity>}
+      {!!item.link&&<TouchableOpacity disabled={taskBusy} accessibilityLabel={'Open linked note for '+item.title} onPress={()=>openTaskNote(item)} style={{padding:4*s}}><Glyph name="open-notebook" size={22*s}/></TouchableOpacity>}
       {overdue?<View style={{backgroundColor:INK,paddingHorizontal:5*s,paddingVertical:3*s,borderRadius:3}}>
         <Text style={{fontFamily:FONT,fontSize:10.5*s,color:PAPER,fontWeight:'700'}}>OVERDUE</Text>
       </View>:item.due?<Txt size={secondary} muted>{dueShort(item.due)}</Txt>:null}
@@ -535,7 +537,10 @@ export function PrettyHome({config,nonce,onSettings}:{
     <Modal transparent={false} animationType="none" visible={overlay!==null}
       onRequestClose={()=>{if(!taskBusy)setOverlay(overlay==='event'&&returnToAgenda?'agenda':null);}}>
       <View style={styles.screen}>
-          {overlay==='quick-edit'?<PrettyQuickEditor prefs={prefs} onSaved={next=>{setPrefs(next);setOverlay(null);}} onClose={()=>setOverlay(null)}/>:overlay==='task-edit'&&editingTask?<>
+          {overlay==='quick-edit'?<PrettyQuickEditor prefs={prefs} onSaved={next=>{setPrefs(next);setOverlay(null);}} onClose={()=>setOverlay(null)}/>:overlay==='task-link-help'&&linkFailure?<>
+            <PrettyScreenHeader title="Linked task" left={{label:'Close',onPress:()=>setOverlay(null)}}/>
+            <View style={{padding:20*s,gap:12*s}}><Txt bold>{linkFailure.title}</Txt><Txt>SmartyNote could not verify the linked notebook and page. Use Supernote To-do's own link to open the exact handwritten task.</Txt><TouchableOpacity onPress={()=>{setOverlay(null);launchApp(APPS.todo);}} style={{padding:12*s,borderWidth:1,borderColor:INK}}><Txt bold>Open native To-do</Txt></TouchableOpacity>{!!mutationError&&<Txt>{mutationError}</Txt>}</View>
+          </>:overlay==='task-edit'&&editingTask?<>
             <PrettyScreenHeader title="Edit task" left={{label:'Cancel',onPress:()=>setOverlay(null),disabled:taskBusy}} right={{label:'Save',onPress:()=>mutateTask(editingTask,{...(editTitle.trim()!==editingTask.title?{title:editTitle}:{}),...((editDue.trim()||null)!==editingTask.due?{due:editDue.trim()||null}:{})}),disabled:taskBusy}}/>
             <View style={{padding:20*s,gap:12*s}}><Txt>Task name</Txt><TextInput value={editTitle} onChangeText={setEditTitle} style={{borderWidth:1,padding:10*s,fontSize:body,color:INK}}/><Txt>Due date (YYYY-MM-DD, blank for none)</Txt><TextInput value={editDue} onChangeText={setEditDue} style={{borderWidth:1,padding:10*s,fontSize:body,color:INK}}/>{!!mutationError&&<Txt>{mutationError}</Txt>}{taskBusy&&<Txt>Saving to Supernote…</Txt>}</View>
           </>:overlay==='new-note'?<PrettyNoteCreate onClose={()=>setOverlay(null)}/>:<>
