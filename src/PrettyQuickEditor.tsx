@@ -8,6 +8,9 @@ type Entry={path:string;name:string;isDir:boolean};
 const ROOT='/storage/emulated/0';
 const ROOTS=[ROOT+'/Note',ROOT+'/Document',ROOT+'/MyStyle'];
 const ICONS=[
+  {key:'stars',label:'Stars',image:require('../assets/pretty/stars.png')},
+  {key:'keywords',label:'Keyword',image:require('../assets/pretty/keywords.png')},
+  {key:'recent',label:'Planned',image:require('../assets/pretty/recent.png')},
   {key:'star-filled',label:'Star',image:require('../assets/pretty/star-filled.png')},
   {key:'files',label:'Folder',image:require('../assets/pretty/files.png')},
   {key:'notebook',label:'Note',image:require('../assets/pretty/notebook.png')},
