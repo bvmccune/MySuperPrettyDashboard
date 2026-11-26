@@ -8,6 +8,10 @@ on:
       - development/pretty-dashboard
       - development/smartynote-four-quadrants
 
+concurrency:
+  group: smartynote-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -90,11 +94,11 @@ jobs:
           set -euo pipefail
           ./node_modules/.bin/tsc --noEmit --pretty false
 
-      - name: Test Pretty Calendar JSON parsing and offline behavior
+      - name: Test calendar, preferences, layout, task protocol and navigation
         shell: bash
         run: |
           set -euo pipefail
-          npm test -- --runInBand src/prettyCalendar.test.ts src/prettyPrefs.test.ts src/prettyHomeNavigation.test.tsx
+          npm test -- --runInBand src/prettyCalendar.test.ts src/prettyPrefs.test.ts src/prettyHomeNavigation.test.tsx src/prettyCloud.test.ts
 
       - name: Align SDK library NDK with installed Android NDK
         shell: bash
@@ -131,8 +135,8 @@ jobs:
           PACKAGE="build/outputs/${PACKAGE_NAME}.snplg"
 
           test -s "$PACKAGE"
-          cp "$PACKAGE" build/outputs/MySuperPrettyDashboard.snplg
-          PACKAGE="build/outputs/MySuperPrettyDashboard.snplg"
+          cp "$PACKAGE" build/outputs/SmartyNote.snplg
+          PACKAGE="build/outputs/SmartyNote.snplg"
           unzip -t "$PACKAGE"
 
           unzip -p "$PACKAGE" PluginConfig.json \
@@ -142,7 +146,7 @@ jobs:
           import json
           from zipfile import ZipFile
 
-          path = "build/outputs/MySuperPrettyDashboard.snplg"
+          path = "build/outputs/SmartyNote.snplg"
 
           with open("/tmp/plugin-config.json") as f:
               config = json.load(f)
@@ -179,22 +183,22 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MySuperPrettyDashboard-development
-          path: build/outputs/MySuperPrettyDashboard.snplg
+          name: SmartyNote-development
+          path: build/outputs/SmartyNote.snplg
           if-no-files-found: error
           retention-days: 14
 
       - name: Publish direct SNPLG development download
-        if: github.ref == 'refs/heads/development/pretty-dashboard'
+        if: github.ref == 'refs/heads/development/smartynote-four-quadrants'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           gh release create "dev-build-${{ github.run_number }}" \
-            build/outputs/MySuperPrettyDashboard.snplg \
+            build/outputs/SmartyNote.snplg \
             --repo "${{ github.repository }}" \
             --target "${{ github.sha }}" \
-            --title "MySuperPrettyDashboard development build ${{ github.run_number }}" \
-            --notes "Experimental Manta plugin build from development/pretty-dashboard. Keep original SuperDashboard installed." \
+            --title "SmartyNote development build ${{ github.run_number }}" \
+            --notes "Four-quadrant SmartyNote test candidate. Automated checks and package validation passed; Manta acceptance tests remain required. Preserve v68 as fallback. See docs/native-todo-integration.md for limitations." \
             --prerelease
