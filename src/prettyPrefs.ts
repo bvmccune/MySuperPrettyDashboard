@@ -15,8 +15,19 @@ export type PrettyAction = 'calendar' | 'files' | 'favorites' | 'search' | 'keyw
 export type BubbleSpot = 'top-left' | 'top-right' | 'middle-left' | 'middle-right' | 'bottom-left' | 'bottom-right';
 export type PrettySize = 'normal' | 'large' | 'extra';
 
+export const QUICK_ICONS=['files','stars','keywords','recent','refresh','calendar-dot','auto-refresh','calendar','new-note','notebook','open-notebook'] as const;
+export type QuickIcon=typeof QUICK_ICONS[number];
+export type QuickPin=ShortcutItem & {icon?:QuickIcon};
+export function quickIcon(item:QuickPin):QuickIcon{
+  return QUICK_ICONS.includes(item.icon as QuickIcon)?item.icon!:
+    item.path==='app:calendar'?'calendar':item.kind==='folder'?'files':'notebook';
+}
+function normalizeQuick(item:ShortcutItem):QuickPin{
+  const pin=item as QuickPin;
+  return {...pin,icon:quickIcon(pin)};
+}
 export interface PrettyPrefs {
-  quick: ShortcutItem[];
+  quick: QuickPin[];
   favorites: ShortcutItem[];
   shortcuts: PrettyAction[];
   size: PrettySize;
@@ -60,7 +71,7 @@ export function normalPretty(raw: any): PrettyPrefs {
   if (!shortcuts.includes('settings') && !shortcuts.includes('quick-access'))
     shortcuts[1]='settings';
   return {
-    quick: (Array.isArray(raw?.quick) ? raw.quick.filter(validPin) : []).slice(0,30),
+    quick: (Array.isArray(raw?.quick) ? raw.quick.filter(validPin).map(normalizeQuick) : []).slice(0,30),
     favorites: (Array.isArray(raw?.favorites) ? raw.favorites.filter(validPin) : []).slice(0,30),
     shortcuts,
     size: ['normal','large','extra'].includes(raw?.size) ? raw.size : 'normal',
@@ -74,7 +85,7 @@ export async function loadPrettyPrefs(legacy?: DashboardConfig | null): Promise<
   } catch { /* first run / absent file */ }
   const old = legacy?.zones.filter(z => z.type === 'shortcuts')
     .flatMap(z => z.type === 'shortcuts' ? z.items : []) ?? [];
-  return {...DEFAULT_PRETTY, quick: old.filter(validPin)};
+  return {...DEFAULT_PRETTY, quick: old.filter(validPin).map(normalizeQuick)};
 }
 export async function savePrettyPrefs(next: PrettyPrefs): Promise<boolean> {
   try {
