@@ -3,7 +3,7 @@
  */
 import React,{useState} from 'react';
 import {Image,Text,TouchableOpacity,View} from 'react-native';
-import {AgendaEvent,compactEventRange,eventTimeRange,eventDuration} from './prettyCalendar';
+import {AgendaEvent,compactEventRange,eventTimeRange,eventDuration,addCalendarDays} from './prettyCalendar';
 import {INK,PAPER,DARK_GRAY,LIGHT_GRAY} from './prettyPalette';
 export {compactEventRange,compactEventTime} from './prettyCalendar';
 const FONT='GoogleSansFlex';
@@ -66,9 +66,9 @@ export function fitAgendaRows(heights:number[],available:number):number{
  * rows cannot be tapped, and the visible list never includes clipped rows.
  * Only a bounded prefix can fit, so even a huge feed is cheap to measure.
  */
-export function HomeAgendaList({events,scale,fontBoost,initialHeight,header,onEvent,empty}:{
+export function HomeAgendaList({events,scale,fontBoost,initialHeight,header,onEvent,empty,day}:{
   events:AgendaEvent[];scale:number;fontBoost:number;initialHeight:number;
-  header:(hidden:number)=>React.ReactNode;onEvent:(e:AgendaEvent)=>void;empty:React.ReactNode;
+  day?:string;header:(hidden:number)=>React.ReactNode;onEvent:(e:AgendaEvent)=>void;empty:React.ReactNode;
 }):React.JSX.Element{
   const [available,setAvailable]=useState<number|null>(null);
   const [measured,setMeasured]=useState<Record<string,number>>({});
@@ -78,7 +78,9 @@ export function HomeAgendaList({events,scale,fontBoost,initialHeight,header,onEv
   const count=fitAgendaRows(candidates.map(e=>measured[e.key]??maxRow),room);
   return <View style={{flex:1,minHeight:0}}>
     {header(events.length-count)}
-    <View testID="home-agenda-body" style={{flex:1,minHeight:0,overflow:'hidden'}}
+    <View style={{flex:1,minHeight:0,flexDirection:'row'}}>
+    {!!day&&<ScheduleRail day={day} events={events} scale={scale}/>}
+    <View testID="home-agenda-body" style={{flex:1,minWidth:0,minHeight:0,overflow:'hidden'}}
       onLayout={e=>setAvailable(old=>old===e.nativeEvent.layout.height?old:e.nativeEvent.layout.height)}>
       <View pointerEvents="none" importantForAccessibility="no-hide-descendants"
         style={{position:'absolute',top:0,left:0,right:0,opacity:0}}>
@@ -91,7 +93,7 @@ export function HomeAgendaList({events,scale,fontBoost,initialHeight,header,onEv
       </View>
       {events.length?candidates.slice(0,count).map(e=><AgendaRow key={e.key} event={e} allEvents={events}
         scale={scale} fontBoost={fontBoost} onPress={()=>onEvent(e)}/>):empty}
-    </View>
+    </View></View>
   </View>;
 }
 export function AgendaDay({day,events,onEvent,scale=1}:{day:string;events:AgendaEvent[];
@@ -100,5 +102,37 @@ export function AgendaDay({day,events,onEvent,scale=1}:{day:string;events:Agenda
     <Text style={{fontFamily:FONT,fontSize:20*scale,fontWeight:'600',color:INK,marginBottom:5*scale}}>{day}</Text>
     {events.map(e=><AgendaRow key={e.key} event={e} allEvents={events} onPress={()=>onEvent(e)} scale={scale}/>)}
     {!events.length&&<Text style={{fontFamily:FONT,fontSize:16*scale,color:INK}}>No events in current feed</Text>}
+  </View>;
+}
+
+/** Wall-clock schedule for selected local day. Clip overnight events to day bounds. */
+export function scheduleBounds(day:string,events:AgendaEvent[]){
+  const midnight=new Date(day+'T00:00:00').getTime();
+  const next=new Date(addCalendarDays(day,1)+'T00:00:00').getTime();
+  const morning=new Date(day+'T08:00:00').getTime(),evening=new Date(day+'T18:00:00').getTime();
+  const intervals=events.filter(e=>!e.all_day&&e.endMillis>e.startMillis)
+    .map(e=>({start:Math.max(midnight,e.startMillis),end:Math.min(next,e.endMillis)}))
+    .filter(e=>e.end>e.start).sort((a,b)=>a.start-b.start);
+  const start=Math.min(morning,...intervals.map(e=>e.start));
+  const end=Math.max(evening,...intervals.map(e=>e.end));
+  const merged:{start:number;end:number}[]=[];
+  for(const x of intervals){
+    const last=merged[merged.length-1];
+    if(last&&x.start<=last.end)last.end=Math.max(last.end,x.end);
+    else merged.push({...x});
+  }
+  return {start,end,merged};
+}
+function ScheduleRail({day,events,scale}:{day:string;events:AgendaEvent[];scale:number}){
+  const {start,end,merged}=scheduleBounds(day,events);
+  const label=(t:number)=>new Date(t).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}).replace(':00','').toLowerCase();
+  return <View accessible accessibilityLabel={'Schedule '+label(start)+' to '+label(end)}
+    style={{width:31*scale,alignItems:'center',paddingVertical:3*scale,marginRight:4*scale}}>
+    <Text style={{fontFamily:FONT,fontSize:9*scale,color:INK}}>{label(start)}</Text>
+    <View style={{flex:1,width:10*scale,borderWidth:1,borderColor:INK,borderRadius:2,overflow:'hidden',marginVertical:3*scale}}>
+      {merged.map((e,i)=><View key={i} style={{position:'absolute',left:0,right:0,
+        top:((e.start-start)/(end-start)*100)+'%',height:((e.end-e.start)/(end-start)*100)+'%',backgroundColor:INK}}/>)}
+    </View>
+    <Text style={{fontFamily:FONT,fontSize:9*scale,color:INK}}>{label(end)}</Text>
   </View>;
 }
