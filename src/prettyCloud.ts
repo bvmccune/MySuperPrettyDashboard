@@ -1,5 +1,5 @@
 /**
- * Read-only bridge to the user's REAL Supernote To-do list.
+ * Read/write bridge to the user's REAL Supernote To-do list.
  * SDK has no public plugin task API. The unofficial cloud transport is used
  * only after explicit account connection. Native To-do remains source of truth.
  * Independently implemented from documented protocol observations:
@@ -15,6 +15,7 @@ const INTERNET = 'plugin.permission.INTERNET';
 
 export interface NativeTodo {
   id: string; title: string; due: string | null; detail: string; listId: string;
+  link?: {name:string; path?:string; page?:number};
 }
 export interface NativeTaskResult {tasks: NativeTodo[]; truncated: boolean}
 
@@ -35,10 +36,10 @@ async function permission(): Promise<void> {
     'MySuperPrettyDashboard needs internet access to read your existing Supernote To-do tasks from Supernote Cloud.');
   if (result !== 1 && result !== 2) throw new Error('Internet permission is required to sync Supernote To-do.');
 }
-async function cloudCall(path: string, data: Record<string, unknown>, token?: string): Promise<Record<string, any>> {
+async function cloudCall(path: string, data: Record<string, unknown>, token?: string, method='POST'): Promise<Record<string, any>> {
   await permission();
   const response = await fetch(BASE + path, {
-    method: 'POST',
+    method,
     headers: {
       'Content-Type': 'application/json',
       ...(token ? {'x-access-token': token} : {}),
@@ -125,10 +126,55 @@ export async function readNativeSupernoteTasks(): Promise<NativeTaskResult> {
     if (!name) continue;
     tasks.push({
       id:String(row.taskId),title:name,due:localDate(row.dueTime),
-      detail:String(row.detail ?? ''),listId:String(row.taskListId ?? ''),
+      detail:String(row.detail ?? ''),listId:String(row.taskListId ?? ''),link:noteLink(row.links),
     });
   }
   const page = String(data.nextPageToken ?? '').trim();
   const truncated = page !== '' && page !== 'null' && page !== 'undefined';
   return {tasks,truncated};
+}
+
+function noteLink(links:unknown):NativeTodo['link'] {
+  if(!Array.isArray(links))return undefined;
+  for(const r of links){
+    if(!r||typeof r!=='object')continue;
+    const path=String(r.filePath??'').trim();
+    const name=String(r.fileName??r.name??path.split('/').pop()??'').trim();
+    if(!name)continue;
+    const page=Number(r.pageNo??r.page);
+    return {name,path:path||undefined,page:Number.isInteger(page)&&page>0?page:undefined};
+  }
+}
+export async function updateNativeTodo(id:string, change:{complete?:true;title?:string;due?:string|null}):Promise<void>{
+  const token:string=await DashboardNative.secureLoadTodoToken();
+  if(!token)throw new Error('Reconnect Supernote Cloud in Settings.');
+  const read=()=>cloudCall('/file/schedule/task/all',{maxResults:1000},token);
+  const before=await read();
+  if(!Array.isArray(before.scheduleTask))throw new Error('Invalid task response.');
+  const row=before.scheduleTask.find((r:any)=>String(r?.taskId)===id&&String(r.isDeleted).toUpperCase()!=='Y');
+  if(!row||row.status==='completed')throw new Error('Task is no longer open. Refresh the dashboard.');
+  const patch:Record<string,unknown>={};
+  if(change.title!==undefined){
+    if(!change.title.trim())throw new Error('Task name is required.');
+    patch.title=change.title.trim();
+  }
+  if(change.due!==undefined){
+    if(change.due===null)patch.dueTime=0;
+    else {
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(change.due))throw new Error('Use YYYY-MM-DD.');
+      const ms=Date.parse(change.due+'T00:00:00Z');
+      if(!Number.isFinite(ms)||new Date(ms).toISOString().slice(0,10)!==change.due)throw new Error('Invalid due date.');
+      patch.dueTime=ms;
+    }
+  }
+  if(change.complete){patch.status='completed';patch.completedTime=Date.now();}
+  // Preserve the server's entire row including link, recurrence and reminder metadata.
+  // PUT only: POST creates a duplicate even if taskId is supplied.
+  await cloudCall('/file/schedule/task',{...row,...patch,lastModified:Date.now()},token,'PUT');
+  const after=await read();
+  const confirmed=Array.isArray(after.scheduleTask)&&after.scheduleTask.find((r:any)=>String(r?.taskId)===id);
+  if(!confirmed|| (change.complete&&confirmed.status!=='completed')||
+    (change.title!==undefined&&String(confirmed.title)!==change.title.trim())||
+    (change.due!==undefined&&localDate(confirmed.dueTime)!==change.due))
+    throw new Error('Supernote did not confirm the update. Refresh before retrying.');
 }
