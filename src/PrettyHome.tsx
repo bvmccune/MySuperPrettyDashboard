@@ -207,6 +207,7 @@ export function PrettyHome({config,nonce,onSettings}:{
   const [calendar,setCalendar]=useState<CalendarResult>(()=>currentCalendar());
   const [taskBusy,setTaskBusy]=useState(false);
   const taskMutation=useRef(false);
+  const taskReadGeneration=useRef(0);
   const [editingTask,setEditingTask]=useState<Task|null>(null);
   const [linkFailure,setLinkFailure]=useState<Task|null>(null);
   const [editTitle,setEditTitle]=useState('');
@@ -264,12 +265,15 @@ export function PrettyHome({config,nonce,onSettings}:{
     refreshCalendar().then(setCalendar).catch(()=>{});
     readRecentDetailed().then(r=>setRecent(r.paths.filter(p=>FILE_RE.test(p)))).catch(()=>{});
     scanCreated().catch(()=>{});
+    if(taskMutation.current)return;
+    const generation=++taskReadGeneration.current;
     setTaskLoading(true);
     readNativeSupernoteTasks().then(result=>{
+      if(generation!==taskReadGeneration.current)return;
       setTasks(result.tasks);
       setTaskError(result.truncated?'Supernote returned an incomplete task list.':'');
-    }).catch(e=>{setTasks([]);setTaskError(String(e?.message||'Supernote To-do unavailable'));})
-      .finally(()=>setTaskLoading(false));
+    }).catch(e=>{if(generation===taskReadGeneration.current)setTaskError(String(e?.message||'Supernote To-do unavailable'));})
+      .finally(()=>{if(generation===taskReadGeneration.current)setTaskLoading(false);});
   },[scanCreated]);
 
   useEffect(()=>{
@@ -324,7 +328,7 @@ export function PrettyHome({config,nonce,onSettings}:{
     [agenda,selectedDay]);
   const notes=useMemo(()=>createdNotes.filter(n=>dateKey(new Date(n.createdAt))===selectedDay),
     [createdNotes,selectedDay]);
-  const mergedNotes=useMemo(()=>{const created=notes.slice(0,3);const shown=new Set(created.map(n=>n.path));return [...created,...recent.filter(p=>!shown.has(p)).map(path=>({path,createdAt:0}))];},[notes,recent]);
+  const mergedNotes=useMemo(()=>{const created=notes.slice(0,3);const shown=new Set(notes.map(n=>n.path));return [...created,...recent.filter(p=>!shown.has(p)).map(path=>({path,createdAt:0}))];},[notes,recent]);
   const activeTasks=useMemo(()=>sortTasks(tasks,now),[tasks,now]);
   const weekStart=mondayOf(now);
   const days=WEEK.map((label,i)=>{
@@ -333,8 +337,8 @@ export function PrettyHome({config,nonce,onSettings}:{
     return {label,date,key,today:key===dateKey(now),hasNotes:createdDays.has(key)};
   });
   const mutateTask=async(item:Task,change:{complete?:true;title?:string;due?:string|null})=>{
-    if(taskMutation.current)return;taskMutation.current=true;setTaskBusy(true);setMutationError('');
-    try{await updateNativeTodo(item.id,change);const result=await readNativeSupernoteTasks();setTasks(result.tasks);setOverlay(null);}
+    if(taskMutation.current)return;taskMutation.current=true;++taskReadGeneration.current;setTaskLoading(false);setTaskBusy(true);setMutationError('');
+    try{await updateNativeTodo(item.id,change);const result=await readNativeSupernoteTasks();setTasks(result.tasks);setTaskError(result.truncated?'Supernote returned an incomplete task list.':'');setOverlay(null);}
     catch(e:any){setMutationError(String(e?.message??e));}finally{taskMutation.current=false;setTaskBusy(false);}
   };
   const editTask=(item:Task)=>{setEditingTask(item);setEditTitle(item.title);setEditDue(item.due??'');setMutationError('');setOverlay('task-edit');};
