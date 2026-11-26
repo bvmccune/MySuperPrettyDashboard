@@ -35,7 +35,7 @@ jest.mock('sn-plugin-lib',()=>({PluginManager:{},
 jest.mock('./config',()=>({loadConfig:jest.fn(async()=>({zones:[]}))}));
 jest.mock('./perf',()=>({markOpen:jest.fn(),ready:jest.fn()}));
 jest.mock('./bubble',()=>({leavePlugin:jest.fn()}));
-jest.mock('./open',()=>({openFile:jest.fn(),openFolder:jest.fn(),launchApp:jest.fn()}));
+jest.mock('./open',()=>({openFile:jest.fn(),openFileAtPage:jest.fn(),openFolder:jest.fn(),launchApp:jest.fn()}));
 jest.mock('./scanner',()=>({scanKeywords:jest.fn()}));
 jest.mock('./relay',()=>({dayKey:jest.fn(),dueBucket:jest.fn(()=> 'none')}));
 jest.mock('./recent',()=>({readRecentDetailed:jest.fn(async()=>({
@@ -44,6 +44,7 @@ jest.mock('./recent',()=>({readRecentDetailed:jest.fn(async()=>({
 jest.mock('./prettyCloud',()=>({
   hasSupernoteLogin:jest.fn(async()=>false),
   readNativeSupernoteTasks:jest.fn(async()=>({tasks:[],truncated:false})),
+  updateNativeTodo:jest.fn(async()=>{}),
 }));
 jest.mock('./prettyPrefs',()=>({
   ...jest.requireActual('./prettyPrefs'),
@@ -62,6 +63,7 @@ import {DEFAULT_PRETTY,loadPrettyPrefs,PrettyPrefs} from './prettyPrefs';
 import {PrettyHome} from './PrettyHome';
 import {PrettySettings} from './PrettySettings';
 import {launchApp} from './open';
+import {readNativeSupernoteTasks,updateNativeTodo} from './prettyCloud';
 import {HomeAgendaList,scheduleBounds} from './PrettyAgenda';
 import {PrettyFitList} from './PrettyFitList';
 import {agendaFromFeed,normalizeFeed,dateKey,dayLabel,addCalendarDays,loadCalendarCache} from './prettyCalendar';
@@ -251,4 +253,23 @@ it('distinguishes true overlaps from exact back-to-back boundaries',()=>{
   expect(rail.overlaps).toEqual([{start:Date.parse(at(12)),end:Date.parse(at(12,45))}]);
   expect(rail.dividers).toEqual([Date.parse(at(13)),Date.parse(at(14))]);
   expect(rail.merged).toHaveLength(1);
+});
+
+it('routes completion and long press editing to the real-task write bridge',async()=>{
+  const task={id:'abc',title:'Test task',due:null,detail:'',listId:'one'};
+  const read=readNativeSupernoteTasks as jest.Mock;
+  read.mockResolvedValue({tasks:[task],truncated:false});
+  load.mockResolvedValue(DEFAULT_PRETTY);
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+  const touch=(label:string)=>app!.root.findAllByType('TouchableOpacity' as any).find(n=>n.props.accessibilityLabel===label)!;
+  await act(async()=>{touch('Open task Test task; long press to edit').props.onLongPress();});
+  const input=app!.root.findAllByType('TextInput' as any)[0];
+  await act(async()=>{input.props.onChangeText('Changed task');});
+  await act(async()=>{await touch('Save').props.onPress();});
+  expect(updateNativeTodo).toHaveBeenCalledWith('abc',{title:'Changed task'});
+  read.mockResolvedValue({tasks:[],truncated:false});
+  await act(async()=>{await touch('Complete Test task').props.onPress();});
+  expect(updateNativeTodo).toHaveBeenCalledWith('abc',{complete:true});
+  expect(touch('Complete Test task')).toBeUndefined();
+  read.mockResolvedValue({tasks:[],truncated:false});
 });
