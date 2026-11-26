@@ -38,3 +38,8 @@ describe('Manta-specific settings migration',()=>{
   expect(normalPretty({workHours:{start:'17:00',end:'09:00'}})).not.toHaveProperty('workHours');
   expect(normalPretty({weatherLocation:{name:'Invalid',latitude:200,longitude:0}}).weatherLocation).toEqual(DEFAULT_PRETTY.weatherLocation);
 });
+
+it('preserves Calendar link and custom icon',()=>{
+ const pin={kind:'note-last',path:'app:calendar',label:'My calendar',icon:'calendar'};
+ expect(normalPretty({quick:[pin]}).quick).toEqual([pin]);
+});
