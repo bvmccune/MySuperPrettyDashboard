@@ -15,7 +15,7 @@ const INTERNET = 'plugin.permission.INTERNET';
 
 export interface NativeTodo {
   id: string; title: string; due: string | null; detail: string; listId: string;
-  link?: {name:string; path?:string; page?:number};
+  link?: {name:string; path?:string; page?:number; fileId?:string; pageId?:string};
 }
 export interface NativeTaskResult {tasks: NativeTodo[]; truncated: boolean}
 
@@ -134,15 +134,16 @@ export async function readNativeSupernoteTasks(): Promise<NativeTaskResult> {
   return {tasks,truncated};
 }
 
-function noteLink(links:unknown):NativeTodo['link'] {
+export function noteLink(links:unknown):NativeTodo['link'] {
   if(!Array.isArray(links))return undefined;
   for(const r of links){
     if(!r||typeof r!=='object')continue;
     const path=String(r.filePath??'').trim();
     const name=String(r.fileName??r.name??path.split('/').pop()??'').trim();
-    if(!name)continue;
+    const fileId=String(r.fileId??'').trim(),pageId=String(r.pageId??'').trim();
+    if(!name&&!path&&!fileId&&!pageId)continue;
     const page=Number(r.pageNo??r.page);
-    return {name,path:path||undefined,page:Number.isInteger(page)&&page>0?page:undefined};
+    return {name,path:path||undefined,page:Number.isInteger(page)&&page>0?page:undefined,fileId:fileId||undefined,pageId:pageId||undefined};
   }
 }
 export async function updateNativeTodo(id:string, change:{complete?:true;title?:string;due?:string|null}):Promise<void>{
@@ -168,11 +169,12 @@ export async function updateNativeTodo(id:string, change:{complete?:true;title?:
     }
   }
   if(change.complete){patch.status='completed';patch.completedTime=Date.now();}
+  if(!Object.keys(patch).length)return;
   // Preserve the server's entire row including link, recurrence and reminder metadata.
   // PUT only: POST creates a duplicate even if taskId is supplied.
   await cloudCall('/file/schedule/task',{...row,...patch,lastModified:Date.now()},token,'PUT');
   const after=await read();
-  const confirmed=Array.isArray(after.scheduleTask)&&after.scheduleTask.find((r:any)=>String(r?.taskId)===id);
+  const confirmed=Array.isArray(after.scheduleTask)&&after.scheduleTask.find((r:any)=>String(r?.taskId)===id&&String(r.isDeleted).toUpperCase()!=='Y');
   if(!confirmed|| (change.complete&&confirmed.status!=='completed')||
     (change.title!==undefined&&String(confirmed.title)!==change.title.trim())||
     (change.due!==undefined&&localDate(confirmed.dueTime)!==change.due))
