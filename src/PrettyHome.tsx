@@ -16,7 +16,7 @@ import {leavePlugin} from './bubble';
 import {launchApp,openFile,openFolder} from './open';
 import {readRecentDetailed} from './recent';
 import {dayKey,dueBucket} from './relay';
-import {loadPrettyPrefs,PrettyPrefs} from './prettyPrefs';
+import {loadPrettyPrefs,PrettyPrefs,quickIcon} from './prettyPrefs';
 import {readNativeSupernoteTasks,updateNativeTodo,NativeTodo} from './prettyCloud';
 import {
   AgendaEvent,CalendarResult,CALENDAR_REFRESH_MS,dateKey,dayLabel,
@@ -47,7 +47,7 @@ type IconName =
   | 'search'|'favorites'|'star'|'star-filled'|'book'|'home'|'settings'|'grid'
   | 'last-note'|'charging'|'notebook'|'edit'|'plus'|'refresh'|'back'
   | 'chicken'|'lizard'|'stars'|'dice'|'ramen'|'controller'|'jellyfish'
-  | 'plants'|'octopus'|'rocks'|'coffee'|'wifi'|'wifi-off'|'keywords'|'pending'|'stardust'|'battery'|'calendar-dot'|'open-notebook';
+  | 'plants'|'octopus'|'rocks'|'coffee'|'wifi'|'wifi-off'|'keywords'|'pending'|'stardust'|'battery'|'calendar-dot'|'open-notebook'|'auto-refresh';
 const IMAGES:Record<IconName,ImageSourcePropType>={
   quick:require('../assets/pretty/quick.png'),
   'new-note':require('../assets/pretty/new-note.png'),
@@ -90,6 +90,7 @@ const IMAGES:Record<IconName,ImageSourcePropType>={
   stardust:require('../assets/pretty/stardust.png'),
   battery:require('../assets/pretty/battery.png'),
   'calendar-dot':require('../assets/pretty/calendar-dot.png'),
+  'auto-refresh':require('../assets/pretty/auto-refresh.png'),
   'open-notebook':require('../assets/pretty/open-notebook.png'),
 };
 type Overlay='favorites'|'recent'|'keywords'|'agenda'|'event'|'new-note'|'quick-edit'|'task-edit'|null;
@@ -505,8 +506,8 @@ export function PrettyHome({config,nonce,onSettings}:{
             {[0,1,2].map(row=><View key={row} style={{flex:1,flexDirection:'row',minHeight:0}}>
               {[0,1].map(col=>{const item=pinned[row*2+col];return <TouchableOpacity key={col}
                 onPress={()=>item?doOpenPinned(item):setOverlay('quick-edit')}
-                style={{flex:1,minWidth:0,margin:3*s,borderWidth:1,borderRadius:7*s,borderColor:DARK_GRAY,flexDirection:'row',alignItems:'center',paddingHorizontal:6*s}}>
-                {!!item&&<><Glyph name={(item as any).icon&&Object.prototype.hasOwnProperty.call(IMAGES,(item as any).icon)?(item as any).icon:item.path==='app:calendar'?'calendar':item.kind==='folder'?'files':'star-filled'} size={24*s}/>
+                style={{flex:1,minWidth:0,margin:3*s,flexDirection:'row',alignItems:'center',paddingHorizontal:6*s}}>
+                {!item&&<Glyph name="plus" size={18*s}/>}{!!item&&<><Glyph name={quickIcon(item)} size={24*s}/>
                 <Txt size={body} lines={3} style={{flex:1,minWidth:0,marginLeft:6*s}}>{item.label}</Txt></>}
               </TouchableOpacity>;})}
             </View>)}
