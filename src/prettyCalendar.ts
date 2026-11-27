@@ -23,6 +23,14 @@ export async function configureCalendarSource(url:string):Promise<void> {
   const result=await DashboardNative.secureSaveCalendarUrl(source);
   if(result!==true)throw new Error('The calendar source could not be saved.');
 }
+export async function configureCalendarToken(token:string):Promise<void> {
+  const value=token.trim();
+  if(value && !/^[A-Za-z0-9._~+/-]+=*$/.test(value))throw new Error('Enter the API token only, without Bearer.');
+  if(await DashboardNative.secureSaveCalendarToken(value)!==true)throw new Error('Calendar token could not be saved.');
+}
+export async function isCalendarTokenConfigured():Promise<boolean> {
+  return Boolean(await DashboardNative.secureLoadCalendarToken());
+}
 export const CALENDAR_REFRESH_MS = 5 * 60 * 1000;
 
 const {DashboardNative} = NativeModules;
@@ -257,14 +265,17 @@ export function refreshCalendar():Promise<CalendarResult>{
     try {
       const source:string=await DashboardNative.secureLoadCalendarUrl();
       if(!source)throw new Error('Configure your Pretty Calendar feed URL once in Settings.');
+      const token:string=await DashboardNative.secureLoadCalendarToken();
       await internetPermission();
       controller=new AbortController();
       timeout=setTimeout(()=>controller?.abort(),15000);
       const response=await fetch(source,{
         method:'GET',
-        headers:{Accept:'application/json'},
+        headers:{Accept:'application/json',...(token?{Authorization:'Bearer '+token}:{})},
+        redirect:'error',
         signal:controller.signal,
       });
+      if(response.status===401||response.status===403)throw new Error('Calendar access denied. Check the API token in Settings.');
       if(!response.ok)throw new Error('Calendar feed returned HTTP '+response.status);
       const feed=normalizeFeed(await response.json());
       const snapshot:CalendarSnapshot={schema:1,fetchedAt:Date.now(),feed};
