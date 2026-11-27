@@ -126,7 +126,7 @@ export async function readNativeSupernoteTasks(): Promise<NativeTaskResult> {
     if (!name) continue;
     tasks.push({
       id:String(row.taskId),title:name,due:localDate(row.dueTime),
-      detail:String(row.detail ?? ''),listId:String(row.taskListId ?? ''),link:noteLink(row.links),
+      detail:String(row.detail ?? ''),listId:String(row.taskListId ?? ''),link:taskNoteLink(row),
     });
   }
   const page = String(data.nextPageToken ?? '').trim();
@@ -135,8 +135,9 @@ export async function readNativeSupernoteTasks(): Promise<NativeTaskResult> {
 }
 
 export function noteLink(links:unknown):NativeTodo['link'] {
-  if(!Array.isArray(links))return undefined;
-  for(const r of links){
+  if(typeof links==='string'){try{return noteLink(JSON.parse(links));}catch{return undefined;}}
+  if(!links||typeof links!=='object')return undefined;
+  for(const r of Array.isArray(links)?links:[links]){
     if(!r||typeof r!=='object')continue;
     const path=String(r.filePath??'').trim();
     const name=String(r.fileName??r.name??path.split('/').pop()??'').trim();
@@ -145,6 +146,32 @@ export function noteLink(links:unknown):NativeTodo['link'] {
     const page=Number(r.pageNo??r.page);
     return {name,path:path||undefined,page:Number.isInteger(page)&&page>0?page:undefined,fileId:fileId||undefined,pageId:pageId||undefined};
   }
+}
+function taskNoteLink(row:Record<string,any>):NativeTodo['link']{
+  return noteLink(row.links)??noteLink(row.noteLinks)??noteLink(row.noteLink)??noteLink(row.link);
+}
+/** User-triggered local diagnostic. Field names and counts, never task values. */
+export async function inspectTaskLinkSchema():Promise<string>{
+  const token:string=await DashboardNative.secureLoadTodoToken();
+  if(!token)throw Error('Reconnect Supernote Cloud in Settings.');
+  const data=await cloudCall('/file/schedule/task/all',{maxResults:1000},token);
+  if(!Array.isArray(data.scheduleTask))throw Error('Invalid task response.');
+  const rows=data.scheduleTask.filter((r:any)=>r&&r.taskId&&String(r.isDeleted).toUpperCase()!=='Y'&&r.status!=='completed');
+  const keys=new Set<string>(),shapes=new Map<string,number>();
+  for(const row of rows){
+    Object.keys(row).forEach(k=>keys.add(k));
+    for(const field of ['links','noteLinks','noteLink','link']){
+      if(row[field]==null)continue;
+      let value=row[field];
+      let form=Array.isArray(value)?'array':typeof value;
+      if(typeof value==='string'){try{value=JSON.parse(value);form+=' (JSON)';}catch{}}
+      const entries=Array.isArray(value)?value:[value];
+      const fields=[...new Set(entries.flatMap((v:any)=>v&&typeof v==='object'?Object.keys(v):[]))].sort();
+      const signature=field+' '+form+' ['+fields.join(', ')+']';
+      shapes.set(signature,(shapes.get(signature)??0)+1);
+    }
+  }
+  return ['Open tasks: '+rows.length,'Recognized notebook links: '+rows.filter((r:any)=>taskNoteLink(r)).length,'Task field names: '+[...keys].sort().join(', '),'Link shapes: '+([...shapes].map(([k,n])=>k+': '+n).join('\n')||'No explicit link fields returned')].join('\n');
 }
 export async function updateNativeTodo(id:string, change:{complete?:true;title?:string;due?:string|null}):Promise<void>{
   const token:string=await DashboardNative.secureLoadTodoToken();

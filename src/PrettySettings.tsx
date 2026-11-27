@@ -7,7 +7,7 @@ import {NativeModules, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity
 import {DashboardConfig, loadConfig, ShortcutItem} from './config';
 import {loadPrettyPrefs, PrettyPrefs, savePrettyPrefs} from './prettyPrefs';
 import {
-  disconnectSupernote, hasSupernoteLogin, readNativeSupernoteTasks,
+  disconnectSupernote, hasSupernoteLogin, readNativeSupernoteTasks, inspectTaskLinkSchema,
   startSupernoteLogin, verifySupernoteLogin, LoginProgress,
 } from './prettyCloud';
 import {setRoute} from './route';
@@ -246,6 +246,7 @@ export function PrettySettings(): React.JSX.Element {
               <View style={{flexDirection:'row',flexWrap:'wrap'}}>
                 <Action filled disabled={busy} onPress={testSync}>Test sync</Action>
                 <Action disabled={busy} onPress={disconnect}>Disconnect</Action>
+                <Action small disabled={busy} onPress={()=>attempt(async()=>setStatus(await inspectTaskLinkSchema()))}>Inspect note-link fields</Action>
               </View>
             </View>
           ):(

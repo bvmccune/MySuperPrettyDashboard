@@ -52,3 +52,10 @@ it('rejects ambiguous filenames, missing and stale page IDs',async()=>{
 it('follows moved pages without trusting a stale page number',async()=>{
  expect(await resolveTaskNote({name:'Old.note',fileId:'F123',pageId:'moved',page:3},dir,async p=>p===a?'F123':'other',async p=>p===b?1:null)).toEqual({path:b,page:1});
 });
+
+it('recognizes explicit object and JSON-encoded note links',()=>{
+ const link={fileName:'Old.note',fileId:'F123',pageId:'P123',pageNo:3};
+ expect(noteLink(link)).toMatchObject({fileId:'F123',pageId:'P123',page:3});
+ expect(noteLink(JSON.stringify([link]))).toMatchObject({fileId:'F123',page:3});
+ expect(noteLink('not metadata')).toBeUndefined();
+});
