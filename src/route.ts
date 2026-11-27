@@ -1,13 +1,13 @@
 /**
  * Tiny router shared between index.js (entry points) and App.tsx (rendering).
- *   - 'config'    → opened by the plugin toolbar button
- *   - 'dashboard' → opened by tapping the floating bubble
+ *   - 'config'    → opened from Home Settings
+ *   - 'dashboard' → opened by the SmartyNote toolbar button
  */
 import {DeviceEventEmitter} from 'react-native';
 
 export type Route = 'config' | 'dashboard';
 
-let current: Route = 'config';
+let current: Route = 'dashboard';
 
 export function setRoute(r: Route) {
   current = r;

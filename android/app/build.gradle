@@ -191,8 +191,8 @@ android {
         applicationId "com.mysuperprettydashboard"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode = Integer.parseInt(System.getenv("GITHUB_RUN_NUMBER") ?: "110")
+        versionName = (System.getenv("SMARTYNOTE_VERSION") ?: "00.09.110")
     }
     signingConfigs {
         debug {

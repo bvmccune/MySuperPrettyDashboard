@@ -470,6 +470,7 @@ test_has_android_native_code() {
 ensure_build_generated_dir() {
     local project_root="$1"
     local dir="$project_root/build/generated"
+    rm -rf "$dir"
     mkdir -p "$dir"
     echo "$dir"
 }
@@ -715,9 +716,10 @@ main() {
         update_plugin_config_packages "$project_root" "$gen_dir" "$all_pkgs"
 
         if build_android_apk "$project_root" "$gen_cfg"; then
-            copy_apk_and_update_config "$project_root" "$gen_dir" "$gen_cfg" || true
+            copy_apk_and_update_config "$project_root" "$gen_dir" "$gen_cfg" || return 1
         else
             write_color_output "APK build failed" "Red"
+            return 1
         fi
     else
         write_color_output "Build conditions not met; skipping native build and reactPackages update" "Yellow"
@@ -725,8 +727,9 @@ main() {
 
     local outputs_dir
     outputs_dir="$(ensure_build_outputs_directory "$project_root")"
-    mkdir -p "$gen_dir/licenses/weather-iconic"
-    cp -R "$project_root/assets/weather-iconic/." "$gen_dir/licenses/weather-iconic/"
+    mkdir -p "$gen_dir/licenses"
+    cp "$project_root/LICENSE" "$gen_dir/licenses/SuperDashboard-MIT.txt"
+    cp "$project_root/android/app/src/main/assets/fonts/OFL.txt" "$gen_dir/licenses/GoogleSansFlex-OFL.txt"
     local zip_path="$outputs_dir/${PACKAGE_NAME}.zip"
     if new_zip_package "$gen_dir" "$zip_path"; then
         rename_to_snplg_file "$zip_path" "$PACKAGE_NAME" >/dev/null

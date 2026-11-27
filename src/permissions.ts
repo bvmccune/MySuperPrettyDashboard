@@ -68,11 +68,11 @@ export async function ensureFilePermissions(): Promise<boolean> {
   try {
     const read = await ensure(
       PERM_FILE_READ,
-      'SuperDashboard reads your notes and folders to build the dashboard (stars, keywords, recent, shortcuts).',
+      'SmartyNote reads your notes and folders to display recent notes, stars and shortcuts.',
     );
     const write = await ensure(
       PERM_FILE_WRITE,
-      'SuperDashboard needs write access to remove a star from a note when you tap delete.',
+      'SmartyNote needs write access to save your preferences and create notes.',
     );
     granted = read && write;
     plog(`ensureFilePermissions read=${read} write=${write} → ${granted}`);

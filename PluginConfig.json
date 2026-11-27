@@ -1,13 +1,13 @@
 {
-  "name": "MySuperPrettyDashboard",
+  "name": "SmartyNote",
   "pluginKey": "MySuperPrettyDashboard",
   "pluginID": "myprettydash2026",
   "jsMainPath": "index",
   "iconPath": "assets/icon.png",
-  "desc": "Minimalist Supernote Manta home dashboard with shortcuts, files, and optional direct preview of your existing Supernote To-do tasks via Supernote Cloud.",
+  "desc": "Minimalist Supernote Manta home dashboard with shortcuts, files, and editing your existing Supernote To-do tasks via Supernote Cloud.",
   "author": "bvmccune",
-  "versionName": "0.4.0",
-  "versionCode": "6",
+  "versionName": "00.09.110",
+  "versionCode": "110",
   "uses-permissions": [
     "plugin.permission.INTERNET",
     "plugin.permission.FILE:READ",

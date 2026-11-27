@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
-  <title>Temperature range gauge — original reference proportions</title>
-  <desc>Fresh mathematical circular arc, rounded ends, constant stroke. Temperature labels and marker are live.</desc>
-  <rect width="100" height="100" fill="#FFFFFF"/>
-  <path d="M 17.233918 72.943057 A 40 40 0 1 1 82.766082 72.943057" fill="none" stroke="#999999" stroke-width="10.5" stroke-linecap="round"/>
-</svg>

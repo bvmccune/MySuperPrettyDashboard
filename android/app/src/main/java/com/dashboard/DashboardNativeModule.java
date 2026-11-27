@@ -83,52 +83,6 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
     // Android files directory, not in the user's shared MyStyle directory.
     // This is a read-only copy of the existing feed and never mirrors records
     // into the system Calendar database.
-    /** Weather-only fallback for React Native transport failures. TLS validation is
-     * unchanged; never accept arbitrary hosts, redirects, credentials or ports. */
-    @ReactMethod
-    public void fetchOpenMeteoJson(String address, Promise promise) {
-        new Thread(() -> {
-            javax.net.ssl.HttpsURLConnection connection = null;
-            try {
-                java.net.URL url = new java.net.URL(address);
-                String host = url.getHost();
-                boolean allowed = ("api.open-meteo.com".equalsIgnoreCase(host) && "/v1/forecast".equals(url.getPath()))
-                    || ("geocoding-api.open-meteo.com".equalsIgnoreCase(host) && "/v1/search".equals(url.getPath()))
-                    || ("ipapi.co".equalsIgnoreCase(host) && "/json/".equals(url.getPath()) && url.getQuery() == null);
-                if (!allowed || !"https".equals(url.getProtocol()) || url.getUserInfo() != null
-                    || (url.getPort() != -1 && url.getPort() != 443) || url.getRef() != null) {
-                    throw new java.io.IOException("Weather endpoint is not allowed");
-                }
-                connection = (javax.net.ssl.HttpsURLConnection) url.openConnection();
-                connection.setConnectTimeout(10000);
-                connection.setReadTimeout(10000);
-                connection.setInstanceFollowRedirects(false);
-                connection.setRequestMethod("GET");
-                connection.setRequestProperty("Accept", "application/json");
-                int status = connection.getResponseCode();
-                if (status < 200 || status >= 300) {
-                    promise.reject("WEATHER_HTTP", "Weather/location HTTP " + status);
-                    return;
-                }
-                try (java.io.InputStream in = connection.getInputStream();
-                     java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
-                    byte[] buffer = new byte[8192];
-                    int count;
-                    while ((count = in.read(buffer)) != -1) {
-                        if (out.size() + count > 1024 * 1024) throw new java.io.IOException("Weather response too large");
-                        out.write(buffer, 0, count);
-                    }
-                    promise.resolve(new String(out.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
-                }
-            } catch (Exception e) {
-                // Do not include request URLs or coordinates in diagnostics.
-                promise.reject("WEATHER_NETWORK", "Native weather request failed: " + e.getClass().getSimpleName());
-            } finally {
-                if (connection != null) connection.disconnect();
-            }
-        }, "PrettyWeather").start();
-    }
-
     private File privateCalendarSnapshotFile() throws java.io.IOException {
         File dir = new File(getReactApplicationContext().getFilesDir(),
                 "MySuperPrettyDashboard");
@@ -369,6 +323,81 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
     }
 
     /** Launch any activity by "package/activity" component string (Apps zone). */
+    /** Ask the installed Calendar to open the current time only if it advertises
+     * the standard Calendar ACTION_VIEW time URI. Otherwise normal launch. */
+    @ReactMethod
+    public void launchCalendarToday(Promise promise) {
+        final String pkg = "com.ratta.supernote.calendar";
+        try {
+            Intent today = new Intent(Intent.ACTION_VIEW,
+                android.net.Uri.parse("content://com.android.calendar/time/" + System.currentTimeMillis()));
+            today.setPackage(pkg);
+            today.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            PackageManager pm = getReactApplicationContext().getPackageManager();
+            ResolveInfo match = pm.resolveActivity(today, PackageManager.MATCH_DEFAULT_ONLY);
+            if (match != null && match.activityInfo != null && match.activityInfo.exported
+                    && pkg.equals(match.activityInfo.packageName)) {
+                getReactApplicationContext().startActivity(today);
+                promise.resolve(true);
+                return;
+            }
+        } catch (Exception ignored) { /* Safe normal launch fallback. */ }
+        launchActivity(pkg + "/com.ratta.supernote.calendar.MainActivity", promise);
+    }
+
+    /** Discover the firmware's native Settings launcher through PackageManager.
+     * Restrict discovery to Ratta/Supernote system packages, not third-party
+     * apps named Settings; do not guess an unexported activity or open Android
+     * generic Settings instead of the vendor UI. */
+    @ReactMethod
+    public void launchNativeSettings(Promise promise) {
+        try {
+            android.content.Context ctx = getReactApplicationContext();
+            PackageManager pm = ctx.getPackageManager();
+            Intent query = new Intent(Intent.ACTION_MAIN);
+            query.addCategory(Intent.CATEGORY_LAUNCHER);
+            java.util.List<ResolveInfo> entries = pm.queryIntentActivities(query, 0);
+            java.util.LinkedHashSet<String> matches = new java.util.LinkedHashSet<>();
+            for (ResolveInfo ri : entries) {
+                ActivityInfo ai = ri.activityInfo;
+                if (ai == null || !ai.exported || ai.applicationInfo == null) continue;
+                String pkg = ai.packageName.toLowerCase(java.util.Locale.ROOT);
+                boolean vendor = pkg.startsWith("com.ratta.") || pkg.startsWith("com.supernote.");
+                boolean system = (ai.applicationInfo.flags & (android.content.pm.ApplicationInfo.FLAG_SYSTEM | android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0;
+                if (!vendor || !system) continue;
+                String label = String.valueOf(ri.loadLabel(pm)).trim();
+                String appLabel = String.valueOf(ai.applicationInfo.loadLabel(pm)).trim();
+                if (label.equalsIgnoreCase("Settings") || appLabel.equalsIgnoreCase("Settings")
+                        || pkg.equals("com.ratta.supernote.settings") || pkg.equals("com.ratta.supernote.setting")) {
+                    matches.add(ai.packageName + "/" + ai.name);
+                }
+            }
+            if (matches.size() == 1) {
+                launchActivity(matches.iterator().next(), promise);
+                return;
+            }
+            // Some firmware exposes the vendor Settings UI via ACTION_SETTINGS only.
+            Intent settings = new Intent(android.provider.Settings.ACTION_SETTINGS);
+            ResolveInfo ri = pm.resolveActivity(settings, PackageManager.MATCH_DEFAULT_ONLY);
+            if (ri != null && ri.activityInfo != null && ri.activityInfo.exported) {
+                ActivityInfo ai = ri.activityInfo;
+                String pkg = ai.packageName.toLowerCase(java.util.Locale.ROOT);
+                boolean vendor = pkg.startsWith("com.ratta.") || pkg.startsWith("com.supernote.");
+                boolean system = ai.applicationInfo != null && (ai.applicationInfo.flags & (android.content.pm.ApplicationInfo.FLAG_SYSTEM | android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0;
+                if (vendor && system) {
+                    settings.setComponent(new ComponentName(ai.packageName, ai.name));
+                    settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    ctx.startActivity(settings);
+                    promise.resolve(true);
+                    return;
+                }
+            }
+            promise.reject("SETTINGS_UNAVAILABLE", "Native Supernote Settings could not be uniquely resolved on this firmware. Use the device's Settings menu.");
+        } catch (Exception e) {
+            promise.reject("SETTINGS_UNAVAILABLE", e.getClass().getSimpleName() + ": " + e.getMessage(), e);
+        }
+    }
+
     @ReactMethod
     public void launchActivity(String component, Promise promise) {
         try {

@@ -199,3 +199,13 @@ export async function resolveClipTarget(
   }
   return {path: sourcePath, page: sourcePage, moved: false};
 }
+
+/** Strict task backlink lookup. Never silently jump to a stale hinted page. */
+export async function taskPageIndex(path:string,id:string,hint=-1):Promise<number|null>{
+  const result=await findInNote(path,id,hint).catch(()=>null);
+  return result?.readable&&result.index>=0?result.index:null;
+}
+export async function noteStableFileId(path:string):Promise<string>{
+  const head=await read(path,0,8192);
+  return head?.s.match(/<FILE_ID:([^>]+)>/)?.[1]??'';
+}

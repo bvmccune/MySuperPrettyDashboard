@@ -13,7 +13,7 @@ export function PrettyScreenHeader({title,left,right}:{title:string;left?:Header
         <Text style={{fontFamily:SCREEN_FONT,fontSize:19,fontWeight:'500',color:'#fff'}}>{a.label}</Text>
       </TouchableOpacity>}
     </View>;
-  return <View style={{backgroundColor:'#111',minHeight:56,flexDirection:'row',alignItems:'center',width:'100%'}}>
+  return <View style={{backgroundColor:'#000',minHeight:56,flexDirection:'row',alignItems:'center',width:'100%'}}>
     {action(left,'left')}
     <Text numberOfLines={2} style={{flex:1,textAlign:'center',fontFamily:SCREEN_FONT,fontSize:22,
       fontWeight:'600',color:'#fff',paddingVertical:10}}>{title}</Text>

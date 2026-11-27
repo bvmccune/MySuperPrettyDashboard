@@ -35,8 +35,8 @@ jest.mock('sn-plugin-lib',()=>({PluginManager:{},
 jest.mock('./config',()=>({loadConfig:jest.fn(async()=>({zones:[]}))}));
 jest.mock('./perf',()=>({markOpen:jest.fn(),ready:jest.fn()}));
 jest.mock('./bubble',()=>({leavePlugin:jest.fn()}));
-jest.mock('./open',()=>({openFile:jest.fn(),openFolder:jest.fn(),launchApp:jest.fn()}));
-jest.mock('./scanner',()=>({scanKeywords:jest.fn()}));
+jest.mock('./open',()=>({openFile:jest.fn(),openVerifiedTaskPage:jest.fn(async()=>true),openFolder:jest.fn(),launchApp:jest.fn(),openNativeSettings:jest.fn(),openCalendarToday:jest.fn()}));
+jest.mock('./scanner',()=>({scanKeywords:jest.fn(),scanStars:jest.fn(async()=>({notes:[{file:'/storage/emulated/0/Note/Example.note',mtime:1,pages:[{page:3,count:2}]}],truncated:false,total:1}))}));
 jest.mock('./relay',()=>({dayKey:jest.fn(),dueBucket:jest.fn(()=> 'none')}));
 jest.mock('./recent',()=>({readRecentDetailed:jest.fn(async()=>({
   paths:['/storage/emulated/0/Note/Project/Example.note'],mode:'opened',
@@ -44,6 +44,7 @@ jest.mock('./recent',()=>({readRecentDetailed:jest.fn(async()=>({
 jest.mock('./prettyCloud',()=>({
   hasSupernoteLogin:jest.fn(async()=>false),
   readNativeSupernoteTasks:jest.fn(async()=>({tasks:[],truncated:false})),
+  updateNativeTodo:jest.fn(async()=>{}),
 }));
 jest.mock('./prettyPrefs',()=>({
   ...jest.requireActual('./prettyPrefs'),
@@ -61,7 +62,10 @@ import {setRoute,getRoute} from './route';
 import {DEFAULT_PRETTY,loadPrettyPrefs,PrettyPrefs} from './prettyPrefs';
 import {PrettyHome} from './PrettyHome';
 import {PrettySettings} from './PrettySettings';
-import {HomeAgendaList} from './PrettyAgenda';
+import {launchApp,openNativeSettings,openCalendarToday,openFile} from './open';
+import {dueBucket} from './relay';
+import {readNativeSupernoteTasks,updateNativeTodo} from './prettyCloud';
+import {HomeAgendaList,scheduleBounds} from './PrettyAgenda';
 import {PrettyFitList} from './PrettyFitList';
 import {agendaFromFeed,normalizeFeed,dateKey,dayLabel,addCalendarDays,loadCalendarCache} from './prettyCalendar';
 
@@ -174,7 +178,7 @@ it('calculates +N from measured rows and includes conflicts with events omitted 
   await act(async()=>{visible.props.onPress();});
   expect(onEvent).toHaveBeenCalledWith(rows[0]);
 });
-it('calendar shortcut opens today; selecting an event opens detail without changing Home day',async()=>{
+it('calendar shortcut opens native calendar; dashboard agenda remains separate',async()=>{
   const today=new Date(),todayKey=dateKey(today);
   const start=new Date(today.getFullYear(),today.getMonth(),today.getDate(),9);
   const end=new Date(start.getTime()+3600000);
@@ -186,11 +190,14 @@ it('calendar shortcut opens today; selecting an event opens detail without chang
   const touch=(label:string)=>app!.root.findAllByType('TouchableOpacity' as any).find(n=>n.props.accessibilityLabel===label)!;
   const day=new Date(today);day.setDate(today.getDate()+(today.getDay()===0?-1:1));
   await act(async()=>{touch('Select '+day.toDateString()).props.onPress();});
-  const selectedHeading=dayLabel(dateKey(day))+' Notes';
+  const selectedHeading=dayLabel(dateKey(day));
   const selectedEventHeading=dayLabel(dateKey(day))+' Events';
-  expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedHeading)).toBe(true);
+  expect(app!.root.findAllByType('Text' as any).some(n=>(Array.isArray(n.props.children)?n.props.children.join(''):n.props.children)===selectedHeading)).toBe(true);
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedEventHeading)).toBe(true);
   await act(async()=>{touch('Calendar').props.onPress();});
+  expect(openCalendarToday).toHaveBeenCalled();
+  await act(async()=>{touch('View all events').props.onPress();});
+  await act(async()=>{touch('Today').props.onPress();});
   // React represents the two JSX date expressions and intervening text as
   // separate children. Compare the visible text, not their array identity.
   const showsRange=(first:string)=>app!.root.findAllByType('Text' as any).some(n=>{
@@ -207,7 +214,7 @@ it('calendar shortcut opens today; selecting an event opens detail without chang
   expect(event).toBeTruthy();
   await act(async()=>{event.props.onPress();});
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children==='Event details')).toBe(true);
-  expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedHeading)).toBe(true);
+  expect(app!.root.findAllByType('Text' as any).some(n=>(Array.isArray(n.props.children)?n.props.children.join(''):n.props.children)===selectedHeading)).toBe(true);
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children===selectedEventHeading)).toBe(true);
   await act(async()=>{touch('Back').props.onPress();});
   expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children==='Seven-day agenda')).toBe(true);
@@ -226,4 +233,159 @@ it('fits complete wrapped rows after actual layout measurement',async()=>{
   expect(count('one')).toBe(2);
   expect(count('two')).toBe(2);
   expect(count('three')).toBe(1);
+});
+
+it('schedule extends only for timed events and merges overlaps',()=>{
+  const day='2026-11-26',at=(h:number)=>new Date(2026,10,26,h).toISOString();
+  const events=agendaFromFeed(normalizeFeed({events:[{summary:'Holiday',start:day,end:'2026-11-27',all_day:true,calendar:'Work'},{summary:'Early',start:at(7),end:at(9),all_day:false,calendar:'Work'},{summary:'Overlap',start:at(8),end:at(10),all_day:false,calendar:'Work'},{summary:'Late',start:at(18),end:at(20),all_day:false,calendar:'Work'}]}));
+  const rail=scheduleBounds(day,events);
+  expect(new Date(rail.start).getHours()).toBe(7);expect(new Date(rail.end).getHours()).toBe(20);expect(rail.merged).toHaveLength(2);
+});
+
+it('distinguishes true overlaps from exact back-to-back boundaries',()=>{
+  const day='2026-11-26',at=(h:number,m=0)=>new Date(2026,10,26,h,m).toISOString();
+  const events=agendaFromFeed(normalizeFeed({events:[
+    {summary:'A',start:at(11,45),end:at(12,45),all_day:false,calendar:'Work'},
+    {summary:'B',start:at(12),end:at(13),all_day:false,calendar:'Work'},
+    {summary:'C',start:at(13),end:at(14),all_day:false,calendar:'Work'},
+    {summary:'D',start:at(14),end:at(15),all_day:false,calendar:'Work'},
+  ]}));
+  const rail=scheduleBounds(day,events);
+  expect(rail.overlaps).toEqual([{start:Date.parse(at(12)),end:Date.parse(at(12,45))}]);
+  expect(rail.dividers).toEqual([Date.parse(at(13)),Date.parse(at(14))]);
+  expect(rail.merged).toHaveLength(1);
+});
+
+it('routes completion and long press editing to the real-task write bridge',async()=>{
+  const task={id:'abc',title:'Test task',due:null,detail:'',listId:'one'};
+  const read=readNativeSupernoteTasks as jest.Mock;
+  read.mockResolvedValue({tasks:[task],truncated:false});
+  load.mockResolvedValue(DEFAULT_PRETTY);
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+  const touch=(label:string)=>app!.root.findAllByType('TouchableOpacity' as any).find(n=>n.props.accessibilityLabel===label)!;
+  await act(async()=>{touch('Open task Test task; long press to edit').props.onLongPress();});
+  const input=app!.root.findAllByType('TextInput' as any)[0];
+  await act(async()=>{input.props.onChangeText('Changed task');});
+  await act(async()=>{await touch('Save').props.onPress();});
+  expect(updateNativeTodo).toHaveBeenCalledWith('abc',{title:'Changed task'});
+  read.mockResolvedValue({tasks:[],truncated:false});
+  await act(async()=>{await touch('Complete Test task').props.onPress();});
+  expect(updateNativeTodo).toHaveBeenCalledWith('abc',{complete:true});
+  expect(touch('Complete Test task')).toBeUndefined();
+  read.mockResolvedValue({tasks:[],truncated:false});
+});
+
+it('opens real Stars results from a pinned Stars destination',async()=>{
+  load.mockResolvedValue({...DEFAULT_PRETTY,quick:[{kind:'note-last',path:'app:stars',label:'Stars',icon:'stars'}]});
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+  const pin=app!.root.findAllByType('TouchableOpacity' as any).find(n=>n.findAllByType('Text' as any).some(t=>t.props.children==='Stars'))!;
+  await act(async()=>{pin.props.onPress();});
+  const result=app!.root.findAllByType('TouchableOpacity' as any).find(n=>String(n.props.accessibilityLabel).includes('Open Example page 3'))!;
+  expect(result).toBeTruthy();
+  await act(async()=>{result.props.onPress();});
+  expect(openFile).toHaveBeenCalledWith('/storage/emulated/0/Note/Example.note',3);
+});
+
+it('puts the black OVERDUE badge above the due date in each task row',async()=>{
+  const read=readNativeSupernoteTasks as jest.Mock;
+  const bucket=dueBucket as jest.Mock;
+  bucket.mockReturnValue('overdue');
+  read.mockResolvedValue({tasks:[{id:'overdue-fixture',title:'Overdue test',due:'2026-11-24',detail:'',listId:'one'}],truncated:false});
+  load.mockResolvedValue(DEFAULT_PRETTY);
+  try{
+    await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+    const text=app!.root.findAllByType('Text' as any).map(n=>n.props.children);
+    const badge=text.indexOf('OVERDUE'),date=text.indexOf('11/24');
+    expect(badge).toBeGreaterThanOrEqual(0);expect(date).toBeGreaterThan(badge);
+  }finally{bucket.mockReturnValue('none');read.mockResolvedValue({tasks:[],truncated:false});}
+});
+
+it('uses an icon-only Search button that launches native Global Search',async()=>{
+  load.mockResolvedValue(DEFAULT_PRETTY);
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+  const buttons=app!.root.findAllByType('TouchableOpacity' as any);
+  const search=buttons.find(n=>n.props.accessibilityLabel==='Search')!;
+  const note=buttons.find(n=>n.props.accessibilityLabel==='Choose note name, type, template')!;
+  expect(search).toBeTruthy();expect(note).toBeTruthy();
+  expect(buttons.indexOf(search)).toBeLessThan(buttons.indexOf(note));
+  expect(search.findAllByType('Text' as any)).toHaveLength(0);
+  await act(async()=>{search.props.onPress();});
+  expect(launchApp).toHaveBeenCalledWith('com.ratta.search/com.ratta.search.MainActivity');
+});
+
+it('matches original TRMNL conflict geometry at every display scale',async()=>{
+  const {Conflict,CONFLICT_MARKER}=require('./PrettyAgenda');
+  expect(CONFLICT_MARKER).toEqual({diameter:12,overlap:2,width:23,height:13});
+  for(const scale of [1,1.5]){
+    await act(async()=>{app=create(<Conflict scale={scale}/>);});
+    const first=app!.root.findAll(n=>typeof n.type==='string'&&n.props.testID==='conflict-dot-first')[0];
+    const second=app!.root.findAll(n=>typeof n.type==='string'&&n.props.testID==='conflict-dot-second')[0];
+    expect(first.props.style.width).toBe(12*scale);
+    expect(first.props.style.height).toBe(12*scale);
+    expect(second.props.style.marginLeft).toBe(-2*scale);
+    expect(second.props.style.backgroundColor).toBe('#000');
+  }
+});
+
+it('edits a real task due date through the calendar picker, saving only after task Save',async()=>{
+  const read=readNativeSupernoteTasks as jest.Mock;
+  read.mockResolvedValue({tasks:[{id:'date-task',title:'Date test',due:'2026-11-24',detail:'',listId:'one'}],truncated:false});
+  load.mockResolvedValue(DEFAULT_PRETTY);
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+  const touch=(label:string)=>app!.root.findAllByType('TouchableOpacity' as any).find(n=>n.props.accessibilityLabel===label)!;
+  await act(async()=>{touch('Open task Date test; long press to edit').props.onLongPress();});
+  await act(async()=>{touch('Choose due date').props.onPress();});
+  await act(async()=>{touch('2026-11-25').props.onPress();});
+  await act(async()=>{touch('Save').props.onPress();});
+  expect(touch('Choose due date')).toBeTruthy();
+  await act(async()=>{await touch('Save').props.onPress();});
+  expect(updateNativeTodo).toHaveBeenCalledWith('date-task',{due:'2026-11-25'});
+  read.mockResolvedValue({tasks:[],truncated:false});
+});
+it('calendar picker month cells include Monday-first and leap day',()=>{
+  const {monthCells}=require('./PrettyTaskDatePicker');
+  const cells=monthCells(2024,1);
+  expect(cells[0]).toBe('2024-01-29');
+  expect(cells).toContain('2024-02-29');
+  expect(cells).toHaveLength(42);
+});
+
+it('places Stardust native Settings before Search, distinct from plugin Settings',async()=>{
+  load.mockResolvedValue(DEFAULT_PRETTY);
+  const onSettings=jest.fn();
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={onSettings}/>);});
+  const buttons=app!.root.findAllByType('TouchableOpacity' as any);
+  const profile=buttons.find(n=>n.props.accessibilityLabel==='Supernote Settings')!;
+  const search=buttons.find(n=>n.props.accessibilityLabel==='Search')!;
+  const gear=buttons.find(n=>n.props.accessibilityLabel==='Settings')!;
+  expect(profile).toBeTruthy();expect(buttons.indexOf(profile)).toBeLessThan(buttons.indexOf(search));
+  await act(async()=>{profile.props.onPress();});
+  expect(openNativeSettings).toHaveBeenCalled();expect(onSettings).not.toHaveBeenCalled();
+  await act(async()=>{gear.props.onPress();});
+  expect(onSettings).toHaveBeenCalled();
+});
+
+it('fits Quick access in measured complete rows beyond six, with exact pin-only overflow',async()=>{
+  const pins=Array.from({length:20},(_,i)=>({kind:'folder' as const,path:'/storage/emulated/0/Note/Folder'+i,label:'Folder '+i,icon:'files' as const}));
+  load.mockResolvedValue({...DEFAULT_PRETTY,quick:pins});
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+  const body=app!.root.findAll(n=>typeof n.type==='string'&&n.props.testID==='quick-fit-body')[0];
+  await act(async()=>{body.props.onLayout({nativeEvent:{layout:{height:260}}});});
+  const measurements=()=>app!.root.findAll(n=>typeof n.type==='string'&&String(n.props.testID).startsWith('fit-measure-quick-'));
+  await act(async()=>{measurements().forEach(n=>n.props.onLayout({nativeEvent:{layout:{height:36}}}));});
+  const visible=()=>app!.root.findAll(n=>typeof n.type==='string'&&String(n.props.testID).startsWith('fit-visible-quick-'));
+  const count=(label:string)=>app!.root.findAll(n=>typeof n.type==='string'&&n.props.accessibilityLabel===label).length;
+  expect(visible()).toHaveLength(7);
+  expect(count('6 additional shortcuts')).toBe(1);
+  await act(async()=>{measurements()[0].props.onLayout({nativeEvent:{layout:{height:72}}});});
+  expect(visible()).toHaveLength(6);
+  expect(count('8 additional shortcuts')).toBe(1);
+});
+it('add tile never replaces a saved shortcut and is not counted as hidden',()=>{
+  const {quickRows,hiddenQuickPins}=require('./prettyQuickLayout');
+  const rows=quickRows([1,2,3,4,5]);
+  expect(rows).toEqual([[1,2],[3,4],[5,null]]);
+  expect(hiddenQuickPins(rows,1)).toBe(1);
+  expect(hiddenQuickPins(quickRows([1,2]),1)).toBe(0);
+  expect(quickRows(Array.from({length:30},(_,i)=>i))).toHaveLength(15);
 });

@@ -1,21 +1,19 @@
 /**
- * Settings for MySuperPrettyDashboard, not the inherited widget-grid wizard.
+ * Settings for SmartyNote, not the inherited widget-grid wizard.
  * Native Supernote To-do remains authoritative; this screen only connects it.
  */
 import React, {useEffect, useRef, useState} from 'react';
-import {Linking, NativeModules, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
+import {NativeModules, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {DashboardConfig, loadConfig, ShortcutItem} from './config';
 import {loadPrettyPrefs, PrettyPrefs, savePrettyPrefs} from './prettyPrefs';
 import {
-  disconnectSupernote, hasSupernoteLogin, readNativeSupernoteTasks,
+  disconnectSupernote, hasSupernoteLogin, readNativeSupernoteTasks, inspectTaskLinkSchema,
   startSupernoteLogin, verifySupernoteLogin, LoginProgress,
 } from './prettyCloud';
 import {setRoute} from './route';
 import {CalendarResult, currentCalendar, loadCalendarCache, refreshCalendar, configureCalendarSource, isCalendarSourceConfigured} from './prettyCalendar';
 import {openFile, openFolder} from './open';
 import {PrettyScreenHeader, SCREEN_BODY} from './PrettyScreen';
-import {WeatherIcon} from './WeatherIcon';
-import {refreshAutomaticWeather,readAutomaticLocation,WeatherLocation} from './prettyWeather';
 
 const {DashboardNative} = NativeModules;
 const BASE = '/storage/emulated/0';
@@ -27,8 +25,8 @@ function TextLine({children, big=false, faint=false, bold=false}: {children:Reac
 }
 function Action({children,onPress,filled=false,small=false,disabled=false}: {children:React.ReactNode;onPress:()=>void;filled?:boolean;small?:boolean;disabled?:boolean}) {
   return <TouchableOpacity onPress={onPress} disabled={disabled}
-    style={{paddingVertical:small?7:11,paddingHorizontal:small?10:15,borderRadius:0,borderWidth:1,borderColor:'#777',backgroundColor:filled?'#111':'#fff',opacity:disabled ? 0.5 : 1,alignSelf:'flex-start',marginRight:8,marginVertical:3}}>
-    <Text style={{color:filled?'#fff':'#111',fontFamily:FONT,fontSize:small?18:20}}>{children}</Text>
+    style={{paddingVertical:small?7:11,paddingHorizontal:small?10:15,borderRadius:0,borderWidth:1,borderColor:'#777',backgroundColor:filled?'#000':'#fff',opacity:disabled ? 0.5 : 1,alignSelf:'flex-start',marginRight:8,marginVertical:3}}>
+    <Text style={{color:filled?'#fff':'#000',fontFamily:FONT,fontSize:small?18:20}}>{children}</Text>
   </TouchableOpacity>;
 }
 function Divider() {return <View style={{height:1,backgroundColor:'#bbb',marginVertical:13}}/>;}
@@ -50,13 +48,12 @@ export function PrettySettings(): React.JSX.Element {
   const [password,setPassword] = useState('');
   const [code,setCode] = useState('');
   const [progress,setProgress] = useState<LoginProgress|null>(null);
-  const [picker,setPicker] = useState<'quick'|'favorites'|null>(null);
+  const [picker,setPicker] = useState<'favorites'|null>(null);
   const [dir,setDir] = useState(ROOTS[0]);
   const [entries,setEntries] = useState<FileEntry[]>([]);
   const [calendarState,setCalendarState] = useState<CalendarResult>(()=>currentCalendar());
   const [calendarConfigured,setCalendarConfigured] = useState(false);
   const [calendarSourceInput,setCalendarSourceInput] = useState('');
-  const [detectedLocation,setDetectedLocation]=useState<WeatherLocation|null>(null);
   // Serialize writes: rapid edits must never allow an older save to replace
   // newer settings. Done waits for disk persistence and verifies the read-back.
   const saveQueue = useRef<Promise<boolean>>(Promise.resolve(true));
@@ -68,7 +65,6 @@ export function PrettySettings(): React.JSX.Element {
       const cfg=await loadConfig();
       const next=await loadPrettyPrefs(cfg);
       if(live){setLegacy(cfg);setPrefs(next);latestPrefs.current=next;}
-      readAutomaticLocation().then(location=>{if(live)setDetectedLocation(location);}).catch(()=>{});
       const ok=await hasSupernoteLogin().catch(()=>false);
       if(live)setConnected(ok);
       const cached=await loadCalendarCache();
@@ -101,7 +97,8 @@ export function PrettySettings(): React.JSX.Element {
     setBusy(true);setStatus('Saving and verifying settings…');
     let stage='Settings save';
     try{
-      const ok=await saveQueue.current;
+      const queued=await saveQueue.current;
+      const ok=queued&&!!latestPrefs.current&&await savePrettyPrefs(latestPrefs.current);
       if(!ok)throw new Error('Saving failed. Settings have not been confirmed on disk.');
       const check=await loadPrettyPrefs(legacy);
       if(JSON.stringify(check)!==JSON.stringify(latestPrefs.current))
@@ -185,11 +182,11 @@ export function PrettySettings(): React.JSX.Element {
 
   if(!prefs||!legacy)return <View style={styles.screen}>
     <PrettyScreenHeader title="Settings"/>
-    <View style={styles.root}><TextLine>{status||'Loading MySuperPrettyDashboard settings…'}</TextLine></View>
+    <View style={styles.root}><TextLine>{status||'Loading SmartyNote settings…'}</TextLine></View>
   </View>;
   if(picker)return (
     <View style={styles.screen}>
-      <PrettyScreenHeader title={picker==='quick'?'Quick access':'Favorites'}
+      <PrettyScreenHeader title="Favorites"
         left={{label:'Back',onPress:()=>setPicker(null)}}/>
       <View style={styles.root}>
       <View style={{flexDirection:'row',flexWrap:'wrap',marginBottom:10}}>
@@ -218,8 +215,8 @@ export function PrettySettings(): React.JSX.Element {
       <View style={styles.root}>
       <ScrollView style={{flex:1}} keyboardShouldPersistTaps="handled">
         <Group title="Pretty Calendar · read-only events">
-          <TextLine faint>Uses your existing TRMNL Pretty Calendar Cloudflare feed directly. No additional calendars, accounts, sign-ins or native Calendar event records are created.</TextLine>
-          <TextLine faint>One-time setup: paste your existing Cloudflare Worker /calendar URL. It will be stored encrypted on this Manta, not in the public GitHub repository.</TextLine>
+          <TextLine faint>Uses a configured read-only calendar feed. No native Calendar records are created.</TextLine>
+          <TextLine faint>Enter the HTTPS calendar feed URL. It is stored in encrypted device preferences.</TextLine>
           {calendarConfigured&&<TextLine>Calendar feed address saved privately</TextLine>}
           <TextInput style={styles.input} placeholder={calendarConfigured?'Replace feed URL (optional)':'https://your-worker.workers.dev/calendar'}
             autoCapitalize="none" autoCorrect={false} keyboardType="url"
@@ -238,17 +235,10 @@ export function PrettySettings(): React.JSX.Element {
           </>}
           {calendarState.error&&<TextLine faint>Last request: {calendarState.error}</TextLine>}
           <Action filled disabled={busy} onPress={syncCalendar}>Refresh Pretty Calendar now</Action>
-          <TextLine faint>Privacy: Confirm your employer permits this existing calendar feed. Anyone with access to the endpoint may be able to retrieve the work event titles if it is not protected by authentication.</TextLine>
-        </Group>
-        <Group title="Weather and availability">
-          <TextLine>Weather location: {detectedLocation?.name??'Automatic — not detected yet'}</TextLine>
-          <TextLine faint>Approximate location is detected automatically from your public internet IP via ipapi.co, with no ZIP or GPS required. Open-Meteo supplies current temperature and local daily high/low in °F. VPNs and some networks may resolve to a nearby or different city.</TextLine>
-          <Action disabled={busy} onPress={()=>attempt(async()=>{const result=await refreshAutomaticWeather(true);setDetectedLocation(await readAutomaticLocation());setStatus(result.error?'Weather refresh: '+result.error:'Weather updated.');})}>Refresh weather and location</Action>
-          <TextLine faint>Availability shows today's current and next timed calendar states. Rocky appears when no meetings remain; the possum is bundled into the dashboard.</TextLine>
-          <TouchableOpacity accessibilityRole="link" onPress={()=>Linking.openURL('https://open-meteo.com/').catch(()=>setStatus('Weather data: https://open-meteo.com/'))}><Text style={{fontFamily:FONT,fontSize:18,color:'#111',textDecorationLine:'underline'}}>Weather data by Open-Meteo (CC BY 4.0)</Text></TouchableOpacity>
+          <TextLine faint>Protect the calendar endpoint with appropriate access controls.</TextLine>
         </Group>
         <Group title="Supernote To-do · your existing list">
-          <TextLine faint>This reads your actual Supernote To-do items through Supernote Cloud. It does not create a second list. Ensure To-do cloud sync is enabled on the device.</TextLine>
+          <TextLine faint>This reads and updates your actual Supernote To-do items through Supernote Cloud. It does not create a second list. Ensure To-do cloud sync is enabled on the device. Task changes are experimental and require cloud confirmation.</TextLine>
           <TextLine faint>The connection uses Supernote's unofficial cloud API. The account password and verification code are never saved; the session is encrypted on this device. Supernote sessions expire after approximately 30 days.</TextLine>
           {connected?(
             <View style={{marginTop:9}}>
@@ -256,6 +246,7 @@ export function PrettySettings(): React.JSX.Element {
               <View style={{flexDirection:'row',flexWrap:'wrap'}}>
                 <Action filled disabled={busy} onPress={testSync}>Test sync</Action>
                 <Action disabled={busy} onPress={disconnect}>Disconnect</Action>
+                <Action small disabled={busy} onPress={()=>attempt(async()=>setStatus(await inspectTaskLinkSchema()))}>Inspect note-link fields</Action>
               </View>
             </View>
           ):(
@@ -272,63 +263,23 @@ export function PrettySettings(): React.JSX.Element {
             </>
           )}
         </Group>
-        <Group title="Quick access · pinned notebooks and files">
-          <TextLine faint>These are dashboard-managed links independent of native Supernote Quick Access. Home shows as many as can fit; Edit here changes their order. Each link opens the existing file or folder.</TextLine>
-          {prefs.quick.map((item,i)=>(
-            <View style={styles.entry} key={item.path}>
-              <View style={{flex:1}}><TextLine>{item.label}</TextLine><TextLine faint>{item.path}</TextLine></View>
-              <Action small onPress={()=>openPin(item)}>Test open</Action>
-              <Action small onPress={()=>movePin('quick',i,-1)}>↑</Action>
-              <Action small onPress={()=>movePin('quick',i,1)}>↓</Action>
-              <Action small onPress={()=>removePin('quick',i)}>Remove</Action>
-            </View>
-          ))}
-          <Action filled onPress={()=>{setDir(ROOTS[0]);setPicker('quick');}}>+ Pin a notebook, document, or folder</Action>
-        </Group>
-        <Group title="Favorites · your dashboard links">
-          <TextLine faint>These favorites are separate from Supernote's built-in starred Files. Add the notebooks, PDFs, or folders you want to find quickly; open them here in Settings. Changes save automatically; Done verifies the save.</TextLine>
-          {prefs.favorites.length===0&&<TextLine faint>No favorites yet. Add one below to populate the Favorites screen.</TextLine>}
-          {prefs.favorites.map((item,i)=>(
-            <View style={styles.entry} key={item.path}>
-              <View style={{flex:1}}>
-                <TextLine>{item.label}</TextLine>
-                <TextLine faint>{item.path}</TextLine>
-              </View>
-              <Action small onPress={()=>openPin(item)}>Open</Action>
-              <Action small onPress={()=>movePin('favorites',i,-1)}>↑</Action>
-              <Action small onPress={()=>movePin('favorites',i,1)}>↓</Action>
-              <Action small onPress={()=>removePin('favorites',i)}>Remove</Action>
-            </View>
-          ))}
-          <Action filled onPress={()=>{setDir(ROOTS[0]);setPicker('favorites');}}>+ Add a favorite notebook, document, or folder</Action>
-        </Group>
         <Group title="Display">
-          <TextLine faint>Google Sans Flex. Standard is the preferred Manta text size; Large and Extra large are accessibility alternatives. The first two content bands have equal height; the illustration and Quick access band is shorter.</TextLine>
+          <TextLine faint>Google Sans Flex. Standard is the preferred Manta text size; Large and Extra large are accessibility alternatives. The two content bands have equal height.</TextLine>
           <View style={{flexDirection:'row',flexWrap:'wrap',marginVertical:6}}>
             {(['normal','large','extra'] as const).map(sz=><Action key={sz} small filled={prefs.size===sz} onPress={()=>save({...prefs,size:sz})}>{sz==='normal'?'Standard':sz==='large'?'Large':'Extra large'}</Action>)}
           </View>
         </Group>
         <Group title="Dashboard navigation">
-          <TextLine faint>No floating button will appear over Supernote. The Stardust star in the lower-right section closes the dashboard, returning to the note beneath it. Calendar resets to today and opens the dashboard's read-only agenda; no native Calendar event records are created.</TextLine>
+          <TextLine faint>No floating button will appear over Supernote. Tap SmartyNote to return to the note beneath it. Calendar opens native Calendar. Some firmware versions retain the last date; use native Calendar's Today button if needed. View all opens the dashboard agenda. Stars opens notebook star results with access to native Search.</TextLine>
+          <Action small disabled={busy} onPress={()=>attempt(async()=>{setStatus(await DashboardNative.inspectNativeCalendar());})}>Inspect native Calendar navigation</Action>
           <TextLine faint>For launching the dashboard elsewhere, add the Plugins tool to your native notebook toolbar. A direct sidebar gesture or dedicated plugin Quick Access entry is not publicly documented.</TextLine>
         </Group>
         <Group title="Attribution">
-          <View style={{flexDirection:'row',alignItems:'center'}}>
-            <WeatherIcon condition="sunny" dark={false} size={36}/>
-            <View style={{flex:1}}>
-              <TextLine>Weather Iconic — Konrad Michalik and contributors</TextLine>
-              <TouchableOpacity accessibilityRole="link" onPress={()=>Linking.openURL('https://github.com/jackd248/weather-iconic/').catch(()=>setStatus('Weather Iconic: https://github.com/jackd248/weather-iconic/'))}>
-                <Text style={{fontFamily:FONT,fontSize:18,color:'#111',textDecorationLine:'underline'}}>https://github.com/jackd248/weather-iconic/</Text>
-              </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="link" onPress={()=>Linking.openURL('https://creativecommons.org/licenses/by-sa/3.0/us/').catch(()=>setStatus('License: https://creativecommons.org/licenses/by-sa/3.0/us/'))}>
-                <Text style={{fontFamily:FONT,fontSize:18,color:'#111',textDecorationLine:'underline'}}>CC BY-SA 3.0 US — monochrome raster adaptations</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          <TextLine faint>SmartyNote is based on SuperDashboard. Uses Google Sans Flex (SIL Open Font License); the original project and font licenses are included with the plugin.</TextLine>
         </Group>
-        <TextLine faint>MySuperPrettyDashboard · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Search, Calendar, and To-do remain available from Home. Your original SuperDashboard settings remain separate.</TextLine>
+        <TextLine faint>SmartyNote · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Search, Calendar, and To-do remain available from Home. Your original SuperDashboard settings remain separate.</TextLine>
       </ScrollView>
-      {!!status&&<View style={styles.status}><View style={{flex:1}}><TextLine>{status}</TextLine></View><Action small onPress={()=>setStatus('')}>Dismiss</Action></View>}
+      {!!status&&<View style={styles.status}><ScrollView style={{flex:1,maxHeight:320}}><TextLine>{status}</TextLine></ScrollView><Action small onPress={()=>setStatus('')}>Dismiss</Action></View>}
       </View>
     </View>
   );
@@ -336,7 +287,7 @@ export function PrettySettings(): React.JSX.Element {
 const styles=StyleSheet.create({
   root:{flex:1,backgroundColor:'#fff',paddingHorizontal:25,paddingTop:15,paddingBottom:13},
   screen:{flex:1,backgroundColor:'#fff'},
-  input:{borderWidth:1,borderColor:'#999',borderRadius:0,backgroundColor:'#fff',fontFamily:FONT,fontSize:21,color:'#111',paddingHorizontal:12,paddingVertical:11,marginVertical:7,minWidth:320},
+  input:{borderWidth:1,borderColor:'#999',borderRadius:0,backgroundColor:'#fff',fontFamily:FONT,fontSize:21,color:'#000',paddingHorizontal:12,paddingVertical:11,marginVertical:7,minWidth:320},
   entry:{flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:'#ddd',paddingVertical:5},
   pickRow:{paddingVertical:12,paddingHorizontal:5,borderBottomWidth:1,borderColor:'#ddd'},
   status:{flexDirection:'row',alignItems:'center',borderTopWidth:1,borderColor:'#888',paddingVertical:9,justifyContent:'space-between'},

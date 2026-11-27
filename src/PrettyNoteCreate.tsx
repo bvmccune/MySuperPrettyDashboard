@@ -37,9 +37,9 @@ function Radio({text,selected,onPress}:{text:string;selected:boolean;onPress:()=
     onPress={onPress} style={{flexDirection:'row',alignItems:'center',paddingVertical:10,paddingRight:24}}>
     <View style={{width:28,height:28,borderWidth:2,borderColor:'#111',borderRadius:14,
       alignItems:'center',justifyContent:'center',marginRight:12}}>
-      {selected&&<View style={{width:15,height:15,borderRadius:8,backgroundColor:'#111'}}/>}
+      {selected&&<View style={{width:15,height:15,borderRadius:8,backgroundColor:'#000'}}/>}
     </View>
-    <Text style={{fontFamily:FONT,fontSize:SCREEN_BODY,color:'#111'}}>{text}</Text>
+    <Text style={{fontFamily:FONT,fontSize:SCREEN_BODY,color:'#000'}}>{text}</Text>
   </TouchableOpacity>;
 }
 function Rule(){return <View style={{height:1,backgroundColor:'#aaa',marginVertical:20}}/>;}
@@ -57,11 +57,11 @@ function TemplatePreview({kind,portrait}:{kind:string;portrait:boolean}){
       top:((i+1)*8)+'%' as any,left:tasks?'16%':'0%',right:'0%',height:1,backgroundColor:'#222'}}/>)}
     {tasks&&Array.from({length:10},(_,i)=><View key={i} style={{position:'absolute',
       top:((i+1)*8-3)+'%' as any,left:'5%',width:'6%',aspectRatio:1,borderWidth:1,borderColor:'#111'}}/>)}
-    {list&&<View style={{position:'absolute',top:0,bottom:0,left:kind==='list_format'?'26%':'76%',width:1,backgroundColor:'#111'}}/>}
+    {list&&<View style={{position:'absolute',top:0,bottom:0,left:kind==='list_format'?'26%':'76%',width:1,backgroundColor:'#000'}}/>}
     {grid&&Array.from({length:7},(_,i)=><View key={i} style={{position:'absolute',
       left:((i+1)*12)+'%' as any,top:0,bottom:0,width:1,backgroundColor:'#222'}}/>)}
-    {split&&<><View style={{position:'absolute',top:'50%',left:0,right:0,height:1,backgroundColor:'#111'}}/>
-      <View style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,backgroundColor:'#111'}}/></>}
+    {split&&<><View style={{position:'absolute',top:'50%',left:0,right:0,height:1,backgroundColor:'#000'}}/>
+      <View style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,backgroundColor:'#000'}}/></>}
     {dots&&Array.from({length:8},(_,i)=>Array.from({length:6},(_,j)=><View key={i+':'+j}
       style={{position:'absolute',top:((i+1)*10)+'%' as any,left:((j+1)*14)+'%' as any,width:2,height:2,backgroundColor:'#666'}}/>))}
     {!known&&<View style={{flex:1,alignItems:'center',justifyContent:'center',padding:4}}>
@@ -127,7 +127,7 @@ export function PrettyNoteCreate({onClose}:{onClose:()=>void}):React.JSX.Element
     }catch(e:any){setMessage(String(e?.message||e));}
     finally{setBusy(false);}
   };
-  const text=(size:number,weight:'400'|'600'='400')=>({fontFamily:FONT,fontSize:size,fontWeight:weight,color:'#111'} as const);
+  const text=(size:number,weight:'400'|'600'='400')=>({fontFamily:FONT,fontSize:size,fontWeight:weight,color:'#000'} as const);
   const preferred=['white','list_format','arabic_line_ruling','task_list'];
   const first=preferred.map(key=>templates.find(t=>templateKey(t.name)===key)).filter((t):t is Template=>!!t);
   const chosen=templates.find(t=>t.vUri===selected);
@@ -154,7 +154,7 @@ export function PrettyNoteCreate({onClose}:{onClose:()=>void}):React.JSX.Element
         <Text style={text(22,'600')}>Name</Text>
         <TextInput accessibilityLabel="Notebook name" value={name} onChangeText={setName} placeholder="Enter a notebook name"
           autoCorrect={false} maxLength={110} style={{fontFamily:FONT,fontSize:SCREEN_BODY,
-            paddingHorizontal:14,paddingVertical:12,borderWidth:1,borderColor:'#777',color:'#111',marginTop:10}}/>
+            paddingHorizontal:14,paddingVertical:12,borderWidth:1,borderColor:'#777',color:'#000',marginTop:10}}/>
         <Rule/>
         <Text style={text(22,'600')}>Type</Text>
         <Radio text="Standard" selected={mode===0} onPress={()=>setMode(0)}/>

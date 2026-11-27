@@ -1,23 +1,25 @@
 /**
- * MySuperPrettyDashboard — Manta home.
- * One non-scrolling screen, two equal-height bands and a shorter bottom band; no floating OS overlay.
+ * SmartyNote — Manta home.
+ * One non-scrolling screen, two equal-height bands; no floating OS overlay.
  * The visually themed icons are intentional custom artwork.
  *
  * Calendar: owner's existing read-only feed, not native event mirroring.
  * To-do: owner's real Supernote Cloud tasks, never a second task database.
  */
-import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {
   AppState,DeviceEventEmitter,Image,ImageSourcePropType,Modal,NativeModules,
-  ScrollView,StyleSheet,Text,TouchableOpacity,View,useWindowDimensions,
+  ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View,useWindowDimensions,
 } from 'react-native';
 import {DashboardConfig,ShortcutItem} from './config';
 import {leavePlugin} from './bubble';
-import {launchApp,openFile,openFolder} from './open';
+import {launchApp,openNativeSettings,openCalendarToday,openFile,openFolder,openVerifiedTaskPage} from './open';
 import {readRecentDetailed} from './recent';
 import {dayKey,dueBucket} from './relay';
-import {loadPrettyPrefs,PrettyPrefs} from './prettyPrefs';
-import {readNativeSupernoteTasks} from './prettyCloud';
+import {loadPrettyPrefs,PrettyPrefs,quickIcon} from './prettyPrefs';
+import {readNativeSupernoteTasks,updateNativeTodo,NativeTodo} from './prettyCloud';
+import {noteStableFileId,taskPageIndex} from './notepage';
+import {resolveTaskNote} from './prettyTaskLink';
 import {
   AgendaEvent,CalendarResult,CALENDAR_REFRESH_MS,dateKey,dayLabel,
   addCalendarDays,agendaFromFeed,eventTimeRange,eventDuration,
@@ -27,10 +29,13 @@ import {AgendaRow,Conflict,HomeAgendaList,hasTimeConflict} from './PrettyAgenda'
 import {PrettyNoteCreate} from './PrettyNoteCreate';
 import {PrettyScreenHeader} from './PrettyScreen';
 import {PrettyFitList} from './PrettyFitList';
+import {quickRows,hiddenQuickPins} from './prettyQuickLayout';
+import {DESIGN,dashboardFont,DashboardWeight} from './prettyDesign';
+import {DottedRule,HeavyRule} from './PrettyDivider';
+import {PrettyTaskDatePicker} from './PrettyTaskDatePicker';
 import {INK,PAPER,DARK_GRAY,LIGHT_GRAY} from './prettyPalette';
-import {scanKeywords,KeywordHit} from './scanner';
-import {PrettySummaryPanel} from './PrettySummaryPanel';
-import {WeatherResult,refreshAutomaticWeather,WEATHER_REFRESH_MS} from './prettyWeather';
+import {scanKeywords,KeywordHit,scanStars,StarNote} from './scanner';
+import {PrettyQuickEditor} from './PrettyQuickEditor';
 import {BUILD_LABEL} from './prettyBuild';
 
 const {DashboardNative}=NativeModules;
@@ -42,58 +47,38 @@ const APPS={
 };
 const WEEK=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const FILE_RE=/\.(note|pdf|epub|cbz|xps|fb2)$/i;
-type IconName =
-  | 'quick'|'new-note'|'file'|'files'|'calendar'|'todo'|'list'|'recent'
-  | 'search'|'favorites'|'star'|'star-filled'|'book'|'home'|'settings'|'grid'
-  | 'last-note'|'charging'|'notebook'|'edit'|'plus'|'refresh'|'back'
-  | 'chicken'|'lizard'|'stars'|'dice'|'ramen'|'controller'|'jellyfish'
-  | 'plants'|'octopus'|'rocks'|'coffee'|'wifi'|'wifi-off'|'keywords'|'pending'|'stardust'|'battery'|'calendar-dot'|'open-notebook';
+type IconName='check-circle'|'profile'|'new-note'|'file'|'files'|'calendar'|'recent'|'search'|'stars'|'settings'|'charging'|'notebook'|'plus'|'refresh'|'back'|'lizard'|'plants'|'rocks'|'coffee'|'wifi'|'wifi-off'|'keywords'|'battery'|'calendar-dot'|'open-notebook'|'auto-refresh'|'stars-filled';
 const IMAGES:Record<IconName,ImageSourcePropType>={
-  quick:require('../assets/pretty/quick.png'),
+  'check-circle':require('../assets/pretty/check-circle.png'),
+  'profile':require('../assets/pretty/profile.png'),
   'new-note':require('../assets/pretty/new-note.png'),
-  file:require('../assets/pretty/file.png'),
-  files:require('../assets/pretty/files.png'),
-  calendar:require('../assets/pretty/calendar.png'),
-  todo:require('../assets/pretty/todo.png'),
-  list:require('../assets/pretty/list.png'),
-  recent:require('../assets/pretty/recent.png'),
-  search:require('../assets/pretty/search.png'),
-  favorites:require('../assets/pretty/favorites.png'),
-  star:require('../assets/pretty/star.png'),
-  'star-filled':require('../assets/pretty/star-filled.png'),
-  book:require('../assets/pretty/book.png'),
-  home:require('../assets/pretty/home.png'),
-  settings:require('../assets/pretty/settings.png'),
-  grid:require('../assets/pretty/grid.png'),
-  'last-note':require('../assets/pretty/last-note.png'),
-  charging:require('../assets/pretty/charging.png'),
-  notebook:require('../assets/pretty/notebook.png'),
-  edit:require('../assets/pretty/edit.png'),
-  plus:require('../assets/pretty/plus.png'),
-  refresh:require('../assets/pretty/refresh.png'),
-  back:require('../assets/pretty/back.png'),
-  chicken:require('../assets/pretty/chicken.png'),
-  lizard:require('../assets/pretty/lizard.png'),
-  stars:require('../assets/pretty/stars.png'),
-  dice:require('../assets/pretty/dice.png'),
-  ramen:require('../assets/pretty/ramen.png'),
-  controller:require('../assets/pretty/controller.png'),
-  jellyfish:require('../assets/pretty/jellyfish.png'),
-  plants:require('../assets/pretty/plants.png'),
-  octopus:require('../assets/pretty/octopus.png'),
-  rocks:require('../assets/pretty/rocks.png'),
-  coffee:require('../assets/pretty/coffee.png'),
-  wifi:require('../assets/pretty/wifi.png'),
+  'file':require('../assets/pretty/file.png'),
+  'files':require('../assets/pretty/files.png'),
+  'calendar':require('../assets/pretty/calendar.png'),
+  'recent':require('../assets/pretty/recent.png'),
+  'search':require('../assets/pretty/search.png'),
+  'stars':require('../assets/pretty/stars.png'),
+  'stars-filled':require('../assets/pretty/stars-filled.png'),
+  'settings':require('../assets/pretty/settings.png'),
+  'charging':require('../assets/pretty/charging.png'),
+  'notebook':require('../assets/pretty/notebook.png'),
+  'plus':require('../assets/pretty/plus.png'),
+  'refresh':require('../assets/pretty/refresh.png'),
+  'back':require('../assets/pretty/back.png'),
+  'lizard':require('../assets/pretty/lizard.png'),
+  'plants':require('../assets/pretty/plants.png'),
+  'rocks':require('../assets/pretty/rocks.png'),
+  'coffee':require('../assets/pretty/coffee.png'),
+  'wifi':require('../assets/pretty/wifi.png'),
   'wifi-off':require('../assets/pretty/wifi-off.png'),
-  keywords:require('../assets/pretty/keywords.png'),
-  pending:require('../assets/pretty/pending.png'),
-  stardust:require('../assets/pretty/stardust.png'),
-  battery:require('../assets/pretty/battery.png'),
+  'keywords':require('../assets/pretty/keywords.png'),
+  'battery':require('../assets/pretty/battery.png'),
   'calendar-dot':require('../assets/pretty/calendar-dot.png'),
   'open-notebook':require('../assets/pretty/open-notebook.png'),
+  'auto-refresh':require('../assets/pretty/auto-refresh.png'),
 };
-type Overlay='favorites'|'recent'|'keywords'|'agenda'|'event'|'new-note'|null;
-interface Task {id:string;title:string;due:string|null}
+type Overlay='favorites'|'recent'|'stars'|'keywords'|'agenda'|'event'|'new-note'|'quick-edit'|'task-edit'|'task-link-help'|null;
+type Task=NativeTodo;
 interface CreatedNote {path:string;createdAt:number}
 interface FileInfo {mtime?:number;createdAt?:number}
 const DATE_COLOR=INK;
@@ -105,12 +90,12 @@ function Glyph({name,size=27,tintColor}:{
   return <Image source={IMAGES[name]} resizeMode="contain"
     style={{width:size,height:size,tintColor}}/>;
 }
-function Txt({children,size=17,bold=false,muted=false,lines,style}:{
+function Txt({children,size=17,bold=false,muted=false,lines,style,weight}:{
   children:React.ReactNode;size?:number;bold?:boolean;muted?:boolean;
-  lines?:number;style?:any;
+  lines?:number;style?:any;weight?:DashboardWeight;
 }){
   return <Text numberOfLines={lines} ellipsizeMode="tail"
-    style={[{fontFamily:FONT,fontSize:size,fontWeight:bold?'600':'400',
+    style={[{fontFamily:weight?dashboardFont(weight):FONT,fontSize:size,fontWeight:weight?'normal':bold?'600':'400',
       color:muted?DATE_COLOR:INK,includeFontPadding:false},style]}>{children}</Text>;
 }
 function IconTap({icon,label,onPress,size=27}:{
@@ -123,25 +108,26 @@ function IconTap({icon,label,onPress,size=27}:{
   </TouchableOpacity>;
 }
 const CIRCLE=48;
-function SectionTitle({icon,label,scale,action,actionLabel,extra,actionAccessibilityLabel,calendarAction}:{
+function SectionTitle({icon,label,scale,action,actionLabel,extra,actionAccessibilityLabel,calendarAction,aboveAction,extraAccessibilityLabel}:{
   icon:IconName;label:string;scale:number;action?:()=>void;
-  actionLabel?:string;extra?:string;actionAccessibilityLabel?:string;calendarAction?:()=>void;
+  actionLabel?:string;extra?:string;actionAccessibilityLabel?:string;calendarAction?:()=>void;aboveAction?:string;extraAccessibilityLabel?:string;
 }){
-  const circle=CIRCLE*scale,fs=21*scale;
-  return <View style={{height:53*scale,flexDirection:'row',alignItems:'center',minWidth:0}}>
+  const circle=CIRCLE*scale,fs=DESIGN.heading*scale;
+  return <View style={{height:DESIGN.headingHeight*scale,flexDirection:'row',alignItems:'center',minWidth:0}}>
     <View style={{height:circle,width:circle,alignItems:'center',justifyContent:'center',marginRight:6*scale}}>
       <Glyph name={icon} size={circle*120/113}/>
     </View>
-    <Txt size={fs} bold lines={1} style={{flexShrink:1}}>{label}</Txt>
-    {!!extra&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={extra+' additional events'}
+    <Txt size={fs} weight={650} lines={1} style={{flexShrink:1}}>{label}</Txt>
+    {!!extra&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={extraAccessibilityLabel??extra+' additional events'}
       onPress={action} style={{paddingHorizontal:4*scale,paddingVertical:8*scale}}>
-      <Txt size={14*scale} bold>{extra}</Txt>
+      <Txt size={DESIGN.overflow*scale} weight={700}>{extra}</Txt>
     </TouchableOpacity>}
     <View style={{flex:1}}/>
     {!!action&&<TouchableOpacity accessibilityRole="button"
       accessibilityLabel={actionAccessibilityLabel??actionLabel+' '+label} onPress={action}
-      hitSlop={{top:8,bottom:8,left:7,right:7}} style={{marginLeft:7*scale}}>
-      <Txt size={12.8*scale} muted>{actionLabel}</Txt>
+      hitSlop={{top:8,bottom:8,left:7,right:7}} style={{marginLeft:7*scale,alignItems:'flex-end'}}>
+      {!!aboveAction&&<Txt size={(aboveAction.includes('+')?DESIGN.overflow:DESIGN.action)*scale} weight={aboveAction.includes('+')?700:600}>{aboveAction}</Txt>}
+      <Txt size={DESIGN.action*scale} weight={500}>{actionLabel}</Txt>
     </TouchableOpacity>}
     {!!calendarAction&&<IconTap icon="calendar" label="Calendar" size={23*scale} onPress={calendarAction}/>}
   </View>;
@@ -177,7 +163,7 @@ function sortTasks(data:Task[],now:Date):Task[]{
 }
 function dueShort(due:string):string{
   const pieces=due.slice(0,10).split('-');
-  return pieces.length===3?Number(pieces[1])+'/'+Number(pieces[2]):due;
+  return pieces.length===3?pieces[1]+'/'+pieces[2]:due;
 }
 
 export function PrettyHome({config,nonce,onSettings}:{
@@ -187,8 +173,8 @@ export function PrettyHome({config,nonce,onSettings}:{
   const s=Math.max(0.8,Math.min(width/760,height/950,1.27));
   const [prefs,setPrefs]=useState<PrettyPrefs|null>(null);
   const fontBoost=prefs?.size==='extra'?1.15:prefs?.size==='large'?1.08:1;
-  const body=17.3*s*fontBoost;
-  const secondary=13*s*fontBoost;
+  const body=DESIGN.body*s*fontBoost;
+  const secondary=DESIGN.secondary*s*fontBoost;
   const [now,setNow]=useState(()=>new Date());
   const [selectedDay,setSelectedDay]=useState(()=>dateKey(new Date()));
   const [agendaStart,setAgendaStart]=useState(()=>dateKey(new Date()));
@@ -202,20 +188,33 @@ export function PrettyHome({config,nonce,onSettings}:{
   const [createdNotes,setCreatedNotes]=useState<CreatedNote[]>([]);
   const [createdDays,setCreatedDays]=useState<Set<string>>(new Set());
   const [calendar,setCalendar]=useState<CalendarResult>(()=>currentCalendar());
-  const [weather,setWeather]=useState<WeatherResult>({snapshot:null,status:'loading'});
+  const [taskBusy,setTaskBusy]=useState(false);
+  const taskMutation=useRef(false);
+  const taskReadGeneration=useRef(0);
+  const [editingTask,setEditingTask]=useState<Task|null>(null);
+  const [linkFailure,setLinkFailure]=useState<Task|null>(null);
+  const [editTitle,setEditTitle]=useState('');
+  const [editDue,setEditDue]=useState('');
+  const [datePickerOpen,setDatePickerOpen]=useState(false);
+  const [mutationError,setMutationError]=useState('');
   const [overlay,setOverlay]=useState<Overlay>(null);
+  const [quickEditIndex,setQuickEditIndex]=useState<number|null>(null);
+  const openQuickEditor=(index:number|null)=>{setQuickEditIndex(index);setOverlay('quick-edit');};
   const [selectedEvent,setSelectedEvent]=useState<AgendaEvent|null>(null);
   const [returnToAgenda,setReturnToAgenda]=useState(false);
   const [agendaVisit,setAgendaVisit]=useState(0);
   const [refreshTick,setRefreshTick]=useState(0);
+  const [starNotes,setStarNotes]=useState<StarNote[]>([]);
+  const [starBusy,setStarBusy]=useState(false);
+  const [starStatus,setStarStatus]=useState('');
   const [keywordHits,setKeywordHits]=useState<KeywordHit[]>([]);
   const [keywordBusy,setKeywordBusy]=useState(false);
   const [topH,setTopH]=useState(245*s);
   const [middleH,setMiddleH]=useState(245*s);
-  const [bottomH,setBottomH]=useState(190*s);
   // Keep the empty lists stable while preferences load. Otherwise the file
   // metadata effect sees a new dependency on every render and schedules itself.
   const pinned=useMemo(()=>prefs?.quick??[],[prefs]);
+  const shortcutRows=useMemo(()=>quickRows(pinned),[pinned]);
   const favorites=useMemo(()=>prefs?.favorites??[],[prefs]);
 
   useEffect(()=>{
@@ -226,16 +225,6 @@ export function PrettyHome({config,nonce,onSettings}:{
     return ()=>{live=false;};
   },[config,nonce]);
 
-  // Weather has its own lifecycle: preference changes must not reset the selected calendar day.
-  useEffect(()=>{
-    if(!prefs)return;
-    let live=true;
-    const update=(force=false)=>{refreshAutomaticWeather(force).then(result=>{if(live)setWeather(result);}).catch(()=>{});};
-    update(refreshTick>0);
-    const timer=setInterval(()=>{if(AppState.currentState==='active')update();},WEATHER_REFRESH_MS);
-    const wake=AppState.addEventListener('change',state=>{if(state==='active')update(true);});
-    return()=>{live=false;clearInterval(timer);wake.remove();};
-  },[prefs!==null,refreshTick,nonce]);
   const scanCreated=useCallback(async()=>{
     const queue=[NOTE_ROOT],seen=new Set<string>(),notes:CreatedNote[]=[];
     while(queue.length&&seen.size<250){
@@ -266,12 +255,15 @@ export function PrettyHome({config,nonce,onSettings}:{
     refreshCalendar().then(setCalendar).catch(()=>{});
     readRecentDetailed().then(r=>setRecent(r.paths.filter(p=>FILE_RE.test(p)))).catch(()=>{});
     scanCreated().catch(()=>{});
+    if(taskMutation.current)return;
+    const generation=++taskReadGeneration.current;
     setTaskLoading(true);
     readNativeSupernoteTasks().then(result=>{
-      setTasks(result.tasks.map(t=>({id:t.id,title:t.title,due:t.due})));
+      if(generation!==taskReadGeneration.current)return;
+      setTasks(result.tasks);
       setTaskError(result.truncated?'Supernote returned an incomplete task list.':'');
-    }).catch(e=>{setTasks([]);setTaskError(String(e?.message||'Supernote To-do unavailable'));})
-      .finally(()=>setTaskLoading(false));
+    }).catch(e=>{if(generation===taskReadGeneration.current){setTasks([]);setTaskError(String(e?.message||'Supernote To-do unavailable'));}})
+      .finally(()=>{if(generation===taskReadGeneration.current)setTaskLoading(false);});
   },[scanCreated]);
 
   useEffect(()=>{
@@ -297,7 +289,7 @@ export function PrettyHome({config,nonce,onSettings}:{
   },[refresh,nonce]);
 
   useEffect(()=>{
-    const items=[...pinned.map(p=>p.path),...favorites.map(p=>p.path),...recent.slice(0,20)];
+    const items=[...pinned.map(p=>p.path),...favorites.map(p=>p.path),...recent.slice(0,20)].filter(p=>p.startsWith('/storage/'));
     const dirs=[...new Set(items.map(p=>p.substring(0,p.lastIndexOf('/'))))];
     let live=true;
     Promise.all(dirs.map(async d=>{
@@ -321,11 +313,21 @@ export function PrettyHome({config,nonce,onSettings}:{
     return()=>{live=false;};
   },[overlay,nonce]);
 
+  useEffect(()=>{
+    if(overlay!=='stars')return;
+    let live=true;setStarBusy(true);setStarStatus('');setStarNotes([]);
+    scanStars([NOTE_ROOT,'/storage/emulated/0/Document'],'off').then(result=>{
+      if(live){setStarNotes(result.notes);setStarStatus(result.truncated?'Some notebooks could not be scanned. Use native Search for all formats.':'');}
+    }).catch((error:unknown)=>{if(live)setStarStatus('Could not scan stars: '+String(error));})
+      .finally(()=>{if(live)setStarBusy(false);});
+    return()=>{live=false;};
+  },[overlay,nonce]);
   const agenda=useMemo(()=>calendar.snapshot?agendaFromFeed(calendar.snapshot.feed):[],[calendar.snapshot]);
   const events=useMemo(()=>agenda.filter(e=>e.startDay<=selectedDay&&selectedDay<e.endDayExclusive),
     [agenda,selectedDay]);
   const notes=useMemo(()=>createdNotes.filter(n=>dateKey(new Date(n.createdAt))===selectedDay),
     [createdNotes,selectedDay]);
+  const mergedNotes=useMemo(()=>{const created=notes.slice(0,3);const shown=new Set(notes.map(n=>n.path));return [...created,...recent.filter(p=>!shown.has(p)).map(path=>({path,createdAt:0}))];},[notes,recent]);
   const activeTasks=useMemo(()=>sortTasks(tasks,now),[tasks,now]);
   const weekStart=mondayOf(now);
   const days=WEEK.map((label,i)=>{
@@ -333,41 +335,54 @@ export function PrettyHome({config,nonce,onSettings}:{
     const key=dateKey(date);
     return {label,date,key,today:key===dateKey(now),hasNotes:createdDays.has(key)};
   });
-  const openTodayAgenda=()=>{
-    const current=new Date(),today=dateKey(current);
-    setNow(current);setAgendaStart(today);setAgendaVisit(v=>v+1);setOverlay('agenda');
-    refreshCalendar().then(setCalendar).catch(()=>{});
+  const mutateTask=async(item:Task,change:{complete?:true;title?:string;due?:string|null})=>{
+    if(taskMutation.current)return;taskMutation.current=true;++taskReadGeneration.current;setTaskLoading(false);setTaskBusy(true);setMutationError('');
+    try{await updateNativeTodo(item.id,change);const result=await readNativeSupernoteTasks();setTasks(result.tasks);setTaskError(result.truncated?'Supernote returned an incomplete task list.':'');setOverlay(null);}
+    catch(e:any){setMutationError(String(e?.message??e));}finally{taskMutation.current=false;setTaskBusy(false);}
+  };
+  const editTask=(item:Task)=>{setDatePickerOpen(false);setEditingTask(item);setEditTitle(item.title);setEditDue(item.due??'');setMutationError('');setOverlay('task-edit');};
+  const openTaskNote=async(item:Task)=>{
+    const link=item.link;if(!link||taskMutation.current)return;
+    taskMutation.current=true;setTaskBusy(true);setMutationError('');
+    try{
+      const target=await resolveTaskNote(link,async dir=>DashboardNative.listDir(dir),noteStableFileId,taskPageIndex);
+      if(target&&await openVerifiedTaskPage(target.path,target.page))return;
+      setLinkFailure(item);setOverlay('task-link-help');
+    }catch(e:any){setMutationError(String(e?.message??e));setLinkFailure(item);setOverlay('task-link-help');}
+    finally{taskMutation.current=false;setTaskBusy(false);}
   };
   const openEvent=(event:AgendaEvent,fromAgenda=false)=>{
     setSelectedEvent(event);setReturnToAgenda(fromAgenda);setOverlay('event');
   };
   const doOpenPinned=(item:ShortcutItem)=>{
     setOverlay(null);
-    if(item.kind==='folder')openFolder(item.path);
+    if(item.path==='app:calendar')openCalendarToday();
+    else if(item.path==='app:stars')setOverlay('stars');
+    else if(item.kind==='folder')openFolder(item.path);
     else openFile(item.path,item.kind==='note-page'?item.page:0);
   };
   const close=()=>{setOverlay(null);leavePlugin();};
   const refreshAll=()=>{setRefreshTick(v=>v+1);refresh();};
-  const listRule={borderTopWidth:.6,borderTopColor:DARK_GRAY};
-  const rowLine=body*1.28;
-  const rowMin=38*s;
-  const rowMax=Math.max(rowMin,rowLine*3+14*s);
+  const listRule={position:'relative' as const};
+  const rowLine=body*DESIGN.rowLine;
+  const rowMin=DESIGN.rowMin*s;
+  const rowMax=Math.max(rowMin,rowLine*3+2*DESIGN.rowPadY*s);
   const fitKey=width+':'+s+':'+fontBoost;
-  const rowStamp=(value:string)=><Txt size={secondary} muted style={{maxWidth:105*s,
-    textAlign:'right',flexShrink:0,lineHeight:secondary*1.3}}>{value}</Txt>;
+  const rowStamp=(value:string)=><Txt size={secondary} weight={500} style={{maxWidth:105*s,
+    textAlign:'right',flexShrink:0,lineHeight:secondary*1.15}}>{value}</Txt>;
   const rowFile=(path:string,i:number,stamp?:number)=>(
     <TouchableOpacity key={path+i} onPress={()=>{setOverlay(null);openFile(path);}}
-      style={{minHeight:rowMin,paddingVertical:5*s,flexShrink:0,flexDirection:'row',alignItems:'center',paddingHorizontal:4*s,...listRule}}>
-      <Glyph name={/\.note$/i.test(path)?'notebook':'file'} size={24*s}/>
-      <Txt lines={3} size={body} style={{flex:1,minWidth:0,marginHorizontal:7*s,lineHeight:rowLine}}>{fileTitle(path)}</Txt>
+      style={{minHeight:rowMin,paddingVertical:DESIGN.rowPadY*s,flexShrink:0,flexDirection:'row',alignItems:'center',paddingHorizontal:4*s,...listRule}}>
+      <DottedRule scale={s}/><Glyph name={/\.note$/i.test(path)?'notebook':'file'} size={24*s}/>
+      <Txt lines={3} size={body} weight={500} style={{flex:1,minWidth:0,marginHorizontal:DESIGN.iconGap*s,lineHeight:rowLine}}>{fileTitle(path)}</Txt>
       {rowStamp(dateAndTime(stamp))}
     </TouchableOpacity>
   );
   const rowPin=(item:ShortcutItem,i:number)=>(
     <TouchableOpacity key={item.path+i} onPress={()=>doOpenPinned(item)}
-      style={{minHeight:rowMin,paddingVertical:5*s,flexShrink:0,flexDirection:'row',alignItems:'center',paddingHorizontal:4*s,...listRule}}>
-      <Glyph name="star-filled" size={24*s}/>
-      <Txt lines={3} size={body} style={{flex:1,minWidth:0,marginHorizontal:7*s,lineHeight:rowLine}}>
+      style={{minHeight:rowMin,paddingVertical:DESIGN.rowPadY*s,flexShrink:0,flexDirection:'row',alignItems:'center',paddingHorizontal:4*s,...listRule}}>
+      <DottedRule scale={s}/><Glyph name="stars" size={24*s}/>
+      <Txt lines={3} size={body} weight={500} style={{flex:1,minWidth:0,marginHorizontal:DESIGN.iconGap*s,lineHeight:rowLine}}>
         {item.label||fileTitle(item.path)}
       </Txt>
       {rowStamp(dateAndTime(fileInfo[item.path]?.mtime))}
@@ -375,24 +390,27 @@ export function PrettyHome({config,nonce,onSettings}:{
   );
   const rowTask=(item:Task,i:number)=>{
     const overdue=dueBucket(item.due,now)==='overdue';
-    return <TouchableOpacity key={item.id+i} onPress={()=>launchApp(APPS.todo)}
-      accessibilityRole="button" accessibilityLabel={'Open To-do: '+item.title}
-      style={{minHeight:rowMin,paddingVertical:5*s,flexShrink:0,flexDirection:'row',alignItems:'center',paddingHorizontal:5*s,backgroundColor:i%2===0?LIGHT_GRAY:PAPER,...listRule}}>
-      <Glyph name="pending" size={23*s}/>
-      <Txt size={body} lines={3} style={{flex:1,minWidth:0,marginLeft:7*s,marginRight:5*s,lineHeight:rowLine}}>
-        {item.title}
-      </Txt>
-      {overdue?<View style={{backgroundColor:INK,paddingHorizontal:5*s,
-        paddingVertical:3*s,borderRadius:3}}>
-        <Text style={{fontFamily:FONT,fontSize:10.5*s,color:PAPER,fontWeight:'700'}}>OVERDUE</Text>
-      </View>:item.due?<Txt size={secondary} muted>{dueShort(item.due)}</Txt>:null}
-    </TouchableOpacity>;
+    return <View key={item.id+i} style={{minHeight:rowMin,paddingVertical:DESIGN.rowPadY*s,flexShrink:0,flexDirection:'row',alignItems:'center',paddingHorizontal:DESIGN.rowPadX*s,backgroundColor:i%2===0?LIGHT_GRAY:PAPER,...listRule}}>
+      <DottedRule scale={s}/><TouchableOpacity disabled={taskBusy||taskLoading} accessibilityLabel={'Complete '+item.title} onPress={()=>mutateTask(item,{complete:true})} style={{padding:3*s}}>
+        <Glyph name="check-circle" size={25*s}/>
+      </TouchableOpacity>
+      <TouchableOpacity disabled={taskBusy||taskLoading} onLongPress={()=>editTask(item)} accessibilityLabel={'Open task '+item.title+'; long press to edit'} style={{flex:1,minWidth:0,marginLeft:4*s,marginRight:5*s}}>
+        <Txt size={body} weight={500} lines={3} style={{lineHeight:rowLine}}>{item.title}</Txt>
+      </TouchableOpacity>
+      {!!item.link&&<TouchableOpacity disabled={taskBusy} accessibilityLabel={'Open linked note for '+item.title} onPress={()=>openTaskNote(item)} style={{padding:4*s}}><Glyph name="open-notebook" size={22*s}/></TouchableOpacity>}
+      {!!item.due&&<View style={{alignItems:'flex-end',flexShrink:0}}>
+        {overdue&&<View style={{backgroundColor:INK,paddingHorizontal:5*s,paddingVertical:2*s,borderRadius:3,marginBottom:3*s}}>
+          <Text testID="overdue-label" style={{fontFamily:dashboardFont(700),fontSize:DESIGN.overdue*s,color:PAPER,fontWeight:'normal'}}>OVERDUE</Text>
+        </View>}
+        <Txt size={secondary} weight={500}>{dueShort(item.due)}</Txt>
+      </View>}
+    </View>;
   };
   const rowNote=(note:CreatedNote,i:number)=>(
     <TouchableOpacity key={note.path+i} onPress={()=>openFile(note.path)}
-      style={{minHeight:rowMin,paddingVertical:5*s,flexShrink:0,flexDirection:'row',alignItems:'center',paddingHorizontal:4*s,...listRule}}>
-      <Glyph name="notebook" size={23*s}/>
-      <Txt size={body} lines={3} style={{marginHorizontal:7*s,flex:1,minWidth:0,lineHeight:rowLine}}>{fileTitle(note.path)}</Txt>
+      style={{minHeight:rowMin,paddingVertical:DESIGN.rowPadY*s,flexShrink:0,flexDirection:'row',alignItems:'center',paddingHorizontal:4*s,...listRule}}>
+      <DottedRule scale={s}/><Glyph name="recent" size={23*s}/>
+      <Txt size={body} weight={500} lines={3} style={{marginHorizontal:DESIGN.iconGap*s,flex:1,minWidth:0,lineHeight:rowLine}}>{fileTitle(note.path)}</Txt>
       {rowStamp(clockSmall(note.createdAt).toLowerCase())}
     </TouchableOpacity>
   );
@@ -404,10 +422,10 @@ export function PrettyHome({config,nonce,onSettings}:{
       <View style={{height:35*s,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
         <TouchableOpacity onPress={()=>setSelectedDay(dateKey(new Date()))}
           accessibilityRole="button" accessibilityLabel="Select today" style={{flex:1,zIndex:1}}>
-          <Txt size={17*s} bold>{dateLong(now)}</Txt>
+          <Txt size={DESIGN.date*s} weight={600}>{dateLong(now)}</Txt>
         </TouchableOpacity>
-        <View pointerEvents="none" style={{position:'absolute',left:0,right:0,alignItems:'center'}}>
-          <View style={{flexDirection:'row',alignItems:'baseline'}}><Txt size={16*s} bold>SmartyNote</Txt><Txt size={10*s} muted style={{marginLeft:5*s}}>{BUILD_LABEL}</Txt></View>
+        <View pointerEvents="box-none" style={{position:'absolute',left:0,right:0,alignItems:'center',zIndex:2}}>
+          <TouchableOpacity onPress={close} accessibilityLabel="Close SmartyNote" style={{alignItems:'center',justifyContent:'center',paddingVertical:2*s,paddingHorizontal:5*s}}><Txt size={DESIGN.brand*s} weight={600}>SmartyNote</Txt><Txt size={10*s} muted style={{marginTop:2*s}}>{BUILD_LABEL}</Txt></TouchableOpacity>
         </View>
         <View style={{flexDirection:'row',alignItems:'center'}}>
           <IconTap icon="refresh" label="Refresh dashboard" size={23*s} onPress={refreshAll}/>
@@ -425,18 +443,21 @@ export function PrettyHome({config,nonce,onSettings}:{
         </View>
       </View>
       <View style={{flexDirection:'row',alignItems:'center',height:75*s}}>
-        <View style={{flex:1,minWidth:0}}><Txt size={58*s} bold>{timeLong(now)}</Txt></View>
+        <View style={{flex:1,minWidth:0}}><Txt size={DESIGN.clock*s} weight={DESIGN.clockWeight}>{timeLong(now)}</Txt></View>
         <View style={{width:1,marginHorizontal:7*s}}/>
-        <View style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',paddingLeft:4*s}}>
+        <View style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',justifyContent:'flex-end',paddingLeft:4*s}}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Supernote Settings" onPress={openNativeSettings}
+          style={{width:67*s,height:67*s,alignItems:'center',justifyContent:'center'}}>
+          <Glyph name="profile" size={43.5*s}/>
+        </TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Search" onPress={()=>launchApp(APPS.search)}
-          style={{flex:1,marginRight:10*s,borderWidth:1,borderColor:DARK_GRAY,
-            borderRadius:5*s,height:38*s,flexDirection:'row',alignItems:'center',paddingHorizontal:9*s}}>
-          <Glyph name="search" size={22*s}/><Txt size={17*s} style={{marginLeft:9*s}}>Search</Txt>
+          style={{width:67*s,height:67*s,alignItems:'center',justifyContent:'center'}}>
+          <Glyph name="search" size={43.5*s}/>
         </TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose note name, type, template"
           onPress={()=>setOverlay('new-note')}
           style={{width:67*s,height:67*s,alignItems:'center',justifyContent:'center'}}>
-          <Glyph name="new-note" size={58*s}/>
+          <Glyph name="new-note" size={43.5*s}/>
         </TouchableOpacity>
         </View>
       </View>
@@ -446,12 +467,12 @@ export function PrettyHome({config,nonce,onSettings}:{
       {days.map(day=><TouchableOpacity key={day.key} onPress={()=>setSelectedDay(day.key)}
         accessibilityRole="button" accessibilityLabel={'Select '+day.date.toDateString()}
         style={{flex:1,alignItems:'center',justifyContent:'center'}}>
-        <Txt size={16.5*s} style={{marginBottom:3*s}}>{day.label}</Txt>
+        <Txt size={DESIGN.weekday*s} weight={500} style={{marginBottom:3*s}}>{day.label}</Txt>
         <View style={{width:CIRCLE*s,height:CIRCLE*s,borderRadius:CIRCLE*s/2,
           backgroundColor:day.today?INK:PAPER,
           borderWidth:!day.today&&selectedDay===day.key?1.2:0,borderColor:DARK_GRAY,
           alignItems:'center',justifyContent:'center'}}>
-          <Txt size={25*s} bold={day.today} style={{color:day.today?PAPER:INK}}>
+          <Txt size={DESIGN.dateNumber*s} weight={day.today?600:400} style={{color:day.today?PAPER:INK}}>
             {day.date.getDate()}
           </Txt>
         </View>
@@ -466,9 +487,9 @@ export function PrettyHome({config,nonce,onSettings}:{
         style={{flex:1,minHeight:0,flexDirection:'row',borderBottomWidth:1,borderColor:RULE}}>
         <View style={[styles.cell,{paddingRight:5*s}]}>
           <HomeAgendaList key={selectedDay+':'+width+':'+fontBoost+':'+(calendar.snapshot?.fetchedAt??0)}
-            events={events} scale={s} fontBoost={fontBoost} initialHeight={Math.max(0,topH-53*s)}
-            header={hidden=><SectionTitle icon="lizard" label={dayLabel(selectedDay)+' Events'}
-              extra={hidden>0?'+'+hidden:undefined} scale={s} actionLabel="View all" calendarAction={openTodayAgenda}
+            day={selectedDay} events={events} scale={s} fontBoost={fontBoost} initialHeight={Math.max(0,topH-53*s)}
+            header={hidden=><SectionTitle icon="coffee" label={dayLabel(selectedDay)+' Events'}
+              extra={hidden>0?'+'+hidden:undefined} scale={s} actionLabel="View all" calendarAction={openCalendarToday}
               actionAccessibilityLabel="View all events" action={()=>{
                 setAgendaStart(selectedDay);setAgendaVisit(v=>v+1);setOverlay('agenda');
               }}/>}
@@ -481,6 +502,8 @@ export function PrettyHome({config,nonce,onSettings}:{
         <View style={[styles.cell,{paddingLeft:4*s}]}>
           <SectionTitle icon="plants" label="To-do" scale={s} actionLabel="View all"
             action={()=>launchApp(APPS.todo)}/>
+          {!!mutationError&&overlay!=='task-edit'&&<Txt size={secondary}>{mutationError}</Txt>}
+          {!!taskError&&tasks.length>0&&<Txt size={secondary}>{taskError}</Txt>}
           <PrettyFitList key={'tasks:'+fitKey} items={activeTasks}
             keyOf={(item,i)=>item.id+':'+i+':'+item.title+':'+item.due}
             renderRow={rowTask} minHeight={rowMin} maxHeight={rowMax} initialHeight={topH-53*s}
@@ -488,65 +511,66 @@ export function PrettyHome({config,nonce,onSettings}:{
         </View>
       </View>
 
-      <View onLayout={e=>setMiddleH(e.nativeEvent.layout.height)}
-        style={{flex:1,minHeight:0,flexDirection:'row',borderBottomWidth:1,borderColor:RULE}}>
+      <View onLayout={e=>setMiddleH(e.nativeEvent.layout.height)} style={{flex:1,minHeight:0,flexDirection:'row'}}>
         <View style={[styles.cell,{paddingRight:5*s}]}>
-          <SectionTitle icon="coffee" label={dayLabel(selectedDay)+' Notes'} scale={s}/>
-          <PrettyFitList key={'created:'+fitKey+':'+selectedDay} items={notes}
-            keyOf={(item,i)=>item.path+':'+item.createdAt+':'+i} renderRow={rowNote}
-            minHeight={rowMin} maxHeight={rowMax} initialHeight={middleH-53*s}
-            empty={<Txt size={body} muted>No notes created on this day.</Txt>}/>
+          <PrettyFitList key={'quick:'+fitKey} testID="quick-fit-body" items={shortcutRows}
+            keyOf={(row,i)=>'quick-'+i+':'+JSON.stringify(row)}
+            initialHeight={Math.max(0,middleH-DESIGN.headingHeight*s)}
+            minHeight={DESIGN.quickRow*s}
+            maxHeight={Math.max(DESIGN.quickRow*s,rowLine*3+(2*DESIGN.quickPadY+2*DESIGN.quickGap)*s+2)}
+            header={hidden=>{
+              const count=hiddenQuickPins(shortcutRows,hidden);
+              return <SectionTitle icon="rocks" label="Quick access" scale={s}
+                extra={count?'+'+count:undefined} extraAccessibilityLabel={count+' additional shortcuts'}
+                action={()=>openQuickEditor(null)} actionLabel="Edit"/>;
+            }}
+            renderRow={(row,i)=><View style={{flexDirection:'row',alignItems:'stretch',minHeight:DESIGN.quickRow*s}}>
+              {row.map((item,col)=>item===undefined?
+                <TouchableOpacity key={col} accessibilityLabel="Reorder quick access" onLongPress={()=>openQuickEditor(null)} style={{flex:1,minWidth:0,margin:DESIGN.quickGap*s}}/>:
+                <TouchableOpacity key={col} accessibilityRole="button" accessibilityLabel={item?'Quick access: '+item.label:'Add Quick access shortcut'}
+                  onPress={()=>item?doOpenPinned(item):openQuickEditor(-1)}
+                  onLongPress={()=>openQuickEditor(item?i*2+col:null)}
+                  style={{flex:1,minWidth:0,margin:DESIGN.quickGap*s,borderWidth:1,borderRadius:7*s,borderColor:INK,
+                    flexDirection:'row',alignItems:'center',paddingHorizontal:DESIGN.quickPadX*s,paddingVertical:DESIGN.quickPadY*s}}>
+                  {item===null?<Glyph name="plus" size={18*s}/>:<><Glyph name={quickIcon(item)} size={DESIGN.quickIcon*s}/>
+                    <Txt size={body} weight={500} lines={3} style={{flex:1,minWidth:0,marginLeft:DESIGN.iconGap*s,lineHeight:rowLine}}>{item.label}</Txt></>}
+                </TouchableOpacity>)}
+            </View>}
+            empty={null}/>
+
         </View>
         <View style={[styles.splitter,{marginHorizontal:7*s,marginVertical:9*s}]}/>
         <View style={[styles.cell,{paddingLeft:4*s}]}>
-          <SectionTitle icon="rocks" label="Recent notes" scale={s} actionLabel="View all"
-            action={()=>setOverlay('recent')}/>
-          <PrettyFitList key={'recent:'+fitKey} items={recent}
-            keyOf={(path,i)=>path+':'+i+':'+fileInfo[path]?.mtime}
-            renderRow={(path,i)=>rowFile(path,i,fileInfo[path]?.mtime)}
+          <PrettyFitList key={'merged:'+fitKey+':'+selectedDay} items={mergedNotes}
+            keyOf={(item,i)=>item.path+':'+item.createdAt+':'+i}
+            header={hidden=>{const visible=mergedNotes.length-hidden;const overflow=notes.length-Math.min(3,notes.length,visible);
+              return <SectionTitle icon="lizard" label="Recent notes" scale={s} actionLabel="View all"
+                aboveAction={(selectedDay===dateKey(now)?'Today':dayLabel(selectedDay))+(overflow>0?' +'+overflow:'')}
+                action={()=>setOverlay('recent')}/>;}}
+            renderRow={(item,i)=>item.createdAt?rowNote({path:item.path,createdAt:item.createdAt},i):
+              <View>{i===Math.min(3,notes.length)&&i>0&&<HeavyRule scale={s}/>}{rowFile(item.path,i,fileInfo[item.path]?.mtime)}</View>}
             minHeight={rowMin} maxHeight={rowMax} initialHeight={middleH-53*s}
             empty={<Txt size={body} muted>No recent notes.</Txt>}/>
-        </View>
-      </View>
-
-      <View onLayout={e=>setBottomH(e.nativeEvent.layout.height)}
-        style={{flex:.78,minHeight:0,flexDirection:'row'}}>
-        <View style={[styles.cell,{paddingRight:5*s}]}>
-          <SectionTitle icon="jellyfish" label="Quick access" scale={s} action={onSettings} actionLabel="Edit"/>
-          <PrettyFitList key={'quick:'+fitKey} items={pinned}
-            keyOf={(item,i)=>item.path+':'+item.label+':'+i+':'+fileInfo[item.path]?.mtime}
-            renderRow={rowPin} minHeight={rowMin} maxHeight={rowMax} initialHeight={bottomH-53*s}
-            empty={<TouchableOpacity onPress={onSettings}><Txt muted size={body}>Edit to pin notes and folders.</Txt></TouchableOpacity>}/>
-        </View>
-        <View style={[styles.splitter,{marginHorizontal:7*s,marginVertical:9*s}]}/>
-        <View style={[styles.cell,{paddingLeft:4*s}]}>
-          <View style={{height:53*s,flexDirection:'row',alignItems:'center'}}>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Return to the note" onPress={close}
-              style={{width:CIRCLE*s,height:CIRCLE*s,alignItems:'center',justifyContent:'center'}}>
-              <Glyph name="stardust" size={CIRCLE*s*120/113}/>
-            </TouchableOpacity>
-            <Txt size={21*s} bold lines={1} style={{marginLeft:6*s,flexShrink:1}}>Amaze! Amaze! Amaze!</Txt>
-            <View style={{flex:1}}/>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Edit complications" onPress={onSettings}
-              style={{padding:8*s}}><Txt size={12.8*s}>Edit</Txt></TouchableOpacity>
-          </View>
-          <PrettySummaryPanel events={agenda} hasCalendar={!!calendar.snapshot} calendarCached={calendar.status==='cached'}
-            weather={weather} now={now} scale={s}
-            onSettings={onSettings}/>
         </View>
       </View>
     </View>
 
     <Modal transparent={false} animationType="none" visible={overlay!==null}
-      onRequestClose={()=>setOverlay(overlay==='event'&&returnToAgenda?'agenda':null)}>
+      onRequestClose={()=>{if(!taskBusy){if(datePickerOpen)setDatePickerOpen(false);else setOverlay(overlay==='event'&&returnToAgenda?'agenda':null);}}}>
       <View style={styles.screen}>
-          {overlay==='new-note'?<PrettyNoteCreate onClose={()=>setOverlay(null)}/>:<>
+          {overlay==='quick-edit'?<PrettyQuickEditor prefs={prefs} initialIndex={quickEditIndex} onSaved={next=>{setPrefs(next);setOverlay(null);}} onClose={()=>setOverlay(null)}/>:overlay==='task-link-help'&&linkFailure?<>
+            <PrettyScreenHeader title="Linked task" left={{label:'Close',onPress:()=>setOverlay(null)}}/>
+            <View style={{padding:20*s,gap:12*s}}><Txt bold>{linkFailure.title}</Txt><Txt>SmartyNote could not verify the linked notebook and page. Use Supernote To-do's own link to open the exact handwritten task.</Txt><TouchableOpacity onPress={()=>{setOverlay(null);launchApp(APPS.todo);}} style={{padding:12*s,borderWidth:1,borderColor:INK}}><Txt bold>Open native To-do</Txt></TouchableOpacity>{!!mutationError&&<Txt>{mutationError}</Txt>}</View>
+          </>:overlay==='task-edit'&&editingTask?(datePickerOpen?<PrettyTaskDatePicker value={editDue} onCancel={()=>setDatePickerOpen(false)} onSave={value=>{setEditDue(value);setDatePickerOpen(false);}}/>:<>
+            <PrettyScreenHeader title="Edit task" left={{label:'Cancel',onPress:()=>setOverlay(null),disabled:taskBusy}} right={{label:'Save',onPress:()=>mutateTask(editingTask,{...(editTitle.trim()!==editingTask.title?{title:editTitle}:{}),...((editDue.trim()||null)!==editingTask.due?{due:editDue.trim()||null}:{})}),disabled:taskBusy}}/>
+            <View style={{padding:20*s,gap:12*s}}><Txt>Task name</Txt><TextInput value={editTitle} onChangeText={setEditTitle} style={{borderWidth:1,padding:10*s,fontSize:body,color:INK}}/><Txt>Due date</Txt><TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose due date" onPress={()=>setDatePickerOpen(true)} disabled={taskBusy} style={{borderWidth:1,borderColor:INK,padding:10*s,flexDirection:'row',alignItems:'center'}}><Glyph name="calendar" size={24*s}/><Txt size={body} style={{marginLeft:8*s}}>{editDue||'No due date'}</Txt></TouchableOpacity>{!!mutationError&&<Txt>{mutationError}</Txt>}{taskBusy&&<Txt>Saving to Supernote…</Txt>}</View>
+          </>):overlay==='new-note'?<PrettyNoteCreate onClose={()=>setOverlay(null)}/>:<>
             <PrettyScreenHeader
               title={overlay==='agenda'?'Seven-day agenda':overlay==='event'?'Event details':
-                overlay==='keywords'?'Keywords':overlay==='favorites'?'Favorites':'Recent notes'}
+                overlay==='stars'?'Stars':overlay==='keywords'?'Keywords':overlay==='favorites'?'Favorites':'Recent notes'}
               left={{label:overlay==='event'&&returnToAgenda?'Back':'Close',
                 onPress:()=>setOverlay(overlay==='event'&&returnToAgenda?'agenda':null)}}
-              right={overlay==='favorites'?{label:'Edit',onPress:()=>{setOverlay(null);onSettings();}}:undefined}/>
+              right={overlay==='stars'?{label:'Native search',onPress:()=>{setOverlay(null);launchApp(APPS.search);}}:overlay==='favorites'?{label:'Edit',onPress:()=>{setOverlay(null);onSettings();}}:undefined}/>
             <View style={{flex:1,paddingHorizontal:19*s,paddingTop:15*s,paddingBottom:12*s}}>
             {overlay==='event'&&selectedEvent?
               <ScrollView style={{flex:1}}>
@@ -570,10 +594,10 @@ export function PrettyHome({config,nonce,onSettings}:{
                       <Txt size={15*s} muted>{selectedEvent.all_day?'Schedule':'Time'}</Txt>
                       <Txt size={21*s} bold>{selectedEvent.all_day?'All day':eventTimeRange(selectedEvent)}</Txt>
                     </View>
-                    <View style={{width:'50%',marginBottom:8*s}}>
+                    {!selectedEvent.all_day&&selectedEvent.endMillis>selectedEvent.startMillis&&<View style={{width:'50%',marginBottom:8*s}}>
                       <Txt size={15*s} muted>Duration</Txt>
                       <Txt size={21*s} bold>{eventDuration(selectedEvent)}</Txt>
-                    </View>
+                    </View>}
                     <View style={{width:'50%',marginBottom:8*s}}>
                       <Txt size={15*s} muted>Calendar</Txt>
                       <Txt size={21*s} bold>{selectedEvent.calendar}</Txt>
@@ -603,38 +627,45 @@ export function PrettyHome({config,nonce,onSettings}:{
                     <Txt size={23*s}>›</Txt>
                   </TouchableOpacity>
                 </View>
+                <View style={{paddingBottom:8*s}}>
+                  {calendar.snapshot&&<Txt size={13*s} muted>Last retrieved: {new Date(calendar.snapshot.fetchedAt).toLocaleString('en-US')}</Txt>}
+                  {calendar.error&&<Txt size={13*s} muted>{calendar.error}</Txt>}
+                </View>
                 <ScrollView key={agendaVisit+':'+agendaStart} contentContainerStyle={{paddingBottom:24*s}}>
-                  <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
+                  <View>
                     {Array.from({length:7},(_,i)=>addCalendarDays(agendaStart,i)).map(day=>{
                       const dayEvents=agenda.filter(e=>e.startDay<=day&&day<e.endDayExclusive);
-                      const allDay=dayEvents.filter(e=>e.all_day),timed=dayEvents.filter(e=>!e.all_day);
-                      return <View key={day} style={{width:'49%',padding:11*s,
-                        marginBottom:11*s,borderWidth:1,borderColor:DARK_GRAY,borderRadius:0}}>
-                        <View style={{paddingBottom:6*s,borderBottomWidth:1,borderColor:RULE,
-                            flexDirection:'row',justifyContent:'space-between'}}>
-                          <Txt size={21*s} bold>{dayLabel(day)}</Txt>
+                      const [weekday,date]=dayLabel(day).split(' ');
+                      return <View key={day} style={{flexDirection:'row',borderTopWidth:1,borderColor:DARK_GRAY,paddingVertical:5*s}}>
+                        <View style={{width:65*s,paddingTop:5*s,paddingRight:5*s,borderRightWidth:1,borderColor:DARK_GRAY}}>
+                          <Txt size={16*s} weight={650}>{weekday}</Txt>
+                          <Txt size={14*s} weight={500}>{date}</Txt>
                         </View>
-                        {allDay.length>0&&<View style={{backgroundColor:LIGHT_GRAY,
-                          paddingHorizontal:5*s,marginTop:6*s}}>
-                          {allDay.map(e=><AgendaRow key={e.key} event={e} allEvents={dayEvents}
-                            scale={s} fontBoost={fontBoost} showSelect onPress={()=>openEvent(e,true)}/>)}
-                        </View>}
-                        {timed.map(e=><AgendaRow key={e.key} event={e} allEvents={dayEvents}
-                          scale={s} fontBoost={fontBoost} showSelect onPress={()=>openEvent(e,true)}/>)}
-                        {!dayEvents.length&&<Txt size={14*s} muted style={{marginTop:9*s}}>
-                          No events in current feed
-                        </Txt>}
+                        <View style={{flex:1,minWidth:0,paddingLeft:5*s}}>
+                          {Array.from({length:Math.ceil(dayEvents.length/2)},(_,r)=><View key={r} style={{flexDirection:'row',alignItems:'flex-start'}}>
+                            {[dayEvents[r*2],dayEvents[r*2+1]].map((e,c)=><View key={c} style={{flex:1,minWidth:0,paddingHorizontal:3*s}}>
+                              {e&&<AgendaRow event={e} allEvents={dayEvents} scale={s} fontBoost={fontBoost} showSelect onPress={()=>openEvent(e,true)}/>}
+                            </View>)}
+                          </View>)}
+                          {!dayEvents.length&&<Txt size={14*s} muted style={{padding:7*s}}>No events in current feed</Txt>}
+                        </View>
                       </View>;
                     })}
                   </View>
-                  {calendar.snapshot&&<>
-                    <Txt size={13*s} muted>
-                      Last retrieved: {new Date(calendar.snapshot.fetchedAt).toLocaleString('en-US')}
-                    </Txt>
-                    {calendar.error&&<Txt size={13*s} muted>{calendar.error}</Txt>}
-                  </>}
+
                 </ScrollView>
               </View>:
+            overlay==='stars'?
+              <ScrollView>
+                <Txt size={secondary} muted>Stars in your notebooks. Native search opens your last-used category; select Star there for PDF stars.</Txt>
+                {starBusy&&<Txt size={body}>Scanning notebooks…</Txt>}
+                {!!starStatus&&<Txt size={body}>{starStatus}</Txt>}
+                {!starBusy&&!starStatus&&!starNotes.length&&<Txt size={body} muted>No starred notebook pages found.</Txt>}
+                {starNotes.flatMap(note=>note.pages.map(page=><TouchableOpacity key={note.file+':'+page.page} accessibilityLabel={'Open '+fileTitle(note.file)+' page '+page.page}
+                  onPress={()=>{setOverlay(null);openFile(note.file,page.page);}} style={{paddingVertical:12*s,borderBottomWidth:1,borderColor:DARK_GRAY,flexDirection:'row',alignItems:'center'}}>
+                  <Glyph name="stars" size={24*s}/><View style={{flex:1,marginLeft:8*s}}><Txt size={body} bold>{fileTitle(note.file)}</Txt><Txt size={secondary} muted>Page {page.page} · {page.count} {page.count===1?'star':'stars'}</Txt></View>
+                </TouchableOpacity>))}
+              </ScrollView>:
             overlay==='keywords'?
               <ScrollView>
                 {keywordBusy&&<Txt size={body} muted>Scanning handwritten keywords…</Txt>}
@@ -652,7 +683,7 @@ export function PrettyHome({config,nonce,onSettings}:{
                 {favorites.length?favorites.map(rowPin):
                   <Txt size={body} muted>No favorites yet. Use Edit to pin files and folders.</Txt>}
               </ScrollView>:
-            <ScrollView>{recent.map((p,i)=>rowFile(p,i,fileInfo[p]?.mtime))}</ScrollView>}
+            <ScrollView>{notes.map(rowNote)}{!!notes.length&&<HeavyRule scale={s}/>}{recent.filter(p=>!notes.some(n=>n.path===p)).map((p,i)=>rowFile(p,i,fileInfo[p]?.mtime))}</ScrollView>}
             </View>
           </>}
       </View>

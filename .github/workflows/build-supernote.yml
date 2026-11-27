@@ -5,7 +5,11 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - development/pretty-dashboard
+      - development/smartynote-four-quadrants
+
+concurrency:
+  group: smartynote-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -53,7 +57,7 @@ jobs:
           test -f package-lock.json
           test -f PluginConfig.json
 
-      - name: Prepare Pretty Calendar font and Manta icon set
+      - name: Prepare approved release icons and font
         shell: bash
         run: |
           set -euo pipefail
@@ -61,8 +65,20 @@ jobs:
           curl --fail --silent --show-error --location --retry 3             "https://raw.githubusercontent.com/google/fonts/main/ofl/googlesansflex/GoogleSansFlex%5BROND%2Copsz%2Cslnt%2Cwdth%2Cwght%5D.ttf"             --output android/app/src/main/assets/fonts/GoogleSansFlex.ttf
           curl --fail --silent --show-error --location --retry 3             "https://raw.githubusercontent.com/google/fonts/main/ofl/googlesansflex/OFL.txt"             --output android/app/src/main/assets/fonts/OFL.txt
           python3 -m venv /tmp/pretty-icons-venv
-          /tmp/pretty-icons-venv/bin/pip -q install cairosvg pillow
+          /tmp/pretty-icons-venv/bin/pip -q install cairosvg pillow fonttools
           /tmp/pretty-icons-venv/bin/python scripts/generate_pretty_assets.py
+          /tmp/pretty-icons-venv/bin/python - <<'PY'
+          from pathlib import Path
+          from fontTools.ttLib import TTFont
+          from fontTools.varLib.instancer import instantiateVariableFont
+          root = Path("android/app/src/main/assets/fonts")
+          for weight in (400,500,600,650,700):
+              font=TTFont(root/"GoogleSansFlex.ttf")
+              axes={a.axisTag:a.defaultValue for a in font["fvar"].axes}
+              axes["wght"]=weight
+              result=instantiateVariableFont(font,axes,inplace=True,updateFontNames=False)
+              result.save(root/f"GoogleSansFlex{weight}.ttf")
+          PY
           test -s assets/pretty/lizard.png
           test -s android/app/src/main/assets/fonts/GoogleSansFlex.ttf
           python3 - <<'PY'
@@ -76,9 +92,9 @@ jobs:
           print("Icon references verified:", len(used))
           PY
 
-      - name: Embed installed build number
+      - name: Embed approved product version and original build ID
         shell: bash
-        run: printf "export const BUILD_LABEL='v%s';\n" "$GITHUB_RUN_NUMBER" > src/prettyBuild.ts
+        run: python3 scripts/versioning.py "$GITHUB_RUN_NUMBER" --prepare
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
@@ -89,11 +105,11 @@ jobs:
           set -euo pipefail
           ./node_modules/.bin/tsc --noEmit --pretty false
 
-      - name: Test Pretty Calendar JSON parsing and offline behavior
+      - name: Test calendar, preferences, layout, task protocol and navigation
         shell: bash
         run: |
           set -euo pipefail
-          npm test -- --runInBand src/prettyCalendar.test.ts src/prettyPrefs.test.ts src/prettyHomeNavigation.test.tsx
+          npm test -- --runInBand src/prettyCalendar.test.ts src/prettyPrefs.test.ts src/prettyHomeNavigation.test.tsx src/prettyCloud.test.ts
 
       - name: Align SDK library NDK with installed Android NDK
         shell: bash
@@ -130,18 +146,18 @@ jobs:
           PACKAGE="build/outputs/${PACKAGE_NAME}.snplg"
 
           test -s "$PACKAGE"
-          cp "$PACKAGE" build/outputs/MySuperPrettyDashboard.snplg
-          PACKAGE="build/outputs/MySuperPrettyDashboard.snplg"
+          cp "$PACKAGE" build/outputs/SmartyNote.snplg
+          PACKAGE="build/outputs/SmartyNote.snplg"
           unzip -t "$PACKAGE"
 
           unzip -p "$PACKAGE" PluginConfig.json \
             > /tmp/plugin-config.json
 
           python3 - <<'PY'
-          import json
+          import json, os
           from zipfile import ZipFile
 
-          path = "build/outputs/MySuperPrettyDashboard.snplg"
+          path = "build/outputs/SmartyNote.snplg"
 
           with open("/tmp/plugin-config.json") as f:
               config = json.load(f)
@@ -152,8 +168,11 @@ jobs:
               assert config.get("pluginID"), \
                   "Missing plugin ID"
 
-              assert config.get("name") == "MySuperPrettyDashboard", \
-                  "Plugin display name must be MySuperPrettyDashboard"
+              assert config.get("name") == "SmartyNote", \
+                  "Plugin display name must be SmartyNote"
+
+              assert config.get("versionName") == os.environ["SMARTYNOTE_VERSION"], "Incorrect packaged version name"
+              assert str(config.get("versionCode")) == os.environ["GITHUB_RUN_NUMBER"], "Incorrect packaged build code"
 
               assert config.get("jsMainPath"), \
                   "Missing JS entry point"
@@ -172,28 +191,61 @@ jobs:
                   for name in files
               ), "JavaScript bundle missing"
 
-          print("Package structure verified")
+              from io import BytesIO
+              retired = ("weather_iconic", "weather-iconic", "weather_", "weather-", "rocky", "possum", "temperature_gauge", "temperature-gauge", "cats_placeholder", "cats-placeholder", "icon_clip", "icon-clip", "icon_todo", "icon-todo", "dseg7", "mcnuggets")
+              with ZipFile(BytesIO(package.read("app.npk"))) as native:
+                  all_names = files | set(native.namelist())
+                  unwanted = sorted(n for n in all_names if any(token in n.lower() for token in retired))
+                  assert not unwanted, "Retired packaged assets: " + repr(unwanted)
+              for name in files:
+                  if name.endswith(".bundle"):
+                      payload=package.read(name)
+                      for text in (b"Dashboard Clip", b"Dashboard To-do", b"Weather Iconic", b"Amaze! Amaze! Amaze!", b"api.open-meteo.com"):
+                          assert text not in payload, "Retired runtime feature: "+repr(text)
+              assert "licenses/SuperDashboard-MIT.txt" in files
+              assert "licenses/GoogleSansFlex-OFL.txt" in files
+          print("Package structure and release asset exclusions verified")
           PY
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MySuperPrettyDashboard-development
-          path: build/outputs/MySuperPrettyDashboard.snplg
+          name: SmartyNote-development
+          path: build/outputs/SmartyNote.snplg
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish direct SNPLG development download
-        if: github.ref == 'refs/heads/development/pretty-dashboard'
+      - name: Normalize existing release descriptions
+        if: github.ref == 'refs/heads/development/smartynote-four-quadrants'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "dev-build-${{ github.run_number }}" \
-            build/outputs/MySuperPrettyDashboard.snplg \
+          gh api --paginate "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq '.[] | [.id, .tag_name, (.body // "")] | @base64' |
+          while IFS= read -r entry; do
+            row="$(printf '%s' "$entry" | base64 --decode)"
+            id="$(jq -r '.[0]' <<<"$row")"
+            tag="$(jq -r '.[1]' <<<"$row")"
+            old="$(jq -r '.[2]' <<<"$row")"
+            note="Version $tag."
+            if [[ "$old" != "$note" ]]; then
+              gh api --method PATCH "repos/${{ github.repository }}/releases/$id" -f body="$note" --silent
+            fi
+          done
+
+      - name: Publish direct SNPLG development download
+        if: github.ref == 'refs/heads/development/smartynote-four-quadrants'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "v${SMARTYNOTE_VERSION}" \
+            build/outputs/SmartyNote.snplg \
             --repo "${{ github.repository }}" \
             --target "${{ github.sha }}" \
-            --title "MySuperPrettyDashboard development build ${{ github.run_number }}" \
-            --notes "Experimental Manta plugin build from development/pretty-dashboard. Keep original SuperDashboard installed." \
+            --title "SmartyNote ${SMARTYNOTE_VERSION} (build $GITHUB_RUN_NUMBER)" \
+            --notes "Version ${SMARTYNOTE_VERSION}." \
             --prerelease

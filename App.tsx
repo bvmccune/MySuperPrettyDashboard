@@ -1,6 +1,6 @@
-/** MySuperPrettyDashboard: one-screen Manta home + existing configuration UI. */
+/** SmartyNote: one-screen Manta home and Settings. */
 import React, {useEffect, useState} from 'react';
-import {DeviceEventEmitter, NativeModules, Text, TouchableOpacity, View} from 'react-native';
+import {DeviceEventEmitter, Text, TouchableOpacity, View} from 'react-native';
 import {DashboardConfig, loadConfig} from './src/config';
 import {PrettyHome} from './src/PrettyHome';
 import {getRoute, Route, setRoute} from './src/route';
@@ -8,12 +8,6 @@ import {PrettySettings} from './src/PrettySettings';
 import {PrettyScreenHeader} from './src/PrettyScreen';
 import {markOpen, ready} from './src/perf';
 
-const {DashboardNative} = NativeModules;
-function familyFor(path: string): string {
-  let h = 0;
-  for (let i = 0; i < path.length; i++) h = (h * 31 + path.charCodeAt(i)) | 0;
-  return 'udf' + (h >>> 0).toString(36);
-}
 function DashboardError({message}:{message:string}):React.JSX.Element {
   return <View style={{flex:1,backgroundColor:'#fff'}}>
     <PrettyScreenHeader title="Dashboard error" left={{label:'Settings',onPress:()=>setRoute('config')}}/>
@@ -59,11 +53,6 @@ export default function App(): React.JSX.Element {
     markOpen('dashboard');
     (async () => {
       const cfg = await loadConfig();
-      // Preserve support for an individually configured MyStyle font in all
-      // legacy tools; the new home always uses the bundled Google Sans Flex.
-      if (cfg.font) {
-        try { await DashboardNative?.registerFont?.(cfg.font, familyFor(cfg.font)); } catch { /* optional */ }
-      }
       if (active) {
         updateConfig(cfg);
         updateNonce(v => v + 1);
