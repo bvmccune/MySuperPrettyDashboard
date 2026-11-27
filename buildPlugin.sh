@@ -716,9 +716,10 @@ main() {
         update_plugin_config_packages "$project_root" "$gen_dir" "$all_pkgs"
 
         if build_android_apk "$project_root" "$gen_cfg"; then
-            copy_apk_and_update_config "$project_root" "$gen_dir" "$gen_cfg" || true
+            copy_apk_and_update_config "$project_root" "$gen_dir" "$gen_cfg" || return 1
         else
             write_color_output "APK build failed" "Red"
+            return 1
         fi
     else
         write_color_output "Build conditions not met; skipping native build and reactPackages update" "Yellow"
