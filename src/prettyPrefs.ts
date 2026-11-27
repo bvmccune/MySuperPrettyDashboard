@@ -11,7 +11,7 @@ const PREFS = '/storage/emulated/0/MyStyle/Plugins/MySuperPrettyDashboard/pretty
 
 export type PrettySize = 'normal' | 'large' | 'extra';
 
-export const QUICK_ICONS=['files','stars','keywords','recent','refresh','calendar-dot','auto-refresh','calendar','new-note','notebook','open-notebook'] as const;
+export const QUICK_ICONS=['files','stars','stars-filled','keywords','recent','refresh','calendar-dot','auto-refresh','calendar','new-note','notebook','open-notebook'] as const;
 export type QuickIcon=typeof QUICK_ICONS[number];
 export type QuickPin=ShortcutItem & {icon?:QuickIcon};
 export function quickIcon(item:QuickPin):QuickIcon{

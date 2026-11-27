@@ -47,7 +47,7 @@ const APPS={
 };
 const WEEK=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const FILE_RE=/\.(note|pdf|epub|cbz|xps|fb2)$/i;
-type IconName='check-circle'|'profile'|'new-note'|'file'|'files'|'calendar'|'recent'|'search'|'stars'|'settings'|'charging'|'notebook'|'plus'|'refresh'|'back'|'lizard'|'plants'|'rocks'|'coffee'|'wifi'|'wifi-off'|'keywords'|'battery'|'calendar-dot'|'open-notebook'|'auto-refresh';
+type IconName='check-circle'|'profile'|'new-note'|'file'|'files'|'calendar'|'recent'|'search'|'stars'|'settings'|'charging'|'notebook'|'plus'|'refresh'|'back'|'lizard'|'plants'|'rocks'|'coffee'|'wifi'|'wifi-off'|'keywords'|'battery'|'calendar-dot'|'open-notebook'|'auto-refresh'|'stars-filled';
 const IMAGES:Record<IconName,ImageSourcePropType>={
   'check-circle':require('../assets/pretty/check-circle.png'),
   'profile':require('../assets/pretty/profile.png'),
@@ -58,6 +58,7 @@ const IMAGES:Record<IconName,ImageSourcePropType>={
   'recent':require('../assets/pretty/recent.png'),
   'search':require('../assets/pretty/search.png'),
   'stars':require('../assets/pretty/stars.png'),
+  'stars-filled':require('../assets/pretty/stars-filled.png'),
   'settings':require('../assets/pretty/settings.png'),
   'charging':require('../assets/pretty/charging.png'),
   'notebook':require('../assets/pretty/notebook.png'),
@@ -197,6 +198,8 @@ export function PrettyHome({config,nonce,onSettings}:{
   const [datePickerOpen,setDatePickerOpen]=useState(false);
   const [mutationError,setMutationError]=useState('');
   const [overlay,setOverlay]=useState<Overlay>(null);
+  const [quickEditIndex,setQuickEditIndex]=useState<number|null>(null);
+  const openQuickEditor=(index:number|null)=>{setQuickEditIndex(index);setOverlay('quick-edit');};
   const [selectedEvent,setSelectedEvent]=useState<AgendaEvent|null>(null);
   const [returnToAgenda,setReturnToAgenda]=useState(false);
   const [agendaVisit,setAgendaVisit]=useState(0);
@@ -519,13 +522,14 @@ export function PrettyHome({config,nonce,onSettings}:{
               const count=hiddenQuickPins(shortcutRows,hidden);
               return <SectionTitle icon="rocks" label="Quick access" scale={s}
                 extra={count?'+'+count:undefined} extraAccessibilityLabel={count+' additional shortcuts'}
-                action={()=>setOverlay('quick-edit')} actionLabel="Edit"/>;
+                action={()=>openQuickEditor(null)} actionLabel="Edit"/>;
             }}
             renderRow={(row,i)=><View style={{flexDirection:'row',alignItems:'stretch',minHeight:DESIGN.quickRow*s}}>
               {row.map((item,col)=>item===undefined?
-                <View key={col} style={{flex:1,minWidth:0,margin:DESIGN.quickGap*s}}/>:
+                <TouchableOpacity key={col} accessibilityLabel="Reorder quick access" onLongPress={()=>openQuickEditor(null)} style={{flex:1,minWidth:0,margin:DESIGN.quickGap*s}}/>:
                 <TouchableOpacity key={col} accessibilityRole="button" accessibilityLabel={item?'Quick access: '+item.label:'Add Quick access shortcut'}
-                  onPress={()=>item?doOpenPinned(item):setOverlay('quick-edit')}
+                  onPress={()=>item?doOpenPinned(item):openQuickEditor(-1)}
+                  onLongPress={()=>openQuickEditor(item?i*2+col:null)}
                   style={{flex:1,minWidth:0,margin:DESIGN.quickGap*s,borderWidth:1,borderRadius:7*s,borderColor:INK,
                     flexDirection:'row',alignItems:'center',paddingHorizontal:DESIGN.quickPadX*s,paddingVertical:DESIGN.quickPadY*s}}>
                   {item===null?<Glyph name="plus" size={18*s}/>:<><Glyph name={quickIcon(item)} size={DESIGN.quickIcon*s}/>
@@ -554,7 +558,7 @@ export function PrettyHome({config,nonce,onSettings}:{
     <Modal transparent={false} animationType="none" visible={overlay!==null}
       onRequestClose={()=>{if(!taskBusy){if(datePickerOpen)setDatePickerOpen(false);else setOverlay(overlay==='event'&&returnToAgenda?'agenda':null);}}}>
       <View style={styles.screen}>
-          {overlay==='quick-edit'?<PrettyQuickEditor prefs={prefs} onSaved={next=>{setPrefs(next);setOverlay(null);}} onClose={()=>setOverlay(null)}/>:overlay==='task-link-help'&&linkFailure?<>
+          {overlay==='quick-edit'?<PrettyQuickEditor prefs={prefs} initialIndex={quickEditIndex} onSaved={next=>{setPrefs(next);setOverlay(null);}} onClose={()=>setOverlay(null)}/>:overlay==='task-link-help'&&linkFailure?<>
             <PrettyScreenHeader title="Linked task" left={{label:'Close',onPress:()=>setOverlay(null)}}/>
             <View style={{padding:20*s,gap:12*s}}><Txt bold>{linkFailure.title}</Txt><Txt>SmartyNote could not verify the linked notebook and page. Use Supernote To-do's own link to open the exact handwritten task.</Txt><TouchableOpacity onPress={()=>{setOverlay(null);launchApp(APPS.todo);}} style={{padding:12*s,borderWidth:1,borderColor:INK}}><Txt bold>Open native To-do</Txt></TouchableOpacity>{!!mutationError&&<Txt>{mutationError}</Txt>}</View>
           </>:overlay==='task-edit'&&editingTask?(datePickerOpen?<PrettyTaskDatePicker value={editDue} onCancel={()=>setDatePickerOpen(false)} onSave={value=>{setEditDue(value);setDatePickerOpen(false);}}/>:<>
@@ -628,26 +632,23 @@ export function PrettyHome({config,nonce,onSettings}:{
                   {calendar.error&&<Txt size={13*s} muted>{calendar.error}</Txt>}
                 </View>
                 <ScrollView key={agendaVisit+':'+agendaStart} contentContainerStyle={{paddingBottom:24*s}}>
-                  <View style={{flexDirection:'row',flexWrap:'wrap',alignItems:'flex-start',justifyContent:'space-between'}}>
+                  <View>
                     {Array.from({length:7},(_,i)=>addCalendarDays(agendaStart,i)).map(day=>{
                       const dayEvents=agenda.filter(e=>e.startDay<=day&&day<e.endDayExclusive);
-                      const allDay=dayEvents.filter(e=>e.all_day),timed=dayEvents.filter(e=>!e.all_day);
-                      return <View key={day} style={{width:'49%',padding:8*s,
-                        marginBottom:9*s,borderWidth:1,borderColor:DARK_GRAY,borderRadius:0}}>
-                        <View style={{paddingBottom:6*s,borderBottomWidth:1,borderColor:RULE,
-                            flexDirection:'row',justifyContent:'space-between'}}>
-                          <Txt size={DESIGN.heading*s} weight={650}>{dayLabel(day)}</Txt>
+                      const [weekday,date]=dayLabel(day).split(' ');
+                      return <View key={day} style={{flexDirection:'row',borderTopWidth:1,borderColor:DARK_GRAY,paddingVertical:5*s}}>
+                        <View style={{width:65*s,paddingTop:5*s,paddingRight:5*s,borderRightWidth:1,borderColor:DARK_GRAY}}>
+                          <Txt size={16*s} weight={650}>{weekday}</Txt>
+                          <Txt size={14*s} weight={500}>{date}</Txt>
                         </View>
-                        {allDay.length>0&&<View style={{backgroundColor:LIGHT_GRAY,
-                          paddingHorizontal:5*s,marginTop:6*s}}>
-                          {allDay.map(e=><AgendaRow key={e.key} event={e} allEvents={dayEvents}
-                            scale={s} fontBoost={fontBoost} showSelect onPress={()=>openEvent(e,true)}/>)}
-                        </View>}
-                        {timed.map(e=><AgendaRow key={e.key} event={e} allEvents={dayEvents}
-                          scale={s} fontBoost={fontBoost} showSelect onPress={()=>openEvent(e,true)}/>)}
-                        {!dayEvents.length&&<Txt size={14*s} muted style={{marginTop:9*s}}>
-                          No events in current feed
-                        </Txt>}
+                        <View style={{flex:1,minWidth:0,paddingLeft:5*s}}>
+                          {Array.from({length:Math.ceil(dayEvents.length/2)},(_,r)=><View key={r} style={{flexDirection:'row',alignItems:'flex-start'}}>
+                            {[dayEvents[r*2],dayEvents[r*2+1]].map((e,c)=><View key={c} style={{flex:1,minWidth:0,paddingHorizontal:3*s}}>
+                              {e&&<AgendaRow event={e} allEvents={dayEvents} scale={s} fontBoost={fontBoost} showSelect onPress={()=>openEvent(e,true)}/>}
+                            </View>)}
+                          </View>)}
+                          {!dayEvents.length&&<Txt size={14*s} muted style={{padding:7*s}}>No events in current feed</Txt>}
+                        </View>
                       </View>;
                     })}
                   </View>

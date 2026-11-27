@@ -20,7 +20,7 @@ import {
   eventDuration, eventTimeRange, loadCalendarCache, normalizeFeed,
   refreshCalendar, sevenDayKeys,
 } from './prettyCalendar';
-import {compactEventRange, hasTimeConflict, fitAgendaRows} from './PrettyAgenda';
+import {compactEventRange, hasTimeConflict, fitAgendaRows, wrapEventDuration} from './PrettyAgenda';
 
 const event = (summary:string,start:string,end:string,all_day=false,calendar='Work') =>
   ({summary,start,end,all_day,calendar});
@@ -166,3 +166,10 @@ test('16-level grayscale targets are evenly spaced and UI colors are members',()
 
 test('visible row shading uses the next darker level after Manta rejected #EEEEEE',()=>expect(LIGHT_GRAY).toBe('#DDDDDD'));
 
+
+ test('duration wrap uses the approved seven-character reference and always wraps conflicts',()=>{
+ expect(wrapEventDuration('10:00–11:00 AM',false)).toBe(false);
+ expect(wrapEventDuration('10:00–11:00 AM',true)).toBe(true);
+ expect(wrapEventDuration('9:30–10:00 AM',false)).toBe(true);
+ expect(wrapEventDuration('11:00 AM–12:00 PM',false)).toBe(true);
+ });

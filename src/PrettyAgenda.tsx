@@ -25,10 +25,19 @@ export function Conflict({scale=1}:{scale?:number}){
     <View testID="conflict-dot-second" style={{width:diameter*scale,height:diameter*scale,borderRadius:999,backgroundColor:'#000',marginLeft:-overlap*scale,flexShrink:0}}/>
   </View>;
 }
+/** Use the approved compact reference length (10–11am = 7), without altering the TRMNL display string. */
+export function wrapEventDuration(time:string,overlap:boolean):boolean{
+  return overlap||time.replace(/:00(?=\s|–|$)/g,'').replace(/\s/g,'').length>7;
+}
 export function AgendaRow({event,onPress,allEvents=[],scale=1,fontBoost=1,showSelect=false}:{
   event:AgendaEvent;onPress:()=>void;allEvents?:AgendaEvent[];scale?:number;fontBoost?:number;showSelect?:boolean;
 }):React.JSX.Element{
   const overlapping=hasTimeConflict(event,allEvents);
+  const time=eventTimeRange(event);
+  const hasDuration=!event.all_day&&event.startMillis!==event.endMillis;
+  const wrap=hasDuration&&wrapEventDuration(time,overlapping);
+  const timeStyle={fontFamily:dashboardFont(showSelect?400:500),fontSize:DESIGN.secondary*scale*fontBoost,lineHeight:16*scale*fontBoost,color:INK,textAlign:'right' as const,includeFontPadding:false};
+  const duration=hasDuration?<View style={{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',flexShrink:0}}><Text style={timeStyle}>{eventDuration(event).replace(/ /g,'\u00a0')}</Text>{overlapping&&<Conflict scale={scale}/>}</View>:null;
   return <TouchableOpacity accessibilityRole="button" accessibilityLabel={
     event.summary+'. '+compactEventRange(event)+(overlapping?'. Conflicts with another appointment':'')+
     (showSelect?'. Select for event details':'')}
@@ -42,18 +51,14 @@ export function AgendaRow({event,onPress,allEvents=[],scale=1,fontBoost=1,showSe
       fontFamily:dashboardFont(showSelect?500:600),fontSize:(showSelect?17.3:DESIGN.body)*scale*fontBoost,lineHeight:(showSelect?17.3*1.18:DESIGN.body*DESIGN.eventLine)*scale*fontBoost,
       fontWeight:'normal',color:INK,flex:1,minWidth:0,marginRight:DESIGN.iconGap*scale,
       includeFontPadding:false}}>{event.summary}</Text>
-    <View style={{alignItems:'flex-end',width:'34%',maxWidth:128*scale*fontBoost,flexShrink:0}}>
+    <View style={{alignItems:'flex-end',maxWidth:'62%',flexShrink:0}}>
       <View style={{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',flexWrap:'wrap'}}>
-        <Text style={{fontFamily:dashboardFont(showSelect?400:500),fontSize:DESIGN.secondary*scale*fontBoost,lineHeight:16*scale*fontBoost,
-          color:INK,textAlign:'right',maxWidth:'100%',flexShrink:1,includeFontPadding:false}}>
-          {eventTimeRange(event)}
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[timeStyle,{maxWidth:'100%',flexShrink:1}]}>
+          {time}
         </Text>
-        {!event.all_day&&event.startMillis!==event.endMillis&&<Text style={{fontFamily:dashboardFont(showSelect?400:500),fontSize:DESIGN.secondary*scale*fontBoost,
-          lineHeight:16*scale*fontBoost,color:INK,textAlign:'right',marginLeft:4*scale,includeFontPadding:false}}>
-          {eventDuration(event).replace(/ /g,'\u00a0')}
-        </Text>}
-        {overlapping&&<Conflict scale={scale}/>}
+        {!wrap&&duration&&<View style={{marginLeft:4*scale}}>{duration}</View>}
       </View>
+      {wrap&&duration}
     </View>
   </TouchableOpacity>;
 }

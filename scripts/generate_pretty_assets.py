@@ -27,6 +27,9 @@ render(empty,OUT/'battery.png',272,176)
 revision=ROOT/'assets'/'approved'/'revision'
 for source_name,target in [('planned','recent'),('files','files'),('keywords','keywords'),('stars','stars'),('check-circle','check-circle'),('rocks','rocks'),('coffee','coffee'),('plants','plants'),('lizard','lizard')]:
     render((revision/(source_name+'.svg')).read_text(encoding='utf-8'),OUT/(target+'.png'))
+# Filled variant of the approved star silhouette; retain the original outline.
+star=(revision/'stars.svg').read_text(encoding='utf-8')
+render(star.replace('fill="none"','fill="#000000"'),OUT/'stars-filled.png')
 # Existing utility glyphs, not retired decorative artwork.
 for name,body in {
     'wifi-off':'<path d="M3 12c4-3 9-5 13-5M21 8c3 1 6 2 8 4M7 17c2-1 3-2 5-2M18 15c3 0 5 1 7 2M11 22c3-2 7-2 10 0M3 3l26 26"/><circle cx="16" cy="27" r="1" fill="#111"/>',
@@ -43,7 +46,7 @@ for density,size in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhd
     path.mkdir(parents=True,exist_ok=True)
     for name in ('ic_launcher.png','ic_launcher_round.png'):
         render(launcher,path/name,size,size)
-expected={'new-note','file','files','calendar','recent','search','stars','settings','charging','notebook','plus','refresh','back','lizard','plants','rocks','coffee','wifi','wifi-off','keywords','battery','calendar-dot','open-notebook','auto-refresh','profile','check-circle'}
+expected={'new-note','file','files','calendar','recent','search','stars','stars-filled','settings','charging','notebook','plus','refresh','back','lizard','plants','rocks','coffee','wifi','wifi-off','keywords','battery','calendar-dot','open-notebook','auto-refresh','profile','check-circle'}
 actual={p.stem for p in OUT.glob('*.png')}
 assert expected==actual,(expected-actual,actual-expected)
 print('Release artwork:',len(actual),'active icons and filled jellyfish launcher')
