@@ -1,6 +1,6 @@
 {
   "name": "my-super-pretty-dashboard",
-  "version": "0.9.41",
+  "version": "0.9.110",
   "private": true,
   "scripts": {
     "android": "react-native run-android",

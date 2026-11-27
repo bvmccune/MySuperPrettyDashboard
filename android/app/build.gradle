@@ -192,7 +192,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode (System.getenv("GITHUB_RUN_NUMBER") ?: "110").toInteger()
-        versionName (System.getenv("SMARTYNOTE_VERSION") ?: "00.09.041")
+        versionName (System.getenv("SMARTYNOTE_VERSION") ?: "00.09.110")
     }
     signingConfigs {
         debug {

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Rename all known historical release titles and add version-tag aliases.
+"""Rename all known historical release titles without replacing tags.
 Keep dev-build-N attached to the existing release so every previously shared
 installation-package URL continues working. Never rebuild or delete assets.
 Only update the explicit historical release IDs in legacy-releases.json.
 """
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 from versioning import version_for
@@ -21,19 +22,13 @@ def gh(*args, missing=False):
 for row in rows:
     n, rid, old = row["build"], row["release_id"], row["tag"]
     version = version_for(n)
-    alias = "v" + version
     release = gh(f"repos/{repo}/releases/{rid}")
     if release["tag_name"] != old:
         raise RuntimeError(f"Unexpected legacy release tag {release['tag_name']} for {n}")
-    target = gh(f"repos/{repo}/git/ref/tags/{old}")["object"]["sha"]
-    existing = gh(f"repos/{repo}/git/ref/tags/{alias}", missing=True)
-    if existing is None:
-        gh("-X", "POST", f"repos/{repo}/git/refs", "-f", f"ref=refs/tags/{alias}", "-f", f"sha={target}")
-    elif existing["object"]["sha"] != target:
-        raise RuntimeError(f"Version tag collision: {alias}")
     title = f"SmartyNote {version} (build {n})"
     marker = f"Product version: **{version}** · Original GitHub build: **{n}**."
     body = release.get("body") or ""
+    body = re.sub(r"^Product version: \*\*[^\n]+\n\nHistorical package retained unchanged;[^\n]+\n\n", "", body)
     if marker not in body:
         body = marker + "\n\nHistorical package retained unchanged; installed version text may still use its original numbering. The original release tag is kept for existing download links.\n\n" + body
     if release["name"] != title or (release.get("body") or "") != body:
@@ -41,5 +36,5 @@ for row in rows:
     verified = gh(f"repos/{repo}/releases/{rid}")
     assert verified["name"] == title and verified["tag_name"] == old
     assert [a["id"] for a in verified["assets"]] == [a["id"] for a in release["assets"]]
-    print(f"{old} -> {version} (alias {alias}); original package preserved", flush=True)
+    print(f"{old} -> {version}; original tag and package preserved", flush=True)
 print(f"Verified {len(rows)} historical releases.", flush=True)

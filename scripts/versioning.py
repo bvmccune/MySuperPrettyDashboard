@@ -5,9 +5,10 @@ import json
 import os
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
-# build anchor, major, minor, initial patch. Bump the milestone explicitly
-# when a new feature generation is approved; never rewrite existing anchors.
-MILESTONES = [[1,0,0,1],[15,0,1,0],[33,0,2,0],[44,0,3,0],[48,0,4,0],[55,0,5,0],[57,0,6,0],[62,0,7,0],[68,0,8,0],[69,0,9,0]]
+# Build anchor, major, feature cycle, original build number. Device-installed
+# builds close their cycle; the next build advances the feature number.
+# The last three digits ALWAYS preserve the original GitHub build number.
+MILESTONES = [[1,0,1,1],[16,0,2,16],[34,0,3,34],[45,0,4,45],[49,0,5,49],[56,0,6,56],[58,0,7,58],[63,0,8,63],[69,0,9,69]]
 def version_for(build):
     if not isinstance(build, int) or build < 1:
         raise ValueError("Build number must be a positive integer")
@@ -45,9 +46,7 @@ if __name__ == "__main__":
     p.add_argument("build", type=int)
     p.add_argument("--prepare", action="store_true")
     args = p.parse_args()
-    assert [version_for(n) for n in (15,33,44,48,55,57,62,68,69,110)] == [
-        "00.01.000","00.02.000","00.03.000","00.04.000","00.05.000",
-        "00.06.000","00.07.000","00.08.000","00.09.000","00.09.041"]
+    assert [version_for(n) for n in (1,15,16,33,34,44,45,48,49,55,56,57,58,62,63,68,69,110,111,112)] == ["00.01.001","00.01.015","00.02.016","00.02.033","00.03.034","00.03.044","00.04.045","00.04.048","00.05.049","00.05.055","00.06.056","00.06.057","00.07.058","00.07.062","00.08.063","00.08.068","00.09.069","00.09.110","00.09.111","00.09.112"]
     if args.prepare:
         prepare(args.build)
     else:

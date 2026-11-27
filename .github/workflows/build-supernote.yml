@@ -24,7 +24,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Rename and verify historical releases (preserve download URLs)
+      - name: Rename and verify historical release titles (preserve download URLs)
+        continue-on-error: true
         if: github.ref == 'refs/heads/development/smartynote-four-quadrants'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -234,5 +235,5 @@ jobs:
             --repo "${{ github.repository }}" \
             --target "${{ github.sha }}" \
             --title "SmartyNote ${SMARTYNOTE_VERSION} (build $GITHUB_RUN_NUMBER)" \
-            --notes "Product version: **${SMARTYNOTE_VERSION}** · Original GitHub build: **${GITHUB_RUN_NUMBER}**. Automated checks and package validation passed; Manta acceptance tests remain required. Preserve 00.08.000 (build 68) as fallback. See docs/VERSION-HISTORY.md and docs/native-todo-integration.md." \
+            --notes "Product version: **${SMARTYNOTE_VERSION}** · Original GitHub build: **${GITHUB_RUN_NUMBER}**. Automated checks and package validation passed; Manta acceptance tests remain required. Preserve 00.08.068 (build 68) as fallback. See docs/VERSION-HISTORY.md and docs/native-todo-integration.md." \
             --prerelease
