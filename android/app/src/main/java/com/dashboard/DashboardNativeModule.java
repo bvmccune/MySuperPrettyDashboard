@@ -1151,6 +1151,55 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
         }
     }
 
+    private static final String CALENDAR_TOKEN_KEY = "pretty-calendar-api-token";
+    @ReactMethod
+    public void secureSaveCalendarToken(String value, Promise promise) {
+        try {
+            String url = value == null ? "" : value.trim();
+            if (url.isEmpty()) {
+                promise.resolve(getReactApplicationContext().getSharedPreferences(TODO_PREFS, Context.MODE_PRIVATE)
+                    .edit().remove(CALENDAR_TOKEN_KEY).commit());
+                return;
+            }
+            if (!url.matches("[A-Za-z0-9._~+/-]+=*")) {
+                throw new IllegalArgumentException("Invalid API token format");
+            }
+            javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, todoSecretKey());
+            byte[] encrypted = cipher.doFinal(url.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            String stored = android.util.Base64.encodeToString(cipher.getIV(), android.util.Base64.NO_WRAP)
+                + "." + android.util.Base64.encodeToString(encrypted, android.util.Base64.NO_WRAP);
+            if (!getReactApplicationContext().getSharedPreferences(TODO_PREFS, Context.MODE_PRIVATE)
+                    .edit().putString(CALENDAR_TOKEN_KEY, stored).commit()) {
+                throw new IllegalStateException("Encrypted calendar token was not saved");
+            }
+            promise.resolve(true);
+        } catch (Exception e) {
+            promise.reject("CALENDAR_TOKEN_SAVE_FAILED", "Unable to store calendar API token", e);
+        }
+    }
+
+    @ReactMethod
+    public void secureLoadCalendarToken(Promise promise) {
+        try {
+            String value = getReactApplicationContext()
+                .getSharedPreferences(TODO_PREFS, Context.MODE_PRIVATE)
+                .getString(CALENDAR_TOKEN_KEY, "");
+            if (value == null || value.isEmpty()) { promise.resolve(""); return; }
+            String[] parts = value.split("\\.",2);
+            if (parts.length!=2) throw new IllegalStateException("Encrypted source is malformed");
+            javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(javax.crypto.Cipher.DECRYPT_MODE,todoSecretKey(),
+                new javax.crypto.spec.GCMParameterSpec(128,
+                  android.util.Base64.decode(parts[0],android.util.Base64.DEFAULT)));
+            byte[] decoded=cipher.doFinal(android.util.Base64.decode(parts[1],android.util.Base64.DEFAULT));
+            promise.resolve(new String(decoded,java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            promise.reject("CALENDAR_TOKEN_READ_FAILED",
+                "Cannot read calendar token; re-enter the token in dashboard Settings",e);
+        }
+    }
+
     /** Position of the house bubble outside the plugin view, user-selectable. */
     @ReactMethod
     public void setBubblePosition(String place, Promise promise) {
