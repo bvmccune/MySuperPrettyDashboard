@@ -173,3 +173,11 @@ test('visible row shading uses the next darker level after Manta rejected #EEEEE
  expect(wrapEventDuration('9:30–10:00 AM',false)).toBe(true);
  expect(wrapEventDuration('11:00 AM–12:00 PM',false)).toBe(true);
  });
+
+test('TRMNL duration rounds positive partial minutes up and formats mixed units',()=>{
+ const start=new Date(2026,10,26,10).getTime();
+ const row=(ms:number)=>agendaFromFeed(feed([event('Example',new Date(start).toISOString(),new Date(start+ms).toISOString())]))[0];
+ expect(eventDuration(row(1))).toBe('1m');
+ expect(eventDuration(row(3600001))).toBe('1h 1m');
+ expect(compactEventRange(row(0))).toBe('10:00 AM');
+});

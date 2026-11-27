@@ -594,10 +594,10 @@ export function PrettyHome({config,nonce,onSettings}:{
                       <Txt size={15*s} muted>{selectedEvent.all_day?'Schedule':'Time'}</Txt>
                       <Txt size={21*s} bold>{selectedEvent.all_day?'All day':eventTimeRange(selectedEvent)}</Txt>
                     </View>
-                    <View style={{width:'50%',marginBottom:8*s}}>
+                    {!selectedEvent.all_day&&selectedEvent.endMillis>selectedEvent.startMillis&&<View style={{width:'50%',marginBottom:8*s}}>
                       <Txt size={15*s} muted>Duration</Txt>
                       <Txt size={21*s} bold>{eventDuration(selectedEvent)}</Txt>
-                    </View>
+                    </View>}
                     <View style={{width:'50%',marginBottom:8*s}}>
                       <Txt size={15*s} muted>Calendar</Txt>
                       <Txt size={21*s} bold>{selectedEvent.calendar}</Txt>

@@ -30,8 +30,13 @@ it('preserves Calendar link and custom icon',()=>{
  expect(normalPretty({quick:[pin]}).quick).toEqual([pin]);
 });
 
-it('enforces exactly the eleven approved quick access icons and migrates disallowed choices',()=>{
- expect(QUICK_ICONS).toEqual(['files','stars','keywords','recent','refresh','calendar-dot','auto-refresh','calendar','new-note','notebook','open-notebook']);
+it('enforces the twelve approved quick access icons and migrates disallowed choices',()=>{
+ expect(QUICK_ICONS).toEqual(['files','stars','stars-filled','keywords','recent','refresh','calendar-dot','auto-refresh','calendar','new-note','notebook','open-notebook']);
  const p=normalPretty({quick:[{kind:'note-last',label:'A',path:'/storage/emulated/0/Note/A.note',icon:'stardust'},{kind:'folder',label:'B',path:'/storage/emulated/0/Note/B',icon:'star-filled'}]});
  expect(p.quick.map(x=>x.icon)).toEqual(['notebook','files']);
+});
+
+it('preserves the filled star through preference normalization',()=>{
+ const pin={kind:'folder',path:'/storage/emulated/0/Note/Project',label:'Project',icon:'stars-filled'};
+ expect(normalPretty({quick:[pin]}).quick).toEqual([pin]);
 });

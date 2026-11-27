@@ -279,7 +279,7 @@ export function PrettySettings(): React.JSX.Element {
         </Group>
         <TextLine faint>SmartyNote · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Search, Calendar, and To-do remain available from Home. Your original SuperDashboard settings remain separate.</TextLine>
       </ScrollView>
-      {!!status&&<View style={styles.status}><View style={{flex:1}}><TextLine>{status}</TextLine></View><Action small onPress={()=>setStatus('')}>Dismiss</Action></View>}
+      {!!status&&<View style={styles.status}><ScrollView style={{flex:1,maxHeight:320}}><TextLine>{status}</TextLine></ScrollView><Action small onPress={()=>setStatus('')}>Dismiss</Action></View>}
       </View>
     </View>
   );
