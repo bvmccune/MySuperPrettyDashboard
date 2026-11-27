@@ -4,6 +4,8 @@ jest.mock('react-native', () => ({
     readPrivateCalendarSnapshot: jest.fn(async()=> ''),
     savePrivateCalendarSnapshot: jest.fn(async()=> true),
     secureLoadCalendarUrl: jest.fn(async()=> 'https://fixture.workers.dev/calendar'),
+    secureLoadCalendarToken: jest.fn(async()=> ''),
+    secureSaveCalendarToken: jest.fn(async()=> true),
     secureSaveCalendarUrl: jest.fn(async()=> true),
   }},
   AppState: {currentState:'active'},
@@ -191,4 +193,13 @@ test('formats all-day range labels without changing event membership',()=>{
   expect(compactEventRange(agendaFromFeed(single)[0])).toBe('All day');
   expect(eventsOnDay(same,'2026-11-28')).toHaveLength(0);
   expect(eventsOnDay(across,'2026-12-02')).toHaveLength(1);
+});
+
+test('calendar bearer token is sent and unauthorized responses are explained',async()=>{
+  const api=(NativeModules as any).DashboardNative;
+  api.secureLoadCalendarToken.mockResolvedValueOnce('fixture-token');
+  (global as any).fetch=jest.fn(async()=>({ok:false,status:401}));
+  const result=await refreshCalendar();
+  expect((global as any).fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer fixture-token');
+  expect(result.error).toContain('Calendar access denied');
 });
