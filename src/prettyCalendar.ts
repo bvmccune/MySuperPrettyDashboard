@@ -1,12 +1,12 @@
 /**
  * Pretty Calendar read-only integration.
  *
- * One source of truth: the pre-existing TRMNL Cloudflare Worker JSON feed.
+ * Calendar source: a user-configured JSON feed.
  * Never creates/updates/deletes native Supernote events. Replaces its local
  * private snapshot wholesale after validating the full response.
  *
  * Local cache is in Android app-private storage via DashboardNative, not in
- * shared MyStyle. No work meeting titles are logged or sent to any other URL.
+ * shared MyStyle. Event titles are not logged or sent to any other URL.
  */
 import {AppState, NativeModules} from 'react-native';
 import {PluginManager} from 'sn-plugin-lib';
@@ -234,7 +234,7 @@ async function internetPermission():Promise<void>{
   const current=await PluginManager.hasPermission(INTERNET);
   if(current===1||current===2){permissionGranted=true;return;}
   const granted=await PluginManager.requestPermission(INTERNET,
-    'Read your existing Pretty Calendar events directly from your Cloudflare feed, without changing any events.');
+    'Read calendar events from the configured feed without changing them.');
   if(granted!==1&&granted!==2)throw new Error('Calendar network permission was not granted');
   permissionGranted=true;
 }

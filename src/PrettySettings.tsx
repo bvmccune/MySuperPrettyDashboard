@@ -270,7 +270,7 @@ export function PrettySettings(): React.JSX.Element {
           </View>
         </Group>
         <Group title="Dashboard navigation">
-          <TextLine faint>No floating button will appear over Supernote. Tap SmartyNote to return to the note beneath it. Calendar opens native Calendar. Build 114 retained its last date on your firmware; use native Calendar's Today button. View all opens the dashboard agenda. Stars opens notebook star results with access to native Search.</TextLine>
+          <TextLine faint>No floating button will appear over Supernote. Tap SmartyNote to return to the note beneath it. Calendar opens native Calendar. Some firmware versions retain the last date; use native Calendar's Today button if needed. View all opens the dashboard agenda. Stars opens notebook star results with access to native Search.</TextLine>
           <Action small disabled={busy} onPress={()=>attempt(async()=>{setStatus(await DashboardNative.inspectNativeCalendar());})}>Inspect native Calendar navigation</Action>
           <TextLine faint>For launching the dashboard elsewhere, add the Plugins tool to your native notebook toolbar. A direct sidebar gesture or dedicated plugin Quick Access entry is not publicly documented.</TextLine>
         </Group>
