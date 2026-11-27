@@ -470,6 +470,7 @@ test_has_android_native_code() {
 ensure_build_generated_dir() {
     local project_root="$1"
     local dir="$project_root/build/generated"
+    rm -rf "$dir"
     mkdir -p "$dir"
     echo "$dir"
 }
@@ -725,8 +726,9 @@ main() {
 
     local outputs_dir
     outputs_dir="$(ensure_build_outputs_directory "$project_root")"
-    mkdir -p "$gen_dir/licenses/weather-iconic"
-    cp -R "$project_root/assets/weather-iconic/." "$gen_dir/licenses/weather-iconic/"
+    mkdir -p "$gen_dir/licenses"
+    cp "$project_root/LICENSE" "$gen_dir/licenses/SuperDashboard-MIT.txt"
+    cp "$project_root/android/app/src/main/assets/fonts/OFL.txt" "$gen_dir/licenses/GoogleSansFlex-OFL.txt"
     local zip_path="$outputs_dir/${PACKAGE_NAME}.zip"
     if new_zip_package "$gen_dir" "$zip_path"; then
         rename_to_snplg_file "$zip_path" "$PACKAGE_NAME" >/dev/null

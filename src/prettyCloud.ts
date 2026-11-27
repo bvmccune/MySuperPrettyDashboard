@@ -33,7 +33,7 @@ async function permission(): Promise<void> {
   const check = await PluginManager.hasPermission(INTERNET);
   if (check === 1 || check === 2) return;
   const result = await PluginManager.requestPermission(INTERNET,
-    'MySuperPrettyDashboard needs internet access to read your existing Supernote To-do tasks from Supernote Cloud.');
+    'SmartyNote needs internet access to read and update your existing Supernote To-do tasks from Supernote Cloud.');
   if (result !== 1 && result !== 2) throw new Error('Internet permission is required to sync Supernote To-do.');
 }
 async function cloudCall(path: string, data: Record<string, unknown>, token?: string, method='POST'): Promise<Record<string, any>> {

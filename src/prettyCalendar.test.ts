@@ -157,63 +157,6 @@ describe('Pretty Calendar — user-approved read-only agenda',()=>{
   });
 });
 
-// Include weather/availability acceptance tests in the existing CI test entry.
-import './weatherIconMapping.test';
-import {availability,minuteLabel} from './prettyAvailability';
-import {gaugeFraction,gaugePoint} from './PrettySummaryPanel';
-import {normalizeWeather,weatherDay,weatherIsDay,weatherCondition,weatherForecastUrl,DEFAULT_WEATHER_LOCATION,getWeatherJson} from './prettyWeather';
-
-describe('availability and weather acceptance',()=>{
-  test('TRMNL current to next: strict overlaps, back-to-back, all-day and instant excluded',()=>{
-    const t=(hour:number,minute=0)=>new Date(2026,10,25,hour,minute).toISOString();
-    const agenda=agendaFromFeed(feed([event('A',t(9),t(11)),event('B',t(10),t(12)),event('C',t(12),t(13)),event('D',t(15),t(16)),event('Instant',t(17),t(17)),event('Holiday','2026-11-25','2026-11-26',true)]));
-    const at=(h:number,m=0)=>availability(agenda,new Date(2026,10,25,h,m));
-    expect(at(8)).toEqual([{kind:'free',minutes:60},{kind:'busy',minutes:180}]);
-    expect(at(10,30)).toEqual([{kind:'busy',minutes:90,left:true},{kind:'busy',minutes:60}]);
-    expect(at(12)).toEqual([{kind:'busy',minutes:60,left:true},{kind:'free',minutes:120}]);
-    expect(at(15)).toEqual([{kind:'busy',minutes:60,left:true},{kind:'rest'}]);
-    expect(at(16)).toEqual([{kind:'rest'},{kind:'art'}]);
-    expect(at(17)).toEqual([{kind:'rest'},{kind:'art'}]);
-    expect(minuteLabel(210)).toBe('3h 30m');
-    expect(availability(agenda,new Date(2026,10,25,14),['D'])).toEqual([{kind:'rest'},{kind:'art'}]);
-  });
-  test('temperature gauge clamps readings and handles equal high and low',()=>{
-    expect(gaugeFraction(46,45,54)).toBeCloseTo(1/9);
-    expect(gaugeFraction(40,45,54)).toBe(0);
-    expect(gaugeFraction(60,45,54)).toBe(1);
-    expect(gaugeFraction(45,45,45)).toBe(.5);
-  });
-  test('daily high and low follow location day and sunset changes icons independently of theme',()=>{
-    const midnight=1795582800,sunrise=midnight+7*3600,sunset=midnight+17*3600;
-    const raw={current:{temperature_2m:60,weather_code:0,time:sunrise,is_day:1,wind_speed_10m:5},daily:{time:[midnight,midnight+86400],temperature_2m_max:[65,70],temperature_2m_min:[40,45],sunrise:[sunrise,sunrise+86400],sunset:[sunset,sunset+86400]}};
-    const s=normalizeWeather(raw,DEFAULT_WEATHER_LOCATION,sunrise*1000);
-    expect(s.current).toBe(60);expect(weatherDay(s,sunrise*1000)?.high).toBe(65);expect(weatherDay(s,sunrise*1000)?.low).toBe(40);
-    expect(weatherIsDay(s,sunrise*1000-1)).toBe(false);expect(weatherIsDay(s,sunrise*1000)).toBe(true);expect(weatherIsDay(s,sunset*1000)).toBe(false);
-    expect(weatherDay(s,(midnight+86400)*1000)?.high).toBe(70);
-    expect(weatherForecastUrl(DEFAULT_WEATHER_LOCATION)).toContain('temperature_unit=fahrenheit');
-    expect(()=>normalizeWeather({...raw,daily:{...raw.daily,temperature_2m_min:[80,45]}},DEFAULT_WEATHER_LOCATION)).toThrow();
-  });
-  test('Open-Meteo native fallback is used for network failures, not HTTP client errors',async()=>{
-    const native=NativeModules.DashboardNative;
-    const oldFetch=global.fetch,oldNative=native.fetchOpenMeteoJson;
-    const url=weatherForecastUrl(DEFAULT_WEATHER_LOCATION);
-    native.fetchOpenMeteoJson=jest.fn(async()=>JSON.stringify({ok:true}));
-    try{
-      global.fetch=jest.fn(async()=>{throw new Error('Network request failed');}) as any;
-      await expect(getWeatherJson(url)).resolves.toEqual({ok:true});
-      expect(native.fetchOpenMeteoJson).toHaveBeenCalledWith(url);
-      (native.fetchOpenMeteoJson as jest.Mock).mockClear();
-      global.fetch=jest.fn(async()=>({ok:false,status:400})) as any;
-      await expect(getWeatherJson(url)).rejects.toThrow('Weather HTTP 400');
-      expect(native.fetchOpenMeteoJson).not.toHaveBeenCalled();
-    }finally{global.fetch=oldFetch;native.fetchOpenMeteoJson=oldNative;}
-  });
-  test('all WMO weather codes have a recognized mapping',()=>{
-    for(const code of [0,1,2,3,45,48,51,53,55,56,57,61,63,65,66,67,71,73,75,77,80,81,82,85,86,95,96,99])expect(weatherCondition(code).condition).not.toBe('unavailable');
-    expect(weatherCondition(0,28).condition).toBe('windy');expect(weatherCondition(99).hail).toBe(true);expect(weatherCondition(-1).condition).toBe('unavailable');
-  });
-});
-
 import {GRAYSCALE,INK,PAPER,DARK_GRAY,LIGHT_GRAY} from './prettyPalette';
 test('16-level grayscale targets are evenly spaced and UI colors are members',()=>{
  expect(GRAYSCALE).toHaveLength(16);
@@ -221,22 +164,5 @@ test('16-level grayscale targets are evenly spaced and UI colors are members',()
  for(const color of [INK,PAPER,DARK_GRAY,LIGHT_GRAY])expect(GRAYSCALE).toContain(color);
 });
 
-import {rockyPhrase,ROCKY_PHRASES} from './prettyRocky';
-test('all four Rocky phrases are selected by the random draw',()=>{
- expect([0,.25,.5,.75].map(n=>rockyPhrase(()=>n))).toEqual([...ROCKY_PHRASES]);
-});
-import {normalizeAutomaticLocation} from './prettyWeather';
-test('automatic location uses detected city and coordinates, excludes IP, rejects errors',()=>{
- expect(normalizeAutomaticLocation({ip:'192.0.2.1',city:'Example',region:'State',country_code:'US',latitude:35,longitude:-80})).toEqual({name:'Example, State, US',latitude:35,longitude:-80});
- expect(()=>normalizeAutomaticLocation({error:true,city:'Example',latitude:35,longitude:-80})).toThrow();
- expect(()=>normalizeAutomaticLocation({city:'Example',latitude:91,longitude:-80})).toThrow();
-});
 test('visible row shading uses the next darker level after Manta rejected #EEEEEE',()=>expect(LIGHT_GRAY).toBe('#DDDDDD'));
 
-test('reference gauge is circular, with symmetric endpoints and a marker on the exact arc',()=>{
- const low=gaugePoint(0),middle=gaugePoint(.5),high=gaugePoint(1);
- expect(low.x).toBeCloseTo(.172339,6);expect(high.x).toBeCloseTo(.827661,6);
- expect(low.y).toBeCloseTo(.729431,6);expect(high.y).toBeCloseTo(low.y,6);
- expect(middle.x).toBeCloseTo(.5,6);expect(middle.y).toBeCloseTo(.1,6);
- for(const p of [low,middle,high,gaugePoint(.25),gaugePoint(.75)])expect(Math.hypot(p.x-.5,p.y-.5)).toBeCloseTo(.4,6);
-});

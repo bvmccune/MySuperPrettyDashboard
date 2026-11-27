@@ -83,52 +83,6 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
     // Android files directory, not in the user's shared MyStyle directory.
     // This is a read-only copy of the existing feed and never mirrors records
     // into the system Calendar database.
-    /** Weather-only fallback for React Native transport failures. TLS validation is
-     * unchanged; never accept arbitrary hosts, redirects, credentials or ports. */
-    @ReactMethod
-    public void fetchOpenMeteoJson(String address, Promise promise) {
-        new Thread(() -> {
-            javax.net.ssl.HttpsURLConnection connection = null;
-            try {
-                java.net.URL url = new java.net.URL(address);
-                String host = url.getHost();
-                boolean allowed = ("api.open-meteo.com".equalsIgnoreCase(host) && "/v1/forecast".equals(url.getPath()))
-                    || ("geocoding-api.open-meteo.com".equalsIgnoreCase(host) && "/v1/search".equals(url.getPath()))
-                    || ("ipapi.co".equalsIgnoreCase(host) && "/json/".equals(url.getPath()) && url.getQuery() == null);
-                if (!allowed || !"https".equals(url.getProtocol()) || url.getUserInfo() != null
-                    || (url.getPort() != -1 && url.getPort() != 443) || url.getRef() != null) {
-                    throw new java.io.IOException("Weather endpoint is not allowed");
-                }
-                connection = (javax.net.ssl.HttpsURLConnection) url.openConnection();
-                connection.setConnectTimeout(10000);
-                connection.setReadTimeout(10000);
-                connection.setInstanceFollowRedirects(false);
-                connection.setRequestMethod("GET");
-                connection.setRequestProperty("Accept", "application/json");
-                int status = connection.getResponseCode();
-                if (status < 200 || status >= 300) {
-                    promise.reject("WEATHER_HTTP", "Weather/location HTTP " + status);
-                    return;
-                }
-                try (java.io.InputStream in = connection.getInputStream();
-                     java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
-                    byte[] buffer = new byte[8192];
-                    int count;
-                    while ((count = in.read(buffer)) != -1) {
-                        if (out.size() + count > 1024 * 1024) throw new java.io.IOException("Weather response too large");
-                        out.write(buffer, 0, count);
-                    }
-                    promise.resolve(new String(out.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
-                }
-            } catch (Exception e) {
-                // Do not include request URLs or coordinates in diagnostics.
-                promise.reject("WEATHER_NETWORK", "Native weather request failed: " + e.getClass().getSimpleName());
-            } finally {
-                if (connection != null) connection.disconnect();
-            }
-        }, "PrettyWeather").start();
-    }
-
     private File privateCalendarSnapshotFile() throws java.io.IOException {
         File dir = new File(getReactApplicationContext().getFilesDir(),
                 "MySuperPrettyDashboard");

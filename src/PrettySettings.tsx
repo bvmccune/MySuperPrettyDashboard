@@ -1,5 +1,5 @@
 /**
- * Settings for MySuperPrettyDashboard, not the inherited widget-grid wizard.
+ * Settings for SmartyNote, not the inherited widget-grid wizard.
  * Native Supernote To-do remains authoritative; this screen only connects it.
  */
 import React, {useEffect, useRef, useState} from 'react';
@@ -48,7 +48,7 @@ export function PrettySettings(): React.JSX.Element {
   const [password,setPassword] = useState('');
   const [code,setCode] = useState('');
   const [progress,setProgress] = useState<LoginProgress|null>(null);
-  const [picker,setPicker] = useState<'quick'|'favorites'|null>(null);
+  const [picker,setPicker] = useState<'favorites'|null>(null);
   const [dir,setDir] = useState(ROOTS[0]);
   const [entries,setEntries] = useState<FileEntry[]>([]);
   const [calendarState,setCalendarState] = useState<CalendarResult>(()=>currentCalendar());
@@ -97,7 +97,8 @@ export function PrettySettings(): React.JSX.Element {
     setBusy(true);setStatus('Saving and verifying settings…');
     let stage='Settings save';
     try{
-      const ok=await saveQueue.current;
+      const queued=await saveQueue.current;
+      const ok=queued&&!!latestPrefs.current&&await savePrettyPrefs(latestPrefs.current);
       if(!ok)throw new Error('Saving failed. Settings have not been confirmed on disk.');
       const check=await loadPrettyPrefs(legacy);
       if(JSON.stringify(check)!==JSON.stringify(latestPrefs.current))
@@ -185,7 +186,7 @@ export function PrettySettings(): React.JSX.Element {
   </View>;
   if(picker)return (
     <View style={styles.screen}>
-      <PrettyScreenHeader title={picker==='quick'?'Quick access':'Favorites'}
+      <PrettyScreenHeader title="Favorites"
         left={{label:'Back',onPress:()=>setPicker(null)}}/>
       <View style={styles.root}>
       <View style={{flexDirection:'row',flexWrap:'wrap',marginBottom:10}}>
@@ -290,7 +291,8 @@ export function PrettySettings(): React.JSX.Element {
         </Group>
         <Group title="Attribution">
           <TextLine faint>SmartyNote is based on SuperDashboard. Uses Google Sans Flex (SIL Open Font License); the original project and font licenses are included with the plugin.</TextLine>
-        </Group>      <TextLine faint>SmartyNote · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Search, Calendar, and To-do remain available from Home. Your original SuperDashboard settings remain separate.</TextLine>
+        </Group>
+        <TextLine faint>SmartyNote · Supernote plugin. Calendar events use the separate read-only Pretty Calendar feed. Search, Calendar, and To-do remain available from Home. Your original SuperDashboard settings remain separate.</TextLine>
       </ScrollView>
       {!!status&&<View style={styles.status}><View style={{flex:1}}><TextLine>{status}</TextLine></View><Action small onPress={()=>setStatus('')}>Dismiss</Action></View>}
       </View>

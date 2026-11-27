@@ -58,7 +58,7 @@ jobs:
           test -f package-lock.json
           test -f PluginConfig.json
 
-      - name: Prepare Pretty Calendar font and Manta icon set
+      - name: Prepare approved release icons and font
         shell: bash
         run: |
           set -euo pipefail
@@ -177,7 +177,20 @@ jobs:
                   for name in files
               ), "JavaScript bundle missing"
 
-          print("Package structure verified")
+              from io import BytesIO
+              retired = ("weather_iconic", "weather-iconic", "weather_", "weather-", "jellyfish", "rocky", "possum", "temperature_gauge", "temperature-gauge", "cats_placeholder", "cats-placeholder", "icon_clip", "icon-clip", "icon_todo", "icon-todo", "dseg7", "mcnuggets")
+              with ZipFile(BytesIO(package.read("app.npk"))) as native:
+                  all_names = files | set(native.namelist())
+                  unwanted = sorted(n for n in all_names if any(token in n.lower() for token in retired))
+                  assert not unwanted, "Retired packaged assets: " + repr(unwanted)
+              for name in files:
+                  if name.endswith(".bundle"):
+                      payload=package.read(name)
+                      for text in (b"Dashboard Clip", b"Dashboard To-do", b"Weather Iconic", b"Amaze! Amaze! Amaze!", b"api.open-meteo.com"):
+                          assert text not in payload, "Retired runtime feature: "+repr(text)
+              assert "licenses/SuperDashboard-MIT.txt" in files
+              assert "licenses/GoogleSansFlex-OFL.txt" in files
+          print("Package structure and release asset exclusions verified")
           PY
 
       - name: Upload build artifact
@@ -200,5 +213,5 @@ jobs:
             --repo "${{ github.repository }}" \
             --target "${{ github.sha }}" \
             --title "SmartyNote development build ${{ github.run_number }}" \
-            --notes "Four-quadrant SmartyNote test candidate. Automated checks and package validation passed; Manta acceptance tests remain required. Preserve v68 as fallback. See docs/native-todo-integration.md for limitations." \
+            --notes "SmartyNote release candidate. Automated checks and package validation passed; Manta acceptance tests remain required. Preserve v68 as fallback. See docs/native-todo-integration.md for limitations." \
             --prerelease
