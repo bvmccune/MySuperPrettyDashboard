@@ -299,3 +299,16 @@ it('puts the black OVERDUE badge above the due date in each task row',async()=>{
     expect(badge).toBeGreaterThanOrEqual(0);expect(date).toBeGreaterThan(badge);
   }finally{bucket.mockReturnValue('none');read.mockResolvedValue({tasks:[],truncated:false});}
 });
+
+it('uses an icon-only Search button that launches native Global Search',async()=>{
+  load.mockResolvedValue(DEFAULT_PRETTY);
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+  const buttons=app!.root.findAllByType('TouchableOpacity' as any);
+  const search=buttons.find(n=>n.props.accessibilityLabel==='Search')!;
+  const note=buttons.find(n=>n.props.accessibilityLabel==='Choose note name, type, template')!;
+  expect(search).toBeTruthy();expect(note).toBeTruthy();
+  expect(buttons.indexOf(search)).toBeLessThan(buttons.indexOf(note));
+  expect(search.findAllByType('Text' as any)).toHaveLength(0);
+  await act(async()=>{search.props.onPress();});
+  expect(launchApp).toHaveBeenCalledWith('com.ratta.search/com.ratta.search.MainActivity');
+});

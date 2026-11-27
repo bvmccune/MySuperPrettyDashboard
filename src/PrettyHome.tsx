@@ -434,11 +434,10 @@ export function PrettyHome({config,nonce,onSettings}:{
       <View style={{flexDirection:'row',alignItems:'center',height:75*s}}>
         <View style={{flex:1,minWidth:0}}><Txt size={58*s} bold>{timeLong(now)}</Txt></View>
         <View style={{width:1,marginHorizontal:7*s}}/>
-        <View style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',paddingLeft:4*s}}>
+        <View style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',justifyContent:'flex-end',paddingLeft:4*s}}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Search" onPress={()=>launchApp(APPS.search)}
-          style={{flex:1,marginRight:10*s,borderWidth:1,borderColor:DARK_GRAY,
-            borderRadius:5*s,height:38*s,flexDirection:'row',alignItems:'center',paddingHorizontal:9*s}}>
-          <Glyph name="search" size={22*s}/><Txt size={17*s} style={{marginLeft:9*s}}>Search</Txt>
+          style={{width:67*s,height:67*s,alignItems:'center',justifyContent:'center'}}>
+          <Glyph name="search" size={43.5*s}/>
         </TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose note name, type, template"
           onPress={()=>setOverlay('new-note')}
