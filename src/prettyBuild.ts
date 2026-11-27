@@ -1,2 +1,3 @@
-/** CI replaces this value with the actual GitHub Actions build number. */
-export const BUILD_LABEL='dev';
+/** CI replaces this with the padded product version and original build ID. */
+export const BUILD_LABEL='00.09.041';
+export const ORIGINAL_BUILD=110;
