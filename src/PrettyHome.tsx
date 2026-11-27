@@ -421,7 +421,7 @@ export function PrettyHome({config,nonce,onSettings}:{
           <Txt size={DESIGN.date*s} weight={600}>{dateLong(now)}</Txt>
         </TouchableOpacity>
         <View pointerEvents="box-none" style={{position:'absolute',left:0,right:0,alignItems:'center',zIndex:2}}>
-          <TouchableOpacity onPress={close} accessibilityLabel="Close SmartyNote" style={{flexDirection:'row',alignItems:'baseline',padding:5*s}}><Txt size={DESIGN.brand*s} weight={600}>SmartyNote</Txt><Txt size={10*s} muted style={{marginLeft:5*s}}>{BUILD_LABEL}</Txt></TouchableOpacity>
+          <TouchableOpacity onPress={close} accessibilityLabel="Close SmartyNote" style={{alignItems:'center',justifyContent:'center',paddingVertical:2*s,paddingHorizontal:5*s}}><Txt size={DESIGN.brand*s} weight={600}>SmartyNote</Txt><Txt size={10*s} muted style={{marginTop:2*s}}>{BUILD_LABEL}</Txt></TouchableOpacity>
         </View>
         <View style={{flexDirection:'row',alignItems:'center'}}>
           <IconTap icon="refresh" label="Refresh dashboard" size={23*s} onPress={refreshAll}/>
@@ -439,7 +439,7 @@ export function PrettyHome({config,nonce,onSettings}:{
         </View>
       </View>
       <View style={{flexDirection:'row',alignItems:'center',height:75*s}}>
-        <View style={{flex:1,minWidth:0}}><Txt size={DESIGN.clock*s} weight={700}>{timeLong(now)}</Txt></View>
+        <View style={{flex:1,minWidth:0}}><Txt size={DESIGN.clock*s} weight={DESIGN.clockWeight}>{timeLong(now)}</Txt></View>
         <View style={{width:1,marginHorizontal:7*s}}/>
         <View style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',justifyContent:'flex-end',paddingLeft:4*s}}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Supernote Settings" onPress={openNativeSettings}
@@ -622,8 +622,12 @@ export function PrettyHome({config,nonce,onSettings}:{
                     <Txt size={23*s}>›</Txt>
                   </TouchableOpacity>
                 </View>
+                <View style={{paddingBottom:8*s}}>
+                  {calendar.snapshot&&<Txt size={13*s} muted>Last retrieved: {new Date(calendar.snapshot.fetchedAt).toLocaleString('en-US')}</Txt>}
+                  {calendar.error&&<Txt size={13*s} muted>{calendar.error}</Txt>}
+                </View>
                 <ScrollView key={agendaVisit+':'+agendaStart} contentContainerStyle={{paddingBottom:24*s}}>
-                  <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>
+                  <View style={{flexDirection:'row',flexWrap:'wrap',alignItems:'flex-start',justifyContent:'space-between'}}>
                     {Array.from({length:7},(_,i)=>addCalendarDays(agendaStart,i)).map(day=>{
                       const dayEvents=agenda.filter(e=>e.startDay<=day&&day<e.endDayExclusive);
                       const allDay=dayEvents.filter(e=>e.all_day),timed=dayEvents.filter(e=>!e.all_day);
@@ -646,17 +650,12 @@ export function PrettyHome({config,nonce,onSettings}:{
                       </View>;
                     })}
                   </View>
-                  {calendar.snapshot&&<>
-                    <Txt size={13*s} muted>
-                      Last retrieved: {new Date(calendar.snapshot.fetchedAt).toLocaleString('en-US')}
-                    </Txt>
-                    {calendar.error&&<Txt size={13*s} muted>{calendar.error}</Txt>}
-                  </>}
+
                 </ScrollView>
               </View>:
             overlay==='stars'?
               <ScrollView>
-                <Txt size={secondary} muted>Stars in your notebooks. For PDF stars, use Native search and select Star.</Txt>
+                <Txt size={secondary} muted>Stars in your notebooks. Native search opens your last-used category; select Star there for PDF stars.</Txt>
                 {starBusy&&<Txt size={body}>Scanning notebooks…</Txt>}
                 {!!starStatus&&<Txt size={body}>{starStatus}</Txt>}
                 {!starBusy&&!starStatus&&!starNotes.length&&<Txt size={body} muted>No starred notebook pages found.</Txt>}

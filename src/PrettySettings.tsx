@@ -262,23 +262,6 @@ export function PrettySettings(): React.JSX.Element {
             </>
           )}
         </Group>
-        <Group title="Favorites · your dashboard links">
-          <TextLine faint>These favorites are separate from Supernote's built-in starred Files. Add the notebooks, PDFs, or folders you want to find quickly; open them here in Settings. Changes save automatically; Done verifies the save.</TextLine>
-          {prefs.favorites.length===0&&<TextLine faint>No favorites yet. Add one below to populate the Favorites screen.</TextLine>}
-          {prefs.favorites.map((item,i)=>(
-            <View style={styles.entry} key={item.path}>
-              <View style={{flex:1}}>
-                <TextLine>{item.label}</TextLine>
-                <TextLine faint>{item.path}</TextLine>
-              </View>
-              <Action small onPress={()=>openPin(item)}>Open</Action>
-              <Action small onPress={()=>movePin('favorites',i,-1)}>↑</Action>
-              <Action small onPress={()=>movePin('favorites',i,1)}>↓</Action>
-              <Action small onPress={()=>removePin('favorites',i)}>Remove</Action>
-            </View>
-          ))}
-          <Action filled onPress={()=>{setDir(ROOTS[0]);setPicker('favorites');}}>+ Add a favorite notebook, document, or folder</Action>
-        </Group>
         <Group title="Display">
           <TextLine faint>Google Sans Flex. Standard is the preferred Manta text size; Large and Extra large are accessibility alternatives. The two content bands have equal height.</TextLine>
           <View style={{flexDirection:'row',flexWrap:'wrap',marginVertical:6}}>
@@ -286,7 +269,8 @@ export function PrettySettings(): React.JSX.Element {
           </View>
         </Group>
         <Group title="Dashboard navigation">
-          <TextLine faint>No floating button will appear over Supernote. Tap SmartyNote to return to the note beneath it. Calendar opens native Calendar, requesting Today when an exported date handler exists. View all opens the dashboard agenda. Stars opens notebook star results with access to native Search.</TextLine>
+          <TextLine faint>No floating button will appear over Supernote. Tap SmartyNote to return to the note beneath it. Calendar opens native Calendar. Build 114 retained its last date on your firmware; use native Calendar's Today button. View all opens the dashboard agenda. Stars opens notebook star results with access to native Search.</TextLine>
+          <Action small disabled={busy} onPress={()=>attempt(async()=>{setStatus(await DashboardNative.inspectNativeCalendar());})}>Inspect native Calendar navigation</Action>
           <TextLine faint>For launching the dashboard elsewhere, add the Plugins tool to your native notebook toolbar. A direct sidebar gesture or dedicated plugin Quick Access entry is not publicly documented.</TextLine>
         </Group>
         <Group title="Attribution">

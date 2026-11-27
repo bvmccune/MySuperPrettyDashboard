@@ -17,14 +17,15 @@ device acceptance. GitHub Actions run numbers remain immutable.
 | 00.06.057 | 56–57 | 00.06.056–00.06.057 |
 | 00.07.062 | 58–62 | 00.07.058–00.07.062 |
 | 00.08.068 | 63–68 | 00.08.063–00.08.068 |
-| Four-quadrant development (open) | 69 onward | 00.09.069 onward |
+| 00.09.114 — installed/tested on Manta | 69–114 | 00.09.069–00.09.114 |
+| Post-114 refinements (open) | 115 onward | 00.10.115 onward |
 | First accepted public release | TBD | 01.00.BBB (original build ID) |
 
 The mapping follows the user-selected historical milestones; it is not a
 certification of device testing. Historical images explicitly show 62 and 68;
 other historical device-test identifications require confirmation.
 
-## Build-by-build mapping through build 111
+## Build-by-build mapping through build 114
 
 | Original build | Product version | CI outcome | Published release | Commit |
 |---:|---|---|---|---|
@@ -139,5 +140,8 @@ other historical device-test identifications require confirmation.
 | 109 | 00.09.109 | success | [Package](https://github.com/bvmccune/MySuperPrettyDashboard/releases/tag/dev-build-109) | db3305f6 |
 | 110 | 00.09.110 | success | [Package](https://github.com/bvmccune/MySuperPrettyDashboard/releases/tag/dev-build-110) | e921a6aa |
 | 111 | 00.09.111 | failure | — | 7c43786c |
+| 112 | 00.09.112 | failure | — | 4219a7bb |
+| 113 | 00.09.113 | failure | — | e2cee224 |
+| 114 | 00.09.114 | success; installed | [Package](https://github.com/bvmccune/MySuperPrettyDashboard/releases/tag/v00.09.114) | af1761cc |
 
 Historical releases retain their original `dev-build-N` tags and unchanged package bytes for backward-compatible downloads. The migration attempts to rename release titles only; GitHub permissions may prevent it. Previously installed packages retain their embedded version numbers. New builds use the padded product version in the dashboard and plugin metadata, and the original build number as the numeric plugin version code. npm uses an unpadded equivalent because SemVer disallows leading zeroes.
