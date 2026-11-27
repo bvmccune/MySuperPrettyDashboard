@@ -134,18 +134,37 @@ export async function readNativeSupernoteTasks(): Promise<NativeTaskResult> {
   return {tasks,truncated};
 }
 
-export function noteLink(links:unknown):NativeTodo['link'] {
-  if(typeof links==='string'){try{return noteLink(JSON.parse(links));}catch{return undefined;}}
-  if(!links||typeof links!=='object')return undefined;
-  for(const r of Array.isArray(links)?links:[links]){
-    if(!r||typeof r!=='object')continue;
-    const path=String(r.filePath??'').trim();
-    const name=String(r.fileName??r.name??path.split('/').pop()??'').trim();
-    const fileId=String(r.fileId??'').trim(),pageId=String(r.pageId??'').trim();
-    if(!name&&!path&&!fileId&&!pageId)continue;
-    const page=Number(r.pageNo??r.page);
-    return {name,path:path||undefined,page:Number.isInteger(page)&&page>0?page:undefined,fileId:fileId||undefined,pageId:pageId||undefined};
+/** Cloud links are Base64 UTF-8 JSON; older responses may contain plain JSON.
+ * Source: https://allenporter.github.io/supernote/supernote/models/schedule.html */
+function decodeLinkJson(value:string):unknown {
+  try{return JSON.parse(value);}catch{}
+  const raw=value.trim().replace(/-/g,'+').replace(/_/g,'/');
+  if(!/^[A-Za-z0-9+/]+={0,2}$/.test(raw)||raw.length>65536)return undefined;
+  const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let acc=0,bits=0,encoded='';
+  for(const ch of raw.replace(/=+$/,'')){
+    acc=(acc<<6)|alphabet.indexOf(ch);bits+=6;
+    if(bits>=8){bits-=8;encoded+='%'+((acc>>>bits)&255).toString(16).padStart(2,'0');}
   }
+  try{return JSON.parse(decodeURIComponent(encoded));}catch{return undefined;}
+}
+export function noteLink(links:unknown,depth=0):NativeTodo['link'] {
+  if(depth>5||!links)return undefined;
+  if(typeof links==='string')return noteLink(decodeLinkJson(links),depth+1);
+  if(Array.isArray(links)){
+    for(const entry of links){const link=noteLink(entry,depth+1);if(link)return link;}
+    return undefined;
+  }
+  if(typeof links!=='object')return undefined;
+  const r=links as Record<string,unknown>;
+  const raw=String(r.filePath??r.path??'').trim();
+  if(raw&&(!/\.note$/i.test(raw)||raw.split('/').includes('..')))return undefined;
+  const path=raw?'/storage/emulated/0/'+raw.replace(/^\/storage\/emulated\/0\//,'').replace(/^\/+/, ''):'';
+  const name=String(r.fileName??r.name??path.split('/').pop()??'').trim();
+  const fileId=String(r.fileId??'').trim(),pageId=String(r.pageId??'').trim();
+  if(!name&&!path&&!fileId&&!pageId)return undefined;
+  const page=Number(r.pageNo??r.page);
+  return {name,path:path||undefined,page:Number.isInteger(page)&&page>0?page:undefined,fileId:fileId||undefined,pageId:pageId||undefined};
 }
 function taskNoteLink(row:Record<string,any>):NativeTodo['link']{
   return noteLink(row.links)??noteLink(row.noteLinks)??noteLink(row.noteLink)??noteLink(row.link);
