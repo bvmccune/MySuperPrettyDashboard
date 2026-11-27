@@ -1,6 +1,6 @@
 /**
- * MySuperPrettyDashboard — Manta home.
- * One non-scrolling screen, two equal-height bands and a shorter bottom band; no floating OS overlay.
+ * SmartyNote — Manta home.
+ * One non-scrolling screen, two equal-height bands; no floating OS overlay.
  * The visually themed icons are intentional custom artwork.
  *
  * Calendar: owner's existing read-only feed, not native event mirroring.
@@ -38,7 +38,6 @@ const {DashboardNative}=NativeModules;
 const NOTE_ROOT='/storage/emulated/0/Note';
 const FONT='GoogleSansFlex';
 const APPS={
-  calendar:'com.ratta.supernote.calendar/com.ratta.supernote.calendar.MainActivity',
   todo:'com.ratta.supernote.task/com.ratta.supernote.task.TaskActivity',
   search:'com.ratta.search/com.ratta.search.MainActivity',
 };

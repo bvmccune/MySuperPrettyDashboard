@@ -1,79 +1,28 @@
-# SuperDashboard (Supernote plugin)
+# SmartyNote
 
-A configurable, always-available dashboard for Supernote e-ink devices. Its face is a draggable
-**bubble** (the house logo) that floats over everything; tap it to open the dashboard, drag it to move
-it (or open it from the plugin's toolbar button). You compose the dashboard yourself from **modules**,
-in 1, 2 or 3 columns (any block can also span the full width, on top or at the bottom), in the design
-and font you like. It runs **fully on-device and offline**: no account, no network.
+A fixed, monochrome, non-scrolling home dashboard for the Supernote Manta, based on [SuperDashboard](https://github.com/AgP42/SuperDashboard).
 
-![The dashboard](docs/img/dashboard-hero2.png)
+## Features
+- Weekly date strip and four quadrants: Events, To-do, Quick access, Recent notes.
+- Read-only external calendar feed, event details, overlap hatching, back-to-back separators and measured overflow counts.
+- Read and update existing Supernote To-do tasks through Supernote Cloud. Tap the circle to complete; long-press the title to edit the name or due date. Changes are verified against the server, not stored as a separate task list.
+- Six pinned shortcuts, editable labels, eleven approved icon choices, folders, notes, documents, Calendar and Stars.
+- Date-specific recently created notes, creation dots, and recent files.
+- Native Search, New Note, battery, Wi-Fi, refresh and Settings. Tap the SmartyNote title to return to your note.
 
-📖 **[User Guide](USER_GUIDE.md)** (full walkthrough: install, configuration, every module, tips) ·
-⬇ **[Latest release](../../releases/latest)**
+## Install and configure
+Use the latest **SmartyNote release candidate** in [Releases](../../releases), not an older SuperDashboard package. Copy the `SmartyNote.snplg` into MyStyle, then on the Manta open Settings → Apps → Plugins → Choose Installation Package. Enable the plugin and add its button to the native notebook toolbar. Its Stardust icon launches Home.
 
-## Modules
+In SmartyNote Settings, configure your read-only Pretty Calendar endpoint and optionally connect Supernote Cloud for tasks. Enable native To-do synchronization on the Manta. The account session and calendar URL are stored locally in encrypted preferences; credentials and task content are not published. File permission is needed for shortcuts, notes and preferences. Internet permission is needed for the calendar and task integration.
 
-- **Shortcuts**: open a folder, note, PDF or EPUB in one tap.
-- **Files**: a small in-dashboard file browser.
-- **Search**: file & folder names, keywords, and note headings, with a compact query grammar.
-- **Contents**: the current note's headings as a tappable outline; tap one to jump to its page.
-- **Recent**: your recent notes and documents (including on an SD card).
-- **Stars**: five-star pages from a scan, grouped by note, with optional line previews.
-- **Keywords**: note keywords as tappable chips, each opening its note on the right page.
-- **Clock**: time, date, week number and extra time zones, in a choice of faces.
-- **Device**: battery, free storage and a library stats line.
-- **Apps**: launchers for your device apps.
-- **Note Clips**: snippets you lassoed from notes (or PDFs / EPUBs, or selected PDF text), as labelled
-  thumbnails you can paste back as native ink or editable text.
-- **To-do**: tasks captured the same way; a note task gets a tick-box you check from the dashboard or by
-  hand, a PDF / EPUB task is dashboard-only.
-- **Relay tasks** (beta): your Supernote to-dos, exported by the [Relay](https://relay.kioku.uk/) Mac app,
-  grouped by due date or list (each group folds); tap one made from a note to open that note on its
-  page. Made together with Relay's author, [u/stuffimadeuk](https://www.reddit.com/user/stuffimadeuk/);
-  get Relay at **[relay.kioku.uk](https://relay.kioku.uk/)**. The plugin only reads the file Relay syncs,
-  so it stays offline.
-- **Empty**: a spacer to line columns up (preset or exact px height).
+## Platform boundaries
+- Native Calendar is requested on Today using a manifest-resolved Android date URI if available. If the installed firmware does not expose that handler, Calendar opens normally and its own Today button is the fallback.
+- Stars opens actual starred notebook pages using Supernote's star data and offers native Search for the broader Star category, including PDFs. A documented way to preselect the native Star search category was not found.
+- Linked task icons resolve notebook/page metadata. Exact handwriting highlighting is not supported by the verified plugin API. Native To-do remains the alternative. Cloud task writes require internet access and normal native synchronization.
+- This is a Manta release candidate, not a claim of live-device certification. See [acceptance checklist](docs/SMARTYNOTE-ACCEPTANCE.md) and [native task integration](docs/native-todo-integration.md).
 
-Blocks arrange in 1 / 2 / 3 columns (masonry or fixed height), collapse to their title, and each has an
-**ⓘ** help button in Settings. The **[User Guide](USER_GUIDE.md)** explains how every module works and
-how to configure it.
+## Build
+The release workflow uses Node 20, JDK 21, Android SDK 35, and NDK 27.1.12297006. It prepares the approved icon allowlist and Google Sans Flex, checks TypeScript, runs regression tests, packages the ARM64 plugin and verifies both package layers for retired resources. Use the GitHub Actions workflow for reproducible releases. Build history and older design sources remain available on the prior branch and commits.
 
-## Install
-
-Download the `.snplg` from the **[latest release](../../releases/latest)**, copy it into your device's
-**`MyStyle`** folder, then on the device **Settings -> Apps -> Plugins -> Choose Installation Package**.
-SuperDashboard declares **no INTERNET permission**; on first run it asks once for **file access**
-(READ/WRITE) to scan and open your files and save its settings. Full install and permission details are in the [User Guide](USER_GUIDE.md).
-
-## Build from source
-
-```bash
-source ../env.sh                    # JDK 21 + Android SDK on PATH
-./buildPlugin.sh                    # -> build/outputs/SuperDashboard.snplg
-# install on device: Settings -> Apps -> Plugins -> Choose Installation Package (pick the .snplg)
-```
-
-Capabilities validated on A5X + Manta are written up in `docs/FINDINGS.md` and the `supernote-plugin-dev`
-skill under `.claude/skills/`.
-
-On Windows, with Node.js, JDK 17 or newer and the Android SDK installed:
-
-```powershell
-npm.cmd ci --ignore-scripts --no-audit --no-fund
-$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk" # adjust for your SDK installation
-.\buildPlugin.ps1 # release native code, ARM64; build\outputs\SuperDashboard.snplg
-```
-
-The Windows build defaults to `Release`, selects only that variant's custom native package,
-and stops if native compilation or packaging fails. Use `-BuildVariant Debug` only for development;
-do not deploy a debug build for regular use. The internal `app.npk` is loaded by PluginHost, not
-installed as a standalone APK. USB-copy the `.snplg` into `MyStyle`, then use the device's plugin
-installer; copying alone does not activate the plugin.
-
-## Support
-
-SuperDashboard is a personal project built by a Supernote user, for Supernote users. If it saves you a
-few taps every day, a small contribution is appreciated: https://ko-fi.com/agp42
-
-## Weather artwork attribution
-[Weather Iconic](https://github.com/konradmichalik/weather-iconic) by Konrad Michalik and contributors ([author-requested link](https://github.com/jackd248/weather-iconic/)), licensed under [CC BY-SA 3.0 US](https://creativecommons.org/licenses/by-sa/3.0/us/). Original SVGs and monochrome adaptations retain this license. See [attribution](assets/weather-iconic/ATTRIBUTION.md) and [full license](assets/weather-iconic/LICENSE).
+## Attribution
+Based on SuperDashboard by AgP42 (MIT, see [LICENSE](LICENSE)). Google Sans Flex is licensed under the SIL Open Font License. Both notices accompany the installation package. User-supplied artwork is preserved in its original SVG form.

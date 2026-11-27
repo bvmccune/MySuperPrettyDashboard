@@ -63,6 +63,7 @@ import {DEFAULT_PRETTY,loadPrettyPrefs,PrettyPrefs} from './prettyPrefs';
 import {PrettyHome} from './PrettyHome';
 import {PrettySettings} from './PrettySettings';
 import {launchApp,openCalendarToday,openFile} from './open';
+import {dueBucket} from './relay';
 import {readNativeSupernoteTasks,updateNativeTodo} from './prettyCloud';
 import {HomeAgendaList,scheduleBounds} from './PrettyAgenda';
 import {PrettyFitList} from './PrettyFitList';
@@ -283,4 +284,18 @@ it('opens real Stars results from a pinned Stars destination',async()=>{
   expect(result).toBeTruthy();
   await act(async()=>{result.props.onPress();});
   expect(openFile).toHaveBeenCalledWith('/storage/emulated/0/Note/Example.note',3);
+});
+
+it('puts the black OVERDUE badge above the due date in each task row',async()=>{
+  const read=readNativeSupernoteTasks as jest.Mock;
+  const bucket=dueBucket as jest.Mock;
+  bucket.mockReturnValue('overdue');
+  read.mockResolvedValue({tasks:[{id:'overdue-fixture',title:'Overdue test',due:'2026-11-24',detail:'',listId:'one'}],truncated:false});
+  load.mockResolvedValue(DEFAULT_PRETTY);
+  try{
+    await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+    const text=app!.root.findAllByType('Text' as any).map(n=>n.props.children);
+    const badge=text.indexOf('OVERDUE'),date=text.indexOf('11/24');
+    expect(badge).toBeGreaterThanOrEqual(0);expect(date).toBeGreaterThan(badge);
+  }finally{bucket.mockReturnValue('none');read.mockResolvedValue({tasks:[],truncated:false});}
 });
