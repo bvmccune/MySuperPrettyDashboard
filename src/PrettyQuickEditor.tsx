@@ -49,7 +49,7 @@ export function PrettyQuickEditor({prefs,onSaved,onClose}:{prefs:PrettyPrefs|nul
       {dir?<><View style={{flexDirection:'row',flexWrap:'wrap'}}>{ROOTS.map(r=><Button key={r} title={r.split('/').pop()||r} onPress={()=>setDir(r)}/>)}<Button title="Up" onPress={()=>{if(!ROOTS.includes(dir))setDir(dir.substring(0,dir.lastIndexOf('/')));}}/></View>
         <Text style={font}>{dir}</Text><Button title="Use this folder" onPress={()=>addFile(dir,true)}/>
         {entries.map(e=><TouchableOpacity key={e.path} onPress={()=>e.isDir?setDir(e.path):addFile(e.path,false)} style={{paddingVertical:14,borderBottomWidth:1,borderColor:'#bbb'}}><Text style={font}>{e.isDir?'› ':''}{e.name}</Text></TouchableOpacity>)}</>:
-      <><Text style={font}>The first six links appear on the dashboard. Reorder to choose which six. Existing additional links remain saved here.</Text>
+      <><Text style={font}>Shortcuts appear in this order, left to right and top to bottom, as space permits. Use Up and Down to prioritize them. Up to 30 links are saved; additional links remain available here.</Text>
         {pins.map((p,i)=><View key={i+':'+p.path} style={{borderBottomWidth:1,borderColor:'#888',paddingVertical:14}}>
           <TextInput editable={!busy} value={p.label} onChangeText={label=>update(i,{label})} style={{...font,borderWidth:1,padding:10}}/>
           <Text style={{...font,fontSize:14}}>{p.path==='app:calendar'?'Native Calendar — Today':p.path==='app:stars'?'Stars':p.path}</Text>

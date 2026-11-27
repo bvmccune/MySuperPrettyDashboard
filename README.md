@@ -6,7 +6,7 @@ A fixed, monochrome, non-scrolling home dashboard for the Supernote Manta, based
 - Weekly date strip and four quadrants: Events, To-do, Quick access, Recent notes.
 - Read-only external calendar feed, event details, overlap hatching, back-to-back separators and measured overflow counts.
 - Read and update existing Supernote To-do tasks through Supernote Cloud. Tap the circle to complete; long-press the title to edit the name or due date using a calendar picker. Changes are verified against the server, not stored as a separate task list.
-- Six pinned shortcuts, editable labels, eleven approved icon choices, folders, notes, documents, Calendar and Stars.
+- A dynamically fitted two-column grid of up to 30 saved shortcuts, +N overflow, editable labels, eleven approved icon choices, folders, notes, documents, Calendar and Stars.
 - Date-specific recently created notes, creation dots, and recent files.
 - Native Search, New Note, battery, Wi-Fi, refresh and Settings. Tap the SmartyNote title to return to your note.
 

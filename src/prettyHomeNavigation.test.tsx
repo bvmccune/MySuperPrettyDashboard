@@ -364,3 +364,28 @@ it('places Stardust native Settings before Search, distinct from plugin Settings
   await act(async()=>{gear.props.onPress();});
   expect(onSettings).toHaveBeenCalled();
 });
+
+it('fits Quick access in measured complete rows beyond six, with exact pin-only overflow',async()=>{
+  const pins=Array.from({length:20},(_,i)=>({kind:'folder' as const,path:'/storage/emulated/0/Note/Folder'+i,label:'Folder '+i,icon:'files' as const}));
+  load.mockResolvedValue({...DEFAULT_PRETTY,quick:pins});
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+  const body=app!.root.findAll(n=>typeof n.type==='string'&&n.props.testID==='quick-fit-body')[0];
+  await act(async()=>{body.props.onLayout({nativeEvent:{layout:{height:260}}});});
+  const measurements=()=>app!.root.findAll(n=>typeof n.type==='string'&&String(n.props.testID).startsWith('fit-measure-quick-'));
+  await act(async()=>{measurements().forEach(n=>n.props.onLayout({nativeEvent:{layout:{height:36}}}));});
+  const visible=()=>app!.root.findAll(n=>typeof n.type==='string'&&String(n.props.testID).startsWith('fit-visible-quick-'));
+  const count=(label:string)=>app!.root.findAll(n=>typeof n.type==='string'&&n.props.accessibilityLabel===label).length;
+  expect(visible()).toHaveLength(7);
+  expect(count('6 additional shortcuts')).toBe(1);
+  await act(async()=>{measurements()[0].props.onLayout({nativeEvent:{layout:{height:72}}});});
+  expect(visible()).toHaveLength(6);
+  expect(count('8 additional shortcuts')).toBe(1);
+});
+it('add tile never replaces a saved shortcut and is not counted as hidden',()=>{
+  const {quickRows,hiddenQuickPins}=require('./prettyQuickLayout');
+  const rows=quickRows([1,2,3,4,5]);
+  expect(rows).toEqual([[1,2],[3,4],[5,null]]);
+  expect(hiddenQuickPins(rows,1)).toBe(1);
+  expect(hiddenQuickPins(quickRows([1,2]),1)).toBe(0);
+  expect(quickRows(Array.from({length:30},(_,i)=>i))).toHaveLength(15);
+});

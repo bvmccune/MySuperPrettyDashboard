@@ -29,6 +29,7 @@ import {AgendaRow,Conflict,HomeAgendaList,hasTimeConflict} from './PrettyAgenda'
 import {PrettyNoteCreate} from './PrettyNoteCreate';
 import {PrettyScreenHeader} from './PrettyScreen';
 import {PrettyFitList} from './PrettyFitList';
+import {quickRows,hiddenQuickPins} from './prettyQuickLayout';
 import {DESIGN,dashboardFont,DashboardWeight} from './prettyDesign';
 import {DottedRule,HeavyRule} from './PrettyDivider';
 import {PrettyTaskDatePicker} from './PrettyTaskDatePicker';
@@ -105,9 +106,9 @@ function IconTap({icon,label,onPress,size=27}:{
   </TouchableOpacity>;
 }
 const CIRCLE=48;
-function SectionTitle({icon,label,scale,action,actionLabel,extra,actionAccessibilityLabel,calendarAction,aboveAction}:{
+function SectionTitle({icon,label,scale,action,actionLabel,extra,actionAccessibilityLabel,calendarAction,aboveAction,extraAccessibilityLabel}:{
   icon:IconName;label:string;scale:number;action?:()=>void;
-  actionLabel?:string;extra?:string;actionAccessibilityLabel?:string;calendarAction?:()=>void;aboveAction?:string;
+  actionLabel?:string;extra?:string;actionAccessibilityLabel?:string;calendarAction?:()=>void;aboveAction?:string;extraAccessibilityLabel?:string;
 }){
   const circle=CIRCLE*scale,fs=DESIGN.heading*scale;
   return <View style={{height:DESIGN.headingHeight*scale,flexDirection:'row',alignItems:'center',minWidth:0}}>
@@ -115,7 +116,7 @@ function SectionTitle({icon,label,scale,action,actionLabel,extra,actionAccessibi
       <Glyph name={icon} size={circle*120/113}/>
     </View>
     <Txt size={fs} weight={650} lines={1} style={{flexShrink:1}}>{label}</Txt>
-    {!!extra&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={extra+' additional events'}
+    {!!extra&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={extraAccessibilityLabel??extra+' additional events'}
       onPress={action} style={{paddingHorizontal:4*scale,paddingVertical:8*scale}}>
       <Txt size={DESIGN.overflow*scale} weight={700}>{extra}</Txt>
     </TouchableOpacity>}
@@ -209,6 +210,7 @@ export function PrettyHome({config,nonce,onSettings}:{
   // Keep the empty lists stable while preferences load. Otherwise the file
   // metadata effect sees a new dependency on every render and schedules itself.
   const pinned=useMemo(()=>prefs?.quick??[],[prefs]);
+  const shortcutRows=useMemo(()=>quickRows(pinned),[pinned]);
   const favorites=useMemo(()=>prefs?.favorites??[],[prefs]);
 
   useEffect(()=>{
@@ -507,17 +509,30 @@ export function PrettyHome({config,nonce,onSettings}:{
 
       <View onLayout={e=>setMiddleH(e.nativeEvent.layout.height)} style={{flex:1,minHeight:0,flexDirection:'row'}}>
         <View style={[styles.cell,{paddingRight:5*s}]}>
-          <SectionTitle icon="rocks" label="Quick access" scale={s} action={()=>setOverlay('quick-edit')} actionLabel="Edit"/>
-          <View style={{flex:1,minHeight:0,paddingVertical:4*s}}>
-            {[0,1,2].map(row=><View key={row} style={{height:Math.min(DESIGN.quickRow*s*fontBoost,Math.max(0,(middleH-DESIGN.headingHeight*s-8*s)/3)),flexDirection:'row',minHeight:0}}>
-              {[0,1].map(col=>{const item=pinned[row*2+col];return <TouchableOpacity key={col}
-                onPress={()=>item?doOpenPinned(item):setOverlay('quick-edit')}
-                style={{flex:1,minWidth:0,margin:3*s,borderWidth:1,borderRadius:7*s,borderColor:INK,flexDirection:'row',alignItems:'center',paddingHorizontal:6*s}}>
-                {!item&&<Glyph name="plus" size={18*s}/>}{!!item&&<><Glyph name={quickIcon(item)} size={24*s}/>
-                <Txt size={body} weight={500} lines={3} style={{flex:1,minWidth:0,marginLeft:DESIGN.iconGap*s,lineHeight:rowLine}}>{item.label}</Txt></>}
-              </TouchableOpacity>;})}
-            </View>)}
-          </View>
+          <PrettyFitList key={'quick:'+fitKey} testID="quick-fit-body" items={shortcutRows}
+            keyOf={(row,i)=>'quick-'+i+':'+JSON.stringify(row)}
+            initialHeight={Math.max(0,middleH-DESIGN.headingHeight*s)}
+            minHeight={DESIGN.quickRow*s}
+            maxHeight={Math.max(DESIGN.quickRow*s,rowLine*3+(2*DESIGN.quickPadY+2*DESIGN.quickGap)*s+2)}
+            header={hidden=>{
+              const count=hiddenQuickPins(shortcutRows,hidden);
+              return <SectionTitle icon="rocks" label="Quick access" scale={s}
+                extra={count?'+'+count:undefined} extraAccessibilityLabel={count+' additional shortcuts'}
+                action={()=>setOverlay('quick-edit')} actionLabel="Edit"/>;
+            }}
+            renderRow={(row,i)=><View style={{flexDirection:'row',alignItems:'stretch',minHeight:DESIGN.quickRow*s}}>
+              {row.map((item,col)=>item===undefined?
+                <View key={col} style={{flex:1,minWidth:0,margin:DESIGN.quickGap*s}}/>:
+                <TouchableOpacity key={col} accessibilityRole="button" accessibilityLabel={item?'Quick access: '+item.label:'Add Quick access shortcut'}
+                  onPress={()=>item?doOpenPinned(item):setOverlay('quick-edit')}
+                  style={{flex:1,minWidth:0,margin:DESIGN.quickGap*s,borderWidth:1,borderRadius:7*s,borderColor:INK,
+                    flexDirection:'row',alignItems:'center',paddingHorizontal:DESIGN.quickPadX*s,paddingVertical:DESIGN.quickPadY*s}}>
+                  {item===null?<Glyph name="plus" size={18*s}/>:<><Glyph name={quickIcon(item)} size={DESIGN.quickIcon*s}/>
+                    <Txt size={body} weight={500} lines={3} style={{flex:1,minWidth:0,marginLeft:DESIGN.iconGap*s,lineHeight:rowLine}}>{item.label}</Txt></>}
+                </TouchableOpacity>)}
+            </View>}
+            empty={null}/>
+
         </View>
         <View style={[styles.splitter,{marginHorizontal:7*s,marginVertical:9*s}]}/>
         <View style={[styles.cell,{paddingLeft:4*s}]}>
