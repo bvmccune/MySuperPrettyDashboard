@@ -16,7 +16,7 @@ jest.mock('sn-plugin-lib',()=>({
 }));
 import {NativeModules} from 'react-native';
 import {
-  addCalendarDays, agendaFromFeed, dateKey, dayLabel, eventsOnDay,
+  addCalendarDays, agendaFromFeed, allDayRange, dateKey, dayLabel, eventsOnDay,
   eventDuration, eventTimeRange, loadCalendarCache, normalizeFeed,
   refreshCalendar, sevenDayKeys,
 } from './prettyCalendar';
@@ -180,4 +180,15 @@ test('TRMNL duration rounds positive partial minutes up and formats mixed units'
  expect(eventDuration(row(1))).toBe('1m');
  expect(eventDuration(row(3600001))).toBe('1h 1m');
  expect(compactEventRange(row(0))).toBe('10:00 AM');
+});
+
+test('formats all-day range labels without changing event membership',()=>{
+  const same=feed([event('Fixture','2026-11-25','2026-11-28',true)]);
+  const across=feed([event('Fixture','2026-11-30','2026-12-03',true)]);
+  const single=feed([event('Fixture','2026-11-25','2026-11-26',true)]);
+  expect(allDayRange(agendaFromFeed(same)[0])).toBe('25–27 Nov');
+  expect(eventTimeRange(agendaFromFeed(across)[0])).toBe('30 Nov–2 Dec');
+  expect(compactEventRange(agendaFromFeed(single)[0])).toBe('All day');
+  expect(eventsOnDay(same,'2026-11-28')).toHaveLength(0);
+  expect(eventsOnDay(across,'2026-12-02')).toHaveLength(1);
 });

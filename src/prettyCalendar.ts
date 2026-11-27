@@ -194,8 +194,18 @@ export function compactEventTime(ms:number,showPeriod=true):string {
   return String(hours%12||12)+':'+String(minutes).padStart(2,'0')+
     (showPeriod?(hours<12?' AM':' PM'):'');
 }
+const SHORT_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+export function allDayRange(event:AgendaEvent):string{
+  const start=event.startDay,end=addCalendarDays(event.endDayExclusive,-1);
+  if(start===end)return 'All day';
+  const sm=Number(start.slice(5,7)),em=Number(end.slice(5,7));
+  const sd=Number(start.slice(8,10)),ed=Number(end.slice(8,10));
+  return sm===em&&start.slice(0,4)===end.slice(0,4)
+    ? sd+'–'+ed+' '+SHORT_MONTHS[em-1]
+    : sd+' '+SHORT_MONTHS[sm-1]+'–'+ed+' '+SHORT_MONTHS[em-1];
+}
 export function eventTimeRange(event:AgendaEvent):string {
-  if(event.all_day)return 'All day';
+  if(event.all_day)return allDayRange(event);
   if(event.startMillis===event.endMillis)return compactEventTime(event.startMillis);
   const samePeriod=(new Date(event.startMillis).getHours()<12)===(new Date(event.endMillis).getHours()<12);
   return compactEventTime(event.startMillis,!samePeriod)+'–'+compactEventTime(event.endMillis);

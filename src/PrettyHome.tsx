@@ -595,7 +595,7 @@ export function PrettyHome({config,nonce,onSettings}:{
                     </View>
                     <View style={{width:'50%',marginBottom:18*s}}>
                       <Txt size={15*s} muted>{selectedEvent.all_day?'Schedule':'Time'}</Txt>
-                      <Txt size={21*s} bold>{selectedEvent.all_day?'All day':eventTimeRange(selectedEvent)}</Txt>
+                      <Txt size={21*s} bold>{eventTimeRange(selectedEvent)}</Txt>
                     </View>
                     {!selectedEvent.all_day&&selectedEvent.endMillis>selectedEvent.startMillis&&<View style={{width:'50%',marginBottom:8*s}}>
                       <Txt size={15*s} muted>Duration</Txt>
