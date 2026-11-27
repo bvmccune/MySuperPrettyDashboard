@@ -215,8 +215,8 @@ export function PrettySettings(): React.JSX.Element {
       <View style={styles.root}>
       <ScrollView style={{flex:1}} keyboardShouldPersistTaps="handled">
         <Group title="Pretty Calendar · read-only events">
-          <TextLine faint>Uses your existing TRMNL Pretty Calendar Cloudflare feed directly. No additional calendars, accounts, sign-ins or native Calendar event records are created.</TextLine>
-          <TextLine faint>One-time setup: paste your existing Cloudflare Worker /calendar URL. It will be stored encrypted on this Manta, not in the public GitHub repository.</TextLine>
+          <TextLine faint>Uses a configured read-only calendar feed. No native Calendar records are created.</TextLine>
+          <TextLine faint>Enter the HTTPS calendar feed URL. It is stored in encrypted device preferences.</TextLine>
           {calendarConfigured&&<TextLine>Calendar feed address saved privately</TextLine>}
           <TextInput style={styles.input} placeholder={calendarConfigured?'Replace feed URL (optional)':'https://your-worker.workers.dev/calendar'}
             autoCapitalize="none" autoCorrect={false} keyboardType="url"
@@ -235,7 +235,7 @@ export function PrettySettings(): React.JSX.Element {
           </>}
           {calendarState.error&&<TextLine faint>Last request: {calendarState.error}</TextLine>}
           <Action filled disabled={busy} onPress={syncCalendar}>Refresh Pretty Calendar now</Action>
-          <TextLine faint>Privacy: Confirm your employer permits this existing calendar feed. Anyone with access to the endpoint may be able to retrieve the work event titles if it is not protected by authentication.</TextLine>
+          <TextLine faint>Protect the calendar endpoint with appropriate access controls.</TextLine>
         </Group>
         <Group title="Supernote To-do · your existing list">
           <TextLine faint>This reads and updates your actual Supernote To-do items through Supernote Cloud. It does not create a second list. Ensure To-do cloud sync is enabled on the device. Task changes are experimental and require cloud confirmation.</TextLine>

@@ -5,7 +5,6 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - development/pretty-dashboard
       - development/smartynote-four-quadrants
 
 concurrency:
@@ -23,13 +22,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Rename and verify historical release titles (preserve download URLs)
-        continue-on-error: true
-        if: github.ref == 'refs/heads/development/smartynote-four-quadrants'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/rename_legacy_releases.py
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -223,6 +215,26 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Normalize existing release descriptions
+        if: github.ref == 'refs/heads/development/smartynote-four-quadrants'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq '.[] | [.id, .tag_name, (.body // "")] | @base64' |
+          while IFS= read -r entry; do
+            row="$(printf '%s' "$entry" | base64 --decode)"
+            id="$(jq -r '.[0]' <<<"$row")"
+            tag="$(jq -r '.[1]' <<<"$row")"
+            old="$(jq -r '.[2]' <<<"$row")"
+            note="Version $tag."
+            if [[ "$old" != "$note" ]]; then
+              gh api --method PATCH "repos/${{ github.repository }}/releases/$id" -f body="$note" --silent
+            fi
+          done
+
       - name: Publish direct SNPLG development download
         if: github.ref == 'refs/heads/development/smartynote-four-quadrants'
         env:
@@ -235,5 +247,5 @@ jobs:
             --repo "${{ github.repository }}" \
             --target "${{ github.sha }}" \
             --title "SmartyNote ${SMARTYNOTE_VERSION} (build $GITHUB_RUN_NUMBER)" \
-            --notes "Product version: **${SMARTYNOTE_VERSION}** · Original GitHub build: **${GITHUB_RUN_NUMBER}**. Automated checks and package validation passed; Manta acceptance tests remain required. Preserve 00.08.068 (build 68) as fallback. See docs/VERSION-HISTORY.md and docs/native-todo-integration.md." \
+            --notes "Version ${SMARTYNOTE_VERSION}." \
             --prerelease
