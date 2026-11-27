@@ -12,13 +12,15 @@ export function hasTimeConflict(event:AgendaEvent,others:AgendaEvent[]):boolean{
   return others.some(other=>other.key!==event.key&&!other.all_day&&
     other.endMillis>other.startMillis&&other.startMillis<event.endMillis&&other.endMillis>event.startMillis);
 }
+/** Match the original Pretty Calendar TRMNL shared.liquid:
+ * 12px circles, -2px adjacent margin, 23x13px right-aligned container. */
+export const CONFLICT_MARKER={diameter:12,overlap:2,width:23,height:13} as const;
 export function Conflict({scale=1}:{scale?:number}){
+  const {diameter,overlap,width,height}=CONFLICT_MARKER;
   return <View accessible accessibilityLabel="Conflicting appointments"
-    style={{width:19*scale,height:13*scale,marginLeft:4*scale,justifyContent:'center',flexShrink:0}}>
-    <View style={{width:12*scale,height:12*scale,borderRadius:99,
-      backgroundColor:INK,position:'absolute',left:0}}/>
-    <View style={{width:12*scale,height:12*scale,borderRadius:99,
-      backgroundColor:INK,position:'absolute',left:6*scale}}/>
+    style={{width:width*scale,height:height*scale,marginLeft:4*scale,flexDirection:'row',alignItems:'center',justifyContent:'flex-end',flexShrink:0}}>
+    <View testID="conflict-dot-first" style={{width:diameter*scale,height:diameter*scale,borderRadius:999,backgroundColor:'#000',flexShrink:0}}/>
+    <View testID="conflict-dot-second" style={{width:diameter*scale,height:diameter*scale,borderRadius:999,backgroundColor:'#000',marginLeft:-overlap*scale,flexShrink:0}}/>
   </View>;
 }
 export function AgendaRow({event,onPress,allEvents=[],scale=1,fontBoost=1,showSelect=false}:{

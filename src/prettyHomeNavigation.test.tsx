@@ -312,3 +312,17 @@ it('uses an icon-only Search button that launches native Global Search',async()=
   await act(async()=>{search.props.onPress();});
   expect(launchApp).toHaveBeenCalledWith('com.ratta.search/com.ratta.search.MainActivity');
 });
+
+it('matches original TRMNL conflict geometry at every display scale',async()=>{
+  const {Conflict,CONFLICT_MARKER}=require('./PrettyAgenda');
+  expect(CONFLICT_MARKER).toEqual({diameter:12,overlap:2,width:23,height:13});
+  for(const scale of [1,1.5]){
+    await act(async()=>{app=create(<Conflict scale={scale}/>);});
+    const first=app!.root.findAll(n=>typeof n.type==='string'&&n.props.testID==='conflict-dot-first')[0];
+    const second=app!.root.findAll(n=>typeof n.type==='string'&&n.props.testID==='conflict-dot-second')[0];
+    expect(first.props.style.width).toBe(12*scale);
+    expect(first.props.style.height).toBe(12*scale);
+    expect(second.props.style.marginLeft).toBe(-2*scale);
+    expect(second.props.style.backgroundColor).toBe('#000');
+  }
+});
