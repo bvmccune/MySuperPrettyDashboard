@@ -25,8 +25,8 @@ function TextLine({children, big=false, faint=false, bold=false}: {children:Reac
 }
 function Action({children,onPress,filled=false,small=false,disabled=false}: {children:React.ReactNode;onPress:()=>void;filled?:boolean;small?:boolean;disabled?:boolean}) {
   return <TouchableOpacity onPress={onPress} disabled={disabled}
-    style={{paddingVertical:small?7:11,paddingHorizontal:small?10:15,borderRadius:0,borderWidth:1,borderColor:'#777',backgroundColor:filled?'#111':'#fff',opacity:disabled ? 0.5 : 1,alignSelf:'flex-start',marginRight:8,marginVertical:3}}>
-    <Text style={{color:filled?'#fff':'#111',fontFamily:FONT,fontSize:small?18:20}}>{children}</Text>
+    style={{paddingVertical:small?7:11,paddingHorizontal:small?10:15,borderRadius:0,borderWidth:1,borderColor:'#777',backgroundColor:filled?'#000':'#fff',opacity:disabled ? 0.5 : 1,alignSelf:'flex-start',marginRight:8,marginVertical:3}}>
+    <Text style={{color:filled?'#fff':'#000',fontFamily:FONT,fontSize:small?18:20}}>{children}</Text>
   </TouchableOpacity>;
 }
 function Divider() {return <View style={{height:1,backgroundColor:'#bbb',marginVertical:13}}/>;}
@@ -302,7 +302,7 @@ export function PrettySettings(): React.JSX.Element {
 const styles=StyleSheet.create({
   root:{flex:1,backgroundColor:'#fff',paddingHorizontal:25,paddingTop:15,paddingBottom:13},
   screen:{flex:1,backgroundColor:'#fff'},
-  input:{borderWidth:1,borderColor:'#999',borderRadius:0,backgroundColor:'#fff',fontFamily:FONT,fontSize:21,color:'#111',paddingHorizontal:12,paddingVertical:11,marginVertical:7,minWidth:320},
+  input:{borderWidth:1,borderColor:'#999',borderRadius:0,backgroundColor:'#fff',fontFamily:FONT,fontSize:21,color:'#000',paddingHorizontal:12,paddingVertical:11,marginVertical:7,minWidth:320},
   entry:{flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:'#ddd',paddingVertical:5},
   pickRow:{paddingVertical:12,paddingHorizontal:5,borderBottomWidth:1,borderColor:'#ddd'},
   status:{flexDirection:'row',alignItems:'center',borderTopWidth:1,borderColor:'#888',paddingVertical:9,justifyContent:'space-between'},

@@ -326,3 +326,26 @@ it('matches original TRMNL conflict geometry at every display scale',async()=>{
     expect(second.props.style.backgroundColor).toBe('#000');
   }
 });
+
+it('edits a real task due date through the calendar picker, saving only after task Save',async()=>{
+  const read=readNativeSupernoteTasks as jest.Mock;
+  read.mockResolvedValue({tasks:[{id:'date-task',title:'Date test',due:'2026-11-24',detail:'',listId:'one'}],truncated:false});
+  load.mockResolvedValue(DEFAULT_PRETTY);
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+  const touch=(label:string)=>app!.root.findAllByType('TouchableOpacity' as any).find(n=>n.props.accessibilityLabel===label)!;
+  await act(async()=>{touch('Open task Date test; long press to edit').props.onLongPress();});
+  await act(async()=>{touch('Choose due date').props.onPress();});
+  await act(async()=>{touch('2026-11-25').props.onPress();});
+  await act(async()=>{touch('Save').props.onPress();});
+  expect(touch('Choose due date')).toBeTruthy();
+  await act(async()=>{await touch('Save').props.onPress();});
+  expect(updateNativeTodo).toHaveBeenCalledWith('date-task',{due:'2026-11-25'});
+  read.mockResolvedValue({tasks:[],truncated:false});
+});
+it('calendar picker month cells include Monday-first and leap day',()=>{
+  const {monthCells}=require('./PrettyTaskDatePicker');
+  const cells=monthCells(2024,1);
+  expect(cells[0]).toBe('2024-01-29');
+  expect(cells).toContain('2024-02-29');
+  expect(cells).toHaveLength(42);
+});

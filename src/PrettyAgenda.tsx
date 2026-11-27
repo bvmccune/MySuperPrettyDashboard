@@ -5,6 +5,8 @@ import React,{useState} from 'react';
 import {Image,Text,TouchableOpacity,View} from 'react-native';
 import {AgendaEvent,compactEventRange,eventTimeRange,eventDuration,addCalendarDays} from './prettyCalendar';
 import {INK,PAPER,DARK_GRAY,LIGHT_GRAY} from './prettyPalette';
+import {DESIGN,dashboardFont} from './prettyDesign';
+import {DottedRule} from './PrettyDivider';
 export {compactEventRange,compactEventTime} from './prettyCalendar';
 const FONT='GoogleSansFlex';
 export function hasTimeConflict(event:AgendaEvent,others:AgendaEvent[]):boolean{
@@ -31,27 +33,27 @@ export function AgendaRow({event,onPress,allEvents=[],scale=1,fontBoost=1,showSe
     event.summary+'. '+compactEventRange(event)+(overlapping?'. Conflicts with another appointment':'')+
     (showSelect?'. Select for event details':'')}
     onPress={onPress} style={{flexDirection:'row',alignItems:'center',flexShrink:0,
-      paddingVertical:5*scale,paddingHorizontal:2*scale,minHeight:34*scale,borderTopWidth:.6,
-      borderTopColor:DARK_GRAY,backgroundColor:event.all_day?LIGHT_GRAY:PAPER}}>
+      paddingVertical:DESIGN.rowPadY*scale,paddingHorizontal:DESIGN.rowPadX*scale,minHeight:DESIGN.eventMin*scale,position:'relative',
+      backgroundColor:event.all_day?LIGHT_GRAY:PAPER}}>
+    <DottedRule scale={scale}/>
     <Image source={require('../assets/pretty/calendar-dot.png')} resizeMode="contain"
-      style={{width:20*scale,height:20*scale,marginRight:5*scale}}/>
+      style={{width:20*scale,height:20*scale,marginRight:DESIGN.iconGap*scale}}/>
     <Text numberOfLines={showSelect?undefined:3} ellipsizeMode="tail" style={{
-      fontFamily:FONT,fontSize:17.3*scale*fontBoost,lineHeight:21*scale*fontBoost,
-      fontWeight:'500',color:INK,flex:1,minWidth:0,marginRight:6*scale,
+      fontFamily:dashboardFont(showSelect?500:600),fontSize:(showSelect?17.3:DESIGN.body)*scale*fontBoost,lineHeight:(showSelect?17.3*1.18:DESIGN.body*DESIGN.eventLine)*scale*fontBoost,
+      fontWeight:'normal',color:INK,flex:1,minWidth:0,marginRight:DESIGN.iconGap*scale,
       includeFontPadding:false}}>{event.summary}</Text>
     <View style={{alignItems:'flex-end',width:'34%',maxWidth:128*scale*fontBoost,flexShrink:0}}>
       <View style={{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',flexWrap:'wrap'}}>
-        <Text style={{fontFamily:FONT,fontSize:13*scale*fontBoost,lineHeight:16*scale*fontBoost,
+        <Text style={{fontFamily:dashboardFont(showSelect?400:500),fontSize:DESIGN.secondary*scale*fontBoost,lineHeight:16*scale*fontBoost,
           color:INK,textAlign:'right',maxWidth:'100%',flexShrink:1,includeFontPadding:false}}>
           {eventTimeRange(event)}
         </Text>
-        {!event.all_day&&event.startMillis!==event.endMillis&&<Text style={{fontFamily:FONT,fontSize:13*scale*fontBoost,
+        {!event.all_day&&event.startMillis!==event.endMillis&&<Text style={{fontFamily:dashboardFont(showSelect?400:500),fontSize:DESIGN.secondary*scale*fontBoost,
           lineHeight:16*scale*fontBoost,color:INK,textAlign:'right',marginLeft:4*scale,includeFontPadding:false}}>
           {eventDuration(event).replace(/ /g,'\u00a0')}
         </Text>}
         {overlapping&&<Conflict scale={scale}/>}
       </View>
-      {showSelect&&<Text style={{fontFamily:FONT,fontSize:12*scale*fontBoost,color:INK}}>Select ›</Text>}
     </View>
   </TouchableOpacity>;
 }
@@ -75,8 +77,8 @@ export function HomeAgendaList({events,scale,fontBoost,initialHeight,header,onEv
   const [available,setAvailable]=useState<number|null>(null);
   const [measured,setMeasured]=useState<Record<string,number>>({});
   const room=Math.max(0,available??initialHeight);
-  const candidates=events.slice(0,Math.floor(room/(34*scale))+1);
-  const maxRow=(Math.max(3*21,4*16)*fontBoost+12)*scale;
+  const candidates=events.slice(0,Math.floor(room/(DESIGN.eventMin*scale))+1);
+  const maxRow=(Math.max(3*DESIGN.body*DESIGN.eventLine,4*16)*fontBoost+12)*scale;
   const count=fitAgendaRows(candidates.map(e=>measured[e.key]??maxRow),room);
   return <View style={{flex:1,minHeight:0}}>
     {header(events.length-count)}

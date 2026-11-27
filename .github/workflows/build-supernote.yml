@@ -66,8 +66,20 @@ jobs:
           curl --fail --silent --show-error --location --retry 3             "https://raw.githubusercontent.com/google/fonts/main/ofl/googlesansflex/GoogleSansFlex%5BROND%2Copsz%2Cslnt%2Cwdth%2Cwght%5D.ttf"             --output android/app/src/main/assets/fonts/GoogleSansFlex.ttf
           curl --fail --silent --show-error --location --retry 3             "https://raw.githubusercontent.com/google/fonts/main/ofl/googlesansflex/OFL.txt"             --output android/app/src/main/assets/fonts/OFL.txt
           python3 -m venv /tmp/pretty-icons-venv
-          /tmp/pretty-icons-venv/bin/pip -q install cairosvg pillow
+          /tmp/pretty-icons-venv/bin/pip -q install cairosvg pillow fonttools
           /tmp/pretty-icons-venv/bin/python scripts/generate_pretty_assets.py
+          /tmp/pretty-icons-venv/bin/python - <<'PY'
+          from pathlib import Path
+          from fontTools.ttLib import TTFont
+          from fontTools.varLib.instancer import instantiateVariableFont
+          root = Path("android/app/src/main/assets/fonts")
+          for weight in (400,500,600,650,700):
+              font=TTFont(root/"GoogleSansFlex.ttf")
+              axes={a.axisTag:a.defaultValue for a in font["fvar"].axes}
+              axes["wght"]=weight
+              result=instantiateVariableFont(font,axes,inplace=True,updateFontNames=True)
+              result.save(root/f"GoogleSansFlex{weight}.ttf")
+          PY
           test -s assets/pretty/lizard.png
           test -s android/app/src/main/assets/fonts/GoogleSansFlex.ttf
           python3 - <<'PY'

@@ -20,7 +20,7 @@ const ICONS:{key:QuickIcon;label:string;image:any}[]=[
   {key:'notebook',label:'Notebook',image:require('../assets/pretty/notebook.png')},
   {key:'calendar',label:'Calendar',image:require('../assets/pretty/calendar.png')},
 ];
-const font={fontFamily:'GoogleSansFlex',fontSize:20,color:'#111'};
+const font={fontFamily:'GoogleSansFlex',fontSize:20,color:'#000'};
 function Button({title,onPress,disabled=false}:{title:string;onPress:()=>void;disabled?:boolean}){
   return <TouchableOpacity disabled={disabled} onPress={onPress} style={{padding:10,borderWidth:1,borderColor:'#777',margin:4,opacity:disabled?.5:1}}><Text style={font}>{title}</Text></TouchableOpacity>;
 }
