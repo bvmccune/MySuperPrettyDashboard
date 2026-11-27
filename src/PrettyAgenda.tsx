@@ -37,7 +37,7 @@ export function AgendaRow({event,onPress,allEvents=[],scale=1,fontBoost=1,showSe
   const hasDuration=!event.all_day&&event.startMillis!==event.endMillis;
   const wrap=hasDuration&&wrapEventDuration(time,overlapping);
   const timeStyle={fontFamily:dashboardFont(showSelect?400:500),fontSize:DESIGN.secondary*scale*fontBoost,lineHeight:16*scale*fontBoost,color:INK,textAlign:'right' as const,includeFontPadding:false};
-  const duration=hasDuration?<View style={{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',flexShrink:0}}><Text style={timeStyle}>{eventDuration(event).replace(/ /g,'\u00a0')}</Text>{overlapping&&<Conflict scale={scale}/>}</View>:null;
+  const duration=hasDuration?<View testID="event-duration-group" style={{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',flexShrink:0}}><Text style={timeStyle}>{eventDuration(event).replace(/ /g,'\u00a0')}</Text>{overlapping&&<Conflict scale={scale}/>}</View>:null;
   return <TouchableOpacity accessibilityRole="button" accessibilityLabel={
     event.summary+'. '+compactEventRange(event)+(overlapping?'. Conflicts with another appointment':'')+
     (showSelect?'. Select for event details':'')}
@@ -52,13 +52,13 @@ export function AgendaRow({event,onPress,allEvents=[],scale=1,fontBoost=1,showSe
       fontWeight:'normal',color:INK,flex:1,minWidth:0,marginRight:DESIGN.iconGap*scale,
       includeFontPadding:false}}>{event.summary}</Text>
     <View style={{alignItems:'flex-end',maxWidth:'62%',flexShrink:0}}>
-      <View style={{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',flexWrap:'wrap'}}>
-        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[timeStyle,{maxWidth:'100%',flexShrink:1}]}>
+      <View testID="event-time-line" style={{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',flexWrap:'wrap'}}>
+        <Text testID="event-time" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[timeStyle,{maxWidth:'100%',flexShrink:1}]}>
           {time}
         </Text>
         {!wrap&&duration&&<View style={{marginLeft:4*scale}}>{duration}</View>}
       </View>
-      {wrap&&duration}
+      {wrap&&<View testID="event-duration-line" style={{alignItems:'flex-end'}}>{duration}</View>}
     </View>
   </TouchableOpacity>;
 }

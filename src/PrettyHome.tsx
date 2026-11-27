@@ -77,7 +77,7 @@ const IMAGES:Record<IconName,ImageSourcePropType>={
   'open-notebook':require('../assets/pretty/open-notebook.png'),
   'auto-refresh':require('../assets/pretty/auto-refresh.png'),
 };
-type Overlay='favorites'|'recent'|'stars'|'keywords'|'agenda'|'event'|'new-note'|'quick-edit'|'task-edit'|'task-link-help'|null;
+type Overlay='favorites'|'recent'|'stars'|'keywords'|'agenda'|'event'|'new-note'|'quick-edit'|'quick-list'|'task-edit'|'task-link-help'|null;
 type Task=NativeTodo;
 interface CreatedNote {path:string;createdAt:number}
 interface FileInfo {mtime?:number;createdAt?:number}
@@ -108,9 +108,9 @@ function IconTap({icon,label,onPress,size=27}:{
   </TouchableOpacity>;
 }
 const CIRCLE=48;
-function SectionTitle({icon,label,scale,action,actionLabel,extra,actionAccessibilityLabel,calendarAction,aboveAction,extraAccessibilityLabel}:{
+function SectionTitle({icon,label,scale,action,actionLabel,extra,actionAccessibilityLabel,calendarAction,aboveAction,extraAccessibilityLabel,extraAction}:{
   icon:IconName;label:string;scale:number;action?:()=>void;
-  actionLabel?:string;extra?:string;actionAccessibilityLabel?:string;calendarAction?:()=>void;aboveAction?:string;extraAccessibilityLabel?:string;
+  actionLabel?:string;extra?:string;actionAccessibilityLabel?:string;calendarAction?:()=>void;aboveAction?:string;extraAccessibilityLabel?:string;extraAction?:()=>void;
 }){
   const circle=CIRCLE*scale,fs=DESIGN.heading*scale;
   return <View style={{height:DESIGN.headingHeight*scale,flexDirection:'row',alignItems:'center',minWidth:0}}>
@@ -119,7 +119,7 @@ function SectionTitle({icon,label,scale,action,actionLabel,extra,actionAccessibi
     </View>
     <Txt size={fs} weight={650} lines={1} style={{flexShrink:1}}>{label}</Txt>
     {!!extra&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={extraAccessibilityLabel??extra+' additional events'}
-      onPress={action} style={{paddingHorizontal:4*scale,paddingVertical:8*scale}}>
+      onPress={extraAction??action} style={{paddingHorizontal:4*scale,paddingVertical:8*scale}}>
       <Txt size={DESIGN.overflow*scale} weight={700}>{extra}</Txt>
     </TouchableOpacity>}
     <View style={{flex:1}}/>
@@ -520,8 +520,11 @@ export function PrettyHome({config,nonce,onSettings}:{
             maxHeight={Math.max(DESIGN.quickRow*s,rowLine*3+(2*DESIGN.quickPadY+2*DESIGN.quickGap)*s+2)}
             header={hidden=>{
               const count=hiddenQuickPins(shortcutRows,hidden);
+              const addHidden=hidden>0&&pinned.length<30;
               return <SectionTitle icon="rocks" label="Quick access" scale={s}
-                extra={count?'+'+count:undefined} extraAccessibilityLabel={count+' additional shortcuts'}
+                extra={count?'+'+count:addHidden?'+':undefined}
+                extraAccessibilityLabel={count?count+' additional shortcuts':'Add Quick access shortcut'}
+                extraAction={()=>count?setOverlay('quick-list'):openQuickEditor(-1)}
                 action={()=>openQuickEditor(null)} actionLabel="Edit"/>;
             }}
             renderRow={(row,i)=><View style={{flexDirection:'row',alignItems:'stretch',minHeight:DESIGN.quickRow*s}}>
@@ -560,17 +563,17 @@ export function PrettyHome({config,nonce,onSettings}:{
       <View style={styles.screen}>
           {overlay==='quick-edit'?<PrettyQuickEditor prefs={prefs} initialIndex={quickEditIndex} onSaved={next=>{setPrefs(next);setOverlay(null);}} onClose={()=>setOverlay(null)}/>:overlay==='task-link-help'&&linkFailure?<>
             <PrettyScreenHeader title="Linked task" left={{label:'Close',onPress:()=>setOverlay(null)}}/>
-            <View style={{padding:20*s,gap:12*s}}><Txt bold>{linkFailure.title}</Txt><Txt>SmartyNote could not verify the linked notebook and page. Use Supernote To-do's own link to open the exact handwritten task.</Txt><TouchableOpacity onPress={()=>{setOverlay(null);launchApp(APPS.todo);}} style={{padding:12*s,borderWidth:1,borderColor:INK}}><Txt bold>Open native To-do</Txt></TouchableOpacity>{!!mutationError&&<Txt>{mutationError}</Txt>}</View>
+            <View style={{padding:20*s,gap:12*s}}><Txt bold>{linkFailure.title}</Txt><Txt>Could not verify the linked notebook and page. The notebook was not opened.</Txt>{!!mutationError&&<Txt>{mutationError}</Txt>}</View>
           </>:overlay==='task-edit'&&editingTask?(datePickerOpen?<PrettyTaskDatePicker value={editDue} onCancel={()=>setDatePickerOpen(false)} onSave={value=>{setEditDue(value);setDatePickerOpen(false);}}/>:<>
             <PrettyScreenHeader title="Edit task" left={{label:'Cancel',onPress:()=>setOverlay(null),disabled:taskBusy}} right={{label:'Save',onPress:()=>mutateTask(editingTask,{...(editTitle.trim()!==editingTask.title?{title:editTitle}:{}),...((editDue.trim()||null)!==editingTask.due?{due:editDue.trim()||null}:{})}),disabled:taskBusy}}/>
             <View style={{padding:20*s,gap:12*s}}><Txt>Task name</Txt><TextInput value={editTitle} onChangeText={setEditTitle} style={{borderWidth:1,padding:10*s,fontSize:body,color:INK}}/><Txt>Due date</Txt><TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose due date" onPress={()=>setDatePickerOpen(true)} disabled={taskBusy} style={{borderWidth:1,borderColor:INK,padding:10*s,flexDirection:'row',alignItems:'center'}}><Glyph name="calendar" size={24*s}/><Txt size={body} style={{marginLeft:8*s}}>{editDue||'No due date'}</Txt></TouchableOpacity>{!!mutationError&&<Txt>{mutationError}</Txt>}{taskBusy&&<Txt>Saving to Supernote…</Txt>}</View>
           </>):overlay==='new-note'?<PrettyNoteCreate onClose={()=>setOverlay(null)}/>:<>
             <PrettyScreenHeader
               title={overlay==='agenda'?'Seven-day agenda':overlay==='event'?'Event details':
-                overlay==='stars'?'Stars':overlay==='keywords'?'Keywords':overlay==='favorites'?'Favorites':'Recent notes'}
+                overlay==='quick-list'?'Quick access':overlay==='stars'?'Stars':overlay==='keywords'?'Keywords':overlay==='favorites'?'Favorites':'Recent notes'}
               left={{label:overlay==='event'&&returnToAgenda?'Back':'Close',
                 onPress:()=>setOverlay(overlay==='event'&&returnToAgenda?'agenda':null)}}
-              right={overlay==='stars'?{label:'Native search',onPress:()=>{setOverlay(null);launchApp(APPS.search);}}:overlay==='favorites'?{label:'Edit',onPress:()=>{setOverlay(null);onSettings();}}:undefined}/>
+              right={overlay==='quick-list'?{label:'Add',onPress:()=>openQuickEditor(-1),disabled:pinned.length>=30}:overlay==='stars'?{label:'Native search',onPress:()=>{setOverlay(null);launchApp(APPS.search);}}:overlay==='favorites'?{label:'Edit',onPress:()=>{setOverlay(null);onSettings();}}:undefined}/>
             <View style={{flex:1,paddingHorizontal:19*s,paddingTop:15*s,paddingBottom:12*s}}>
             {overlay==='event'&&selectedEvent?
               <ScrollView style={{flex:1}}>
@@ -636,13 +639,13 @@ export function PrettyHome({config,nonce,onSettings}:{
                     {Array.from({length:7},(_,i)=>addCalendarDays(agendaStart,i)).map(day=>{
                       const dayEvents=agenda.filter(e=>e.startDay<=day&&day<e.endDayExclusive);
                       const [weekday,date]=dayLabel(day).split(' ');
-                      return <View key={day} style={{flexDirection:'row',borderTopWidth:1,borderColor:DARK_GRAY,paddingVertical:5*s}}>
+                      return <View key={day} testID={'agenda-day-'+day} style={{flexDirection:'row',borderTopWidth:1,borderColor:DARK_GRAY,paddingVertical:5*s}}>
                         <View style={{width:65*s,paddingTop:5*s,paddingRight:5*s,borderRightWidth:1,borderColor:DARK_GRAY}}>
                           <Txt size={16*s} weight={650}>{weekday}</Txt>
                           <Txt size={14*s} weight={500}>{date}</Txt>
                         </View>
                         <View style={{flex:1,minWidth:0,paddingLeft:5*s}}>
-                          {Array.from({length:Math.ceil(dayEvents.length/2)},(_,r)=><View key={r} style={{flexDirection:'row',alignItems:'flex-start'}}>
+                          {Array.from({length:Math.ceil(dayEvents.length/2)},(_,r)=><View key={r} testID={'agenda-pair-'+day+'-'+r} style={{flexDirection:'row',alignItems:'flex-start'}}>
                             {[dayEvents[r*2],dayEvents[r*2+1]].map((e,c)=><View key={c} style={{flex:1,minWidth:0,paddingHorizontal:3*s}}>
                               {e&&<AgendaRow event={e} allEvents={dayEvents} scale={s} fontBoost={fontBoost} showSelect onPress={()=>openEvent(e,true)}/>}
                             </View>)}
@@ -655,6 +658,12 @@ export function PrettyHome({config,nonce,onSettings}:{
 
                 </ScrollView>
               </View>:
+            overlay==='quick-list'?
+              <ScrollView>{pinned.map((item,i)=><TouchableOpacity key={i+':'+item.path} accessibilityRole="button" accessibilityLabel={'Quick access list: '+item.label}
+                onPress={()=>doOpenPinned(item)} onLongPress={()=>openQuickEditor(i)}
+                style={{minHeight:rowMin,padding:8*s,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderColor:DARK_GRAY}}>
+                <Glyph name={quickIcon(item)} size={24*s}/><Txt size={body} weight={500} style={{flex:1,marginLeft:8*s}}>{item.label}</Txt>
+              </TouchableOpacity>)}</ScrollView>:
             overlay==='stars'?
               <ScrollView>
                 <Txt size={secondary} muted>Stars in your notebooks. Native search opens your last-used category; select Star there for PDF stars.</Txt>

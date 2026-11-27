@@ -65,7 +65,7 @@ import {PrettySettings} from './PrettySettings';
 import {launchApp,openNativeSettings,openCalendarToday,openFile} from './open';
 import {dueBucket} from './relay';
 import {readNativeSupernoteTasks,updateNativeTodo} from './prettyCloud';
-import {HomeAgendaList,scheduleBounds} from './PrettyAgenda';
+import {AgendaRow,HomeAgendaList,scheduleBounds} from './PrettyAgenda';
 import {PrettyFitList} from './PrettyFitList';
 import {agendaFromFeed,normalizeFeed,dateKey,dayLabel,addCalendarDays,loadCalendarCache} from './prettyCalendar';
 
@@ -380,6 +380,12 @@ it('fits Quick access in measured complete rows beyond six, with exact pin-only 
   await act(async()=>{measurements()[0].props.onLayout({nativeEvent:{layout:{height:72}}});});
   expect(visible()).toHaveLength(6);
   expect(count('8 additional shortcuts')).toBe(1);
+  const touch=(label:string)=>app!.root.findAllByType('TouchableOpacity' as any).find(n=>n.props.accessibilityLabel===label)!;
+  await act(async()=>{touch('8 additional shortcuts').props.onPress();});
+  expect(touch('Add')).toBeTruthy();
+  expect(touch('Quick access list: Folder 19')).toBeTruthy();
+  await act(async()=>{touch('Quick access list: Folder 19').props.onLongPress();});
+  expect(app!.root.findAllByType('TextInput' as any).some(n=>n.props.value==='Folder 19')).toBe(true);
 });
 it('add tile never replaces a saved shortcut and is not counted as hidden',()=>{
   const {quickRows,hiddenQuickPins}=require('./prettyQuickLayout');
@@ -388,4 +394,50 @@ it('add tile never replaces a saved shortcut and is not counted as hidden',()=>{
   expect(hiddenQuickPins(rows,1)).toBe(1);
   expect(hiddenQuickPins(quickRows([1,2]),1)).toBe(0);
   expect(quickRows(Array.from({length:30},(_,i)=>i))).toHaveLength(15);
+});
+
+it('separates add, edit and reorder shortcut interactions',async()=>{
+  load.mockResolvedValue({...DEFAULT_PRETTY,quick:[{kind:'folder',path:'/storage/emulated/0/Note/Example',label:'Example',icon:'files'}]});
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+  const touch=(label:string)=>app!.root.findAllByType('TouchableOpacity' as any).find(n=>n.props.accessibilityLabel===label)!;
+  const hasText=(value:string)=>app!.root.findAllByType('Text' as any).some(n=>n.props.children===value);
+  await act(async()=>{touch('Add Quick access shortcut').props.onPress();});
+  expect(hasText('Add shortcut')).toBe(true);
+  await act(async()=>{touch('Cancel').props.onPress();});
+  await act(async()=>{touch('Quick access: Example').props.onLongPress();});
+  expect(hasText('Edit shortcut')).toBe(true);
+  expect(touch('Filled star')).toBeTruthy();
+  await act(async()=>{touch('Cancel').props.onPress();});
+  await act(async()=>{touch('Edit Quick access').props.onPress();});
+  expect(hasText('Reorder quick access')).toBe(true);
+  expect(app!.root.findAllByType('TextInput' as any)).toHaveLength(0);
+});
+
+it('places conflicting duration and marker together below the complete time range',async()=>{
+  const at=(h:number,m=0)=>new Date(2026,10,26,h,m).toISOString();
+  const rows=agendaFromFeed(normalizeFeed({events:[
+    {summary:'A',start:at(10),end:at(11),all_day:false,calendar:'Fixture'},
+    {summary:'B',start:at(10,30),end:at(11,30),all_day:false,calendar:'Fixture'},
+  ]}));
+  await act(async()=>{app=create(<AgendaRow event={rows[0]} allEvents={rows} onPress={()=>{}}/>);});
+  const line=app!.root.findByProps({testID:'event-duration-line'});
+  expect(line.findByProps({testID:'event-duration-group'})).toBeTruthy();
+  expect(line.findByProps({testID:'conflict-dot-first'})).toBeTruthy();
+  expect(app!.root.findByProps({testID:'event-time'}).props.children).toBe('10:00–11:00 AM');
+  expect(app!.root.findByProps({testID:'event-time'}).props.numberOfLines).toBe(1);
+});
+
+it('does not redirect a task with an unresolved notebook link to native To-do',async()=>{
+  const read=readNativeSupernoteTasks as jest.Mock;
+  read.mockResolvedValue({tasks:[{id:'linked',title:'Linked fixture',due:null,detail:'',listId:'one',link:{fileId:'missing'}},{id:'unlinked',title:'Plain fixture',due:null,detail:'',listId:'one'}],truncated:false});
+  load.mockResolvedValue(DEFAULT_PRETTY);
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={()=>{}}/>);});
+  const touch=(label:string)=>app!.root.findAllByType('TouchableOpacity' as any).find(n=>n.props.accessibilityLabel===label)!;
+  expect(touch('Open linked note for Plain fixture')).toBeUndefined();
+  expect(touch('Open task Linked fixture; long press to edit').props.onPress).toBeUndefined();
+  (launchApp as jest.Mock).mockClear();
+  await act(async()=>{await touch('Open linked note for Linked fixture').props.onPress();});
+  expect(launchApp).not.toHaveBeenCalled();
+  expect(app!.root.findAllByType('Text' as any).some(n=>n.props.children==='Could not verify the linked notebook and page. The notebook was not opened.')).toBe(true);
+  read.mockResolvedValue({tasks:[],truncated:false});
 });

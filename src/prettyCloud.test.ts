@@ -1,6 +1,6 @@
 jest.mock('react-native',()=>({NativeModules:{DashboardNative:{secureLoadTodoToken:jest.fn(async()=> 'session')}}}));
 jest.mock('sn-plugin-lib',()=>({PluginManager:{hasPermission:jest.fn(async()=>1)}}));
-import {readNativeSupernoteTasks,updateNativeTodo,noteLink} from './prettyCloud';
+import {readNativeSupernoteTasks,updateNativeTodo,noteLink,inspectTaskLinkSchema} from './prettyCloud';
 import {resolveTaskNote} from './prettyTaskLink';
 const row={taskId:'one',taskListId:'list',title:'Old',detail:'Keep',dueTime:0,status:'needsAction',completedTime:123,links:[{fileName:'Old.note',fileId:'F123',pageId:'P123',pageNo:3}],reminder:{type:'unchanged'},recurrence:{rule:'unknown'},isDeleted:'N'};
 const ok=(body:unknown)=>Promise.resolve({ok:true,status:200,json:async()=>body});
@@ -58,4 +58,14 @@ it('recognizes explicit object and JSON-encoded note links',()=>{
  expect(noteLink(link)).toMatchObject({fileId:'F123',pageId:'P123',page:3});
  expect(noteLink(JSON.stringify([link]))).toMatchObject({fileId:'F123',page:3});
  expect(noteLink('not metadata')).toBeUndefined();
+});
+
+it('reports link structure without task values or session credentials',async()=>{
+ fetcher.mockImplementationOnce(()=>ok({scheduleTask:[row,{...row,taskId:'plain',links:undefined},{...row,taskId:'completed',status:'completed'}]}));
+ const report=await inspectTaskLinkSchema();
+ expect(report).toContain('Open tasks: 2');
+ expect(report).toContain('Recognized notebook links: 1');
+ expect(report).toContain('fileId');
+ for(const value of ['Old.note','F123','P123','Keep','session'])expect(report).not.toContain(value);
+ expect(fetcher.mock.calls).toHaveLength(1);
 });
