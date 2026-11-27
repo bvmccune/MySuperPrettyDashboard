@@ -35,14 +35,15 @@ for name,body in {
 }.items():
     render('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><g fill="none" stroke="#111" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round">'+body+'</g></svg>',OUT/(name+'.png'))
 
-launcher=(revision/'stardust.svg').read_text(encoding='utf-8')
+render((revision/'stardust.svg').read_text(encoding='utf-8'),OUT/'profile.png')
+launcher=(revision/'jellyfish.svg').read_text(encoding='utf-8')
 render(launcher,ROOT/'assets'/'icon.png')
 for density,size in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhdpi',192)]:
     path=ROOT/'android'/'app'/'src'/'main'/'res'/('mipmap-'+density)
     path.mkdir(parents=True,exist_ok=True)
     for name in ('ic_launcher.png','ic_launcher_round.png'):
         render(launcher,path/name,size,size)
-expected={'new-note','file','files','calendar','recent','search','stars','settings','charging','notebook','plus','refresh','back','lizard','plants','rocks','coffee','wifi','wifi-off','keywords','battery','calendar-dot','open-notebook','auto-refresh'}
+expected={'new-note','file','files','calendar','recent','search','stars','settings','charging','notebook','plus','refresh','back','lizard','plants','rocks','coffee','wifi','wifi-off','keywords','battery','calendar-dot','open-notebook','auto-refresh','profile'}
 actual={p.stem for p in OUT.glob('*.png')}
 assert expected==actual,(expected-actual,actual-expected)
-print('Release artwork:',len(actual),'active icons and Stardust launcher')
+print('Release artwork:',len(actual),'active icons and filled jellyfish launcher')

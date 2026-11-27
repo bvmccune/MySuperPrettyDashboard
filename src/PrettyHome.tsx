@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import {DashboardConfig,ShortcutItem} from './config';
 import {leavePlugin} from './bubble';
-import {launchApp,openCalendarToday,openFile,openFolder,openVerifiedTaskPage} from './open';
+import {launchApp,openNativeSettings,openCalendarToday,openFile,openFolder,openVerifiedTaskPage} from './open';
 import {readRecentDetailed} from './recent';
 import {dayKey,dueBucket} from './relay';
 import {loadPrettyPrefs,PrettyPrefs,quickIcon} from './prettyPrefs';
@@ -46,8 +46,9 @@ const APPS={
 };
 const WEEK=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const FILE_RE=/\.(note|pdf|epub|cbz|xps|fb2)$/i;
-type IconName='new-note'|'file'|'files'|'calendar'|'recent'|'search'|'stars'|'settings'|'charging'|'notebook'|'plus'|'refresh'|'back'|'lizard'|'plants'|'rocks'|'coffee'|'wifi'|'wifi-off'|'keywords'|'battery'|'calendar-dot'|'open-notebook'|'auto-refresh';
+type IconName='profile'|'new-note'|'file'|'files'|'calendar'|'recent'|'search'|'stars'|'settings'|'charging'|'notebook'|'plus'|'refresh'|'back'|'lizard'|'plants'|'rocks'|'coffee'|'wifi'|'wifi-off'|'keywords'|'battery'|'calendar-dot'|'open-notebook'|'auto-refresh';
 const IMAGES:Record<IconName,ImageSourcePropType>={
+  'profile':require('../assets/pretty/profile.png'),
   'new-note':require('../assets/pretty/new-note.png'),
   'file':require('../assets/pretty/file.png'),
   'files':require('../assets/pretty/files.png'),
@@ -439,6 +440,10 @@ export function PrettyHome({config,nonce,onSettings}:{
         <View style={{flex:1,minWidth:0}}><Txt size={DESIGN.clock*s} weight={700}>{timeLong(now)}</Txt></View>
         <View style={{width:1,marginHorizontal:7*s}}/>
         <View style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',justifyContent:'flex-end',paddingLeft:4*s}}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Supernote Settings" onPress={openNativeSettings}
+          style={{width:67*s,height:67*s,alignItems:'center',justifyContent:'center'}}>
+          <Glyph name="profile" size={43.5*s}/>
+        </TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Search" onPress={()=>launchApp(APPS.search)}
           style={{width:67*s,height:67*s,alignItems:'center',justifyContent:'center'}}>
           <Glyph name="search" size={43.5*s}/>

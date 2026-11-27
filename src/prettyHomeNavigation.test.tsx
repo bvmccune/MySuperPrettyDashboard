@@ -35,7 +35,7 @@ jest.mock('sn-plugin-lib',()=>({PluginManager:{},
 jest.mock('./config',()=>({loadConfig:jest.fn(async()=>({zones:[]}))}));
 jest.mock('./perf',()=>({markOpen:jest.fn(),ready:jest.fn()}));
 jest.mock('./bubble',()=>({leavePlugin:jest.fn()}));
-jest.mock('./open',()=>({openFile:jest.fn(),openVerifiedTaskPage:jest.fn(async()=>true),openFolder:jest.fn(),launchApp:jest.fn(),openCalendarToday:jest.fn()}));
+jest.mock('./open',()=>({openFile:jest.fn(),openVerifiedTaskPage:jest.fn(async()=>true),openFolder:jest.fn(),launchApp:jest.fn(),openNativeSettings:jest.fn(),openCalendarToday:jest.fn()}));
 jest.mock('./scanner',()=>({scanKeywords:jest.fn(),scanStars:jest.fn(async()=>({notes:[{file:'/storage/emulated/0/Note/Example.note',mtime:1,pages:[{page:3,count:2}]}],truncated:false,total:1}))}));
 jest.mock('./relay',()=>({dayKey:jest.fn(),dueBucket:jest.fn(()=> 'none')}));
 jest.mock('./recent',()=>({readRecentDetailed:jest.fn(async()=>({
@@ -62,7 +62,7 @@ import {setRoute,getRoute} from './route';
 import {DEFAULT_PRETTY,loadPrettyPrefs,PrettyPrefs} from './prettyPrefs';
 import {PrettyHome} from './PrettyHome';
 import {PrettySettings} from './PrettySettings';
-import {launchApp,openCalendarToday,openFile} from './open';
+import {launchApp,openNativeSettings,openCalendarToday,openFile} from './open';
 import {dueBucket} from './relay';
 import {readNativeSupernoteTasks,updateNativeTodo} from './prettyCloud';
 import {HomeAgendaList,scheduleBounds} from './PrettyAgenda';
@@ -348,4 +348,19 @@ it('calendar picker month cells include Monday-first and leap day',()=>{
   expect(cells[0]).toBe('2024-01-29');
   expect(cells).toContain('2024-02-29');
   expect(cells).toHaveLength(42);
+});
+
+it('places Stardust native Settings before Search, distinct from plugin Settings',async()=>{
+  load.mockResolvedValue(DEFAULT_PRETTY);
+  const onSettings=jest.fn();
+  await act(async()=>{app=create(<PrettyHome config={null} nonce={0} onSettings={onSettings}/>);});
+  const buttons=app!.root.findAllByType('TouchableOpacity' as any);
+  const profile=buttons.find(n=>n.props.accessibilityLabel==='Supernote Settings')!;
+  const search=buttons.find(n=>n.props.accessibilityLabel==='Search')!;
+  const gear=buttons.find(n=>n.props.accessibilityLabel==='Settings')!;
+  expect(profile).toBeTruthy();expect(buttons.indexOf(profile)).toBeLessThan(buttons.indexOf(search));
+  await act(async()=>{profile.props.onPress();});
+  expect(openNativeSettings).toHaveBeenCalled();expect(onSettings).not.toHaveBeenCalled();
+  await act(async()=>{gear.props.onPress();});
+  expect(onSettings).toHaveBeenCalled();
 });

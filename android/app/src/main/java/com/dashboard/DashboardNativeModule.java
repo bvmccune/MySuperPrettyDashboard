@@ -345,6 +345,59 @@ public class DashboardNativeModule extends ReactContextBaseJavaModule {
         launchActivity(pkg + "/com.ratta.supernote.calendar.MainActivity", promise);
     }
 
+    /** Discover the firmware's native Settings launcher through PackageManager.
+     * Restrict discovery to Ratta/Supernote system packages, not third-party
+     * apps named Settings; do not guess an unexported activity or open Android
+     * generic Settings instead of the vendor UI. */
+    @ReactMethod
+    public void launchNativeSettings(Promise promise) {
+        try {
+            android.content.Context ctx = getReactApplicationContext();
+            PackageManager pm = ctx.getPackageManager();
+            Intent query = new Intent(Intent.ACTION_MAIN);
+            query.addCategory(Intent.CATEGORY_LAUNCHER);
+            java.util.List<ResolveInfo> entries = pm.queryIntentActivities(query, 0);
+            java.util.LinkedHashSet<String> matches = new java.util.LinkedHashSet<>();
+            for (ResolveInfo ri : entries) {
+                ActivityInfo ai = ri.activityInfo;
+                if (ai == null || !ai.exported || ai.applicationInfo == null) continue;
+                String pkg = ai.packageName.toLowerCase(java.util.Locale.ROOT);
+                boolean vendor = pkg.startsWith("com.ratta.") || pkg.startsWith("com.supernote.");
+                boolean system = (ai.applicationInfo.flags & (android.content.pm.ApplicationInfo.FLAG_SYSTEM | android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0;
+                if (!vendor || !system) continue;
+                String label = String.valueOf(ri.loadLabel(pm)).trim();
+                String appLabel = String.valueOf(ai.applicationInfo.loadLabel(pm)).trim();
+                if (label.equalsIgnoreCase("Settings") || appLabel.equalsIgnoreCase("Settings")
+                        || pkg.equals("com.ratta.supernote.settings") || pkg.equals("com.ratta.supernote.setting")) {
+                    matches.add(ai.packageName + "/" + ai.name);
+                }
+            }
+            if (matches.size() == 1) {
+                launchActivity(matches.iterator().next(), promise);
+                return;
+            }
+            // Some firmware exposes the vendor Settings UI via ACTION_SETTINGS only.
+            Intent settings = new Intent(android.provider.Settings.ACTION_SETTINGS);
+            ResolveInfo ri = pm.resolveActivity(settings, PackageManager.MATCH_DEFAULT_ONLY);
+            if (ri != null && ri.activityInfo != null && ri.activityInfo.exported) {
+                ActivityInfo ai = ri.activityInfo;
+                String pkg = ai.packageName.toLowerCase(java.util.Locale.ROOT);
+                boolean vendor = pkg.startsWith("com.ratta.") || pkg.startsWith("com.supernote.");
+                boolean system = ai.applicationInfo != null && (ai.applicationInfo.flags & (android.content.pm.ApplicationInfo.FLAG_SYSTEM | android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0;
+                if (vendor && system) {
+                    settings.setComponent(new ComponentName(ai.packageName, ai.name));
+                    settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    ctx.startActivity(settings);
+                    promise.resolve(true);
+                    return;
+                }
+            }
+            promise.reject("SETTINGS_UNAVAILABLE", "Native Supernote Settings could not be uniquely resolved on this firmware. Use the device's Settings menu.");
+        } catch (Exception e) {
+            promise.reject("SETTINGS_UNAVAILABLE", e.getClass().getSimpleName() + ": " + e.getMessage(), e);
+        }
+    }
+
     @ReactMethod
     public void launchActivity(String component, Promise promise) {
         try {

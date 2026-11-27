@@ -116,3 +116,8 @@ export async function openVerifiedTaskPage(path:string,page:number):Promise<bool
 export function openCalendarToday(){
   return go(()=>DashboardNative.launchCalendarToday(),'open Calendar');
 }
+
+/** Open the device's own Settings, never the SmartyNote settings route. */
+export function openNativeSettings(){
+  return go(()=>DashboardNative.launchNativeSettings(),'open Supernote Settings');
+}
