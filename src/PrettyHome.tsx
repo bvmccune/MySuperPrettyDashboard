@@ -47,8 +47,9 @@ const APPS={
 };
 const WEEK=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const FILE_RE=/\.(note|pdf|epub|cbz|xps|fb2)$/i;
-type IconName='profile'|'new-note'|'file'|'files'|'calendar'|'recent'|'search'|'stars'|'settings'|'charging'|'notebook'|'plus'|'refresh'|'back'|'lizard'|'plants'|'rocks'|'coffee'|'wifi'|'wifi-off'|'keywords'|'battery'|'calendar-dot'|'open-notebook'|'auto-refresh';
+type IconName='check-circle'|'profile'|'new-note'|'file'|'files'|'calendar'|'recent'|'search'|'stars'|'settings'|'charging'|'notebook'|'plus'|'refresh'|'back'|'lizard'|'plants'|'rocks'|'coffee'|'wifi'|'wifi-off'|'keywords'|'battery'|'calendar-dot'|'open-notebook'|'auto-refresh';
 const IMAGES:Record<IconName,ImageSourcePropType>={
+  'check-circle':require('../assets/pretty/check-circle.png'),
   'profile':require('../assets/pretty/profile.png'),
   'new-note':require('../assets/pretty/new-note.png'),
   'file':require('../assets/pretty/file.png'),
@@ -388,9 +389,9 @@ export function PrettyHome({config,nonce,onSettings}:{
     const overdue=dueBucket(item.due,now)==='overdue';
     return <View key={item.id+i} style={{minHeight:rowMin,paddingVertical:DESIGN.rowPadY*s,flexShrink:0,flexDirection:'row',alignItems:'center',paddingHorizontal:DESIGN.rowPadX*s,backgroundColor:i%2===0?LIGHT_GRAY:PAPER,...listRule}}>
       <DottedRule scale={s}/><TouchableOpacity disabled={taskBusy||taskLoading} accessibilityLabel={'Complete '+item.title} onPress={()=>mutateTask(item,{complete:true})} style={{padding:3*s}}>
-        <View style={{width:22*s,height:22*s,borderRadius:99,borderWidth:1.7,borderColor:INK}}/>
+        <Glyph name="check-circle" size={25*s}/>
       </TouchableOpacity>
-      <TouchableOpacity disabled={taskBusy||taskLoading} onPress={()=>launchApp(APPS.todo)} onLongPress={()=>editTask(item)} accessibilityLabel={'Open task '+item.title+'; long press to edit'} style={{flex:1,minWidth:0,marginLeft:4*s,marginRight:5*s}}>
+      <TouchableOpacity disabled={taskBusy||taskLoading} onLongPress={()=>editTask(item)} accessibilityLabel={'Open task '+item.title+'; long press to edit'} style={{flex:1,minWidth:0,marginLeft:4*s,marginRight:5*s}}>
         <Txt size={body} weight={500} lines={3} style={{lineHeight:rowLine}}>{item.title}</Txt>
       </TouchableOpacity>
       {!!item.link&&<TouchableOpacity disabled={taskBusy} accessibilityLabel={'Open linked note for '+item.title} onPress={()=>openTaskNote(item)} style={{padding:4*s}}><Glyph name="open-notebook" size={22*s}/></TouchableOpacity>}

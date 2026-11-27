@@ -25,7 +25,7 @@ empty=re.sub(r'(id="charge-fill"[^>]*?width=")[^"]+(")',r'\g<1>0\2',originals['b
 render(empty,OUT/'battery.png',272,176)
 
 revision=ROOT/'assets'/'approved'/'revision'
-for source_name,target in [('planned','recent'),('files','files'),('keywords','keywords'),('stars','stars'),('rocks','rocks'),('coffee','coffee'),('plants','plants'),('lizard','lizard')]:
+for source_name,target in [('planned','recent'),('files','files'),('keywords','keywords'),('stars','stars'),('check-circle','check-circle'),('rocks','rocks'),('coffee','coffee'),('plants','plants'),('lizard','lizard')]:
     render((revision/(source_name+'.svg')).read_text(encoding='utf-8'),OUT/(target+'.png'))
 # Existing utility glyphs, not retired decorative artwork.
 for name,body in {
@@ -43,7 +43,7 @@ for density,size in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhd
     path.mkdir(parents=True,exist_ok=True)
     for name in ('ic_launcher.png','ic_launcher_round.png'):
         render(launcher,path/name,size,size)
-expected={'new-note','file','files','calendar','recent','search','stars','settings','charging','notebook','plus','refresh','back','lizard','plants','rocks','coffee','wifi','wifi-off','keywords','battery','calendar-dot','open-notebook','auto-refresh','profile'}
+expected={'new-note','file','files','calendar','recent','search','stars','settings','charging','notebook','plus','refresh','back','lizard','plants','rocks','coffee','wifi','wifi-off','keywords','battery','calendar-dot','open-notebook','auto-refresh','profile','check-circle'}
 actual={p.stem for p in OUT.glob('*.png')}
 assert expected==actual,(expected-actual,actual-expected)
 print('Release artwork:',len(actual),'active icons and filled jellyfish launcher')

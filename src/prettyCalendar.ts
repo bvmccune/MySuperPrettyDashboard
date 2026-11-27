@@ -187,12 +187,12 @@ export function eventTime(event:AgendaEvent):string {
   if(event.all_day)return 'All day';
   return new Date(event.startMillis).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
 }
-/** Match the approved compact mockup: no :00, lower-case am/pm, one
- * meridiem when both endpoints share it, both when crossing noon/midnight. */
+/** TRMNL full.liquid time format: unpadded hour, two-digit minutes,
+ * uppercase AM/PM, shared period when both endpoints match. */
 export function compactEventTime(ms:number,showPeriod=true):string {
   const d=new Date(ms),hours=d.getHours(),minutes=d.getMinutes();
-  return String(hours%12||12)+(minutes?':'+String(minutes).padStart(2,'0'):'')+
-    (showPeriod?(hours<12?' am':' pm'):'');
+  return String(hours%12||12)+':'+String(minutes).padStart(2,'0')+
+    (showPeriod?(hours<12?' AM':' PM'):'');
 }
 export function eventTimeRange(event:AgendaEvent):string {
   if(event.all_day)return 'All day';
@@ -206,7 +206,7 @@ export function compactEventRange(event:AgendaEvent):string {
 }
 export function eventDuration(event:AgendaEvent):string {
   if(event.all_day)return 'All day';
-  const minutes=Math.max(0,Math.round((event.endMillis-event.startMillis)/60000));
+  const minutes=Math.max(0,Math.ceil((event.endMillis-event.startMillis)/60000));
   const hours=Math.floor(minutes/60), mins=minutes%60;
   return [hours?hours+'h':'',mins?mins+'m':''].filter(Boolean).join(' ')||'0m';
 }

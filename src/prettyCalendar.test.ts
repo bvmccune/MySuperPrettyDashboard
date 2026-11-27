@@ -135,11 +135,11 @@ describe('Pretty Calendar — user-approved read-only agenda',()=>{
   const at=(h:number,m=0)=>new Date(2026,10,26,h,m).toISOString();
   const row=(start:string,end:string)=>agendaFromFeed(feed([event('Example',start,end)]))[0];
   test('exact compact time and duration labels, including noon, midnight and point events',()=>{
-    expect(compactEventRange(row(at(11),at(11,30)))).toBe('11–11:30 am 30m');
-    expect(compactEventRange(row(at(13),at(14)))).toBe('1–2 pm 1h');
-    expect(compactEventRange(row(at(11,30),at(13)))).toBe('11:30 am–1 pm 1h 30m');
-    expect(compactEventRange(row(at(0),at(1)))).toBe('12–1 am 1h');
-    expect(compactEventRange(row(at(10),at(10)))).toBe('10 am');
+    expect(compactEventRange(row(at(11),at(11,30)))).toBe('11:00–11:30 AM 30m');
+    expect(compactEventRange(row(at(13),at(14)))).toBe('1:00–2:00 PM 1h');
+    expect(compactEventRange(row(at(11,30),at(13)))).toBe('11:30 AM–1:00 PM 1h 30m');
+    expect(compactEventRange(row(at(0),at(1)))).toBe('12:00–1:00 AM 1h');
+    expect(compactEventRange(row(at(10),at(10)))).toBe('10:00 AM');
     expect(compactEventRange(agendaFromFeed(feed([event('PTO','2026-11-26','2026-11-27',true)]))[0])).toBe('All day');
   });
   test('point events do not create conflicts and are not dropped at midnight',()=>{
