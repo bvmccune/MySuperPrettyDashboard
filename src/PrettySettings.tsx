@@ -11,7 +11,7 @@ import {
   startSupernoteLogin, verifySupernoteLogin, LoginProgress,
 } from './prettyCloud';
 import {setRoute} from './route';
-import {CalendarResult, currentCalendar, loadCalendarCache, refreshCalendar, configureCalendarSource, isCalendarSourceConfigured} from './prettyCalendar';
+import {CalendarResult, currentCalendar, loadCalendarCache, refreshCalendar, configureCalendarSource, isCalendarSourceConfigured, configureCalendarToken, isCalendarTokenConfigured} from './prettyCalendar';
 import {openFile, openFolder} from './open';
 import {PrettyScreenHeader, SCREEN_BODY} from './PrettyScreen';
 
@@ -53,6 +53,8 @@ export function PrettySettings(): React.JSX.Element {
   const [entries,setEntries] = useState<FileEntry[]>([]);
   const [calendarState,setCalendarState] = useState<CalendarResult>(()=>currentCalendar());
   const [calendarConfigured,setCalendarConfigured] = useState(false);
+  const [calendarTokenInput,setCalendarTokenInput]=useState('');
+  const [calendarTokenConfigured,setCalendarTokenConfigured]=useState(false);
   const [calendarSourceInput,setCalendarSourceInput] = useState('');
   // Serialize writes: rapid edits must never allow an older save to replace
   // newer settings. Done waits for disk persistence and verifies the read-back.
@@ -71,6 +73,8 @@ export function PrettySettings(): React.JSX.Element {
       if(live)setCalendarState(cached);
       const configured=await isCalendarSourceConfigured().catch(()=>false);
       if(live)setCalendarConfigured(configured);
+      const tokenConfigured=await isCalendarTokenConfigured().catch(()=>false);
+      if(live)setCalendarTokenConfigured(tokenConfigured);
     })().catch(e=>{if(live)setStatus(String(e?.message??e));});
     return()=>{live=false;};
   },[]);
@@ -164,6 +168,11 @@ export function PrettySettings(): React.JSX.Element {
       ? 'Feed URL saved locally. Calendar request: '+result.error
       : 'Calendar feed saved and retrieved.');
   });
+  const saveCalendarToken = (clear=false)=>attempt(async()=>{
+    await configureCalendarToken(clear?'':calendarTokenInput);
+    setCalendarTokenConfigured(!clear);setCalendarTokenInput('');
+    setStatus(clear?'Calendar API token removed.':'Calendar API token saved privately.');
+  });
   const syncCalendar = ()=>attempt(async()=>{
     const result=await refreshCalendar();
     setCalendarState(result);
@@ -225,6 +234,12 @@ export function PrettySettings(): React.JSX.Element {
             {calendarConfigured?'Update source URL':'Connect existing Pretty Calendar feed'}
           </Action>
           <TextLine faint>Dashboard refreshes the snapshot on opening, on request, and every five minutes while active. Failed or offline requests retain the last successful snapshot in the plugin's private app storage.</TextLine>
+          <TextLine>Calendar API Token (optional)</TextLine>
+          <TextInput style={styles.input} placeholder={calendarTokenConfigured?'Token saved — enter to replace':'Enter API token'}
+            secureTextEntry autoCapitalize="none" autoCorrect={false}
+            value={calendarTokenInput} onChangeText={setCalendarTokenInput}/>
+          <Action disabled={busy||!calendarTokenInput.trim()} onPress={()=>saveCalendarToken()}>Save API token</Action>
+          {calendarTokenConfigured&&<Action disabled={busy} onPress={()=>saveCalendarToken(true)}>Remove API token</Action>}
           <TextLine>Status: {calendarState.status==='fresh'?'Current':calendarState.status==='empty'?'Source has no events':calendarState.status==='cached'?'Saved offline snapshot':calendarState.status==='loading'?'Loading':'Unavailable'}</TextLine>
           {calendarState.snapshot&&<>
             <TextLine faint>Last retrieved: {new Date(calendarState.snapshot.fetchedAt).toLocaleString('en-US')}</TextLine>
