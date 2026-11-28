@@ -69,3 +69,12 @@ it('reports link structure without task values or session credentials',async()=>
  for(const value of ['Old.note','F123','P123','Keep','session'])expect(report).not.toContain(value);
  expect(fetcher.mock.calls).toHaveLength(1);
 });
+
+it('decodes native Base64 notebook links including nested arrays',()=>{
+ const encoded='eyJhcHBOYW1lIjoiTm90ZSIsImZpbGVQYXRoIjoiTm90ZS9Qcm9qZWN0cy9FeGFtcGxlLm5vdGUiLCJmaWxlSWQiOiJGMTIzIiwicGFnZUlkIjoiUDEyMyIsInBhZ2UiOjN9';
+ const expected={name:'Example.note',path:'/storage/emulated/0/Note/Projects/Example.note',fileId:'F123',pageId:'P123',page:3};
+ expect(noteLink(encoded)).toEqual(expected);
+ expect(noteLink([encoded])).toEqual(expected);
+ expect(noteLink(JSON.stringify([encoded]))).toEqual(expected);
+ expect(noteLink('%%%')).toBeUndefined();
+});
